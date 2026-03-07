@@ -1,0 +1,59 @@
+import type { AiProvider } from "../../lib/providers/provider"
+import type { BookmarkRepository } from "../../lib/storage/bookmark-repository"
+import type { BookmarkRecord } from "../../types/bookmark"
+
+export async function analyzeBookmark(input: {
+  bookmark: BookmarkRecord
+  provider: AiProvider
+  bookmarkRepository: BookmarkRepository
+}): Promise<BookmarkRecord> {
+  const content = normalizeContent(input.bookmark)
+  const analyzingBookmark: BookmarkRecord = {
+    ...input.bookmark,
+    summary: input.bookmark.summary,
+    status: "analyzing",
+    errorMessage: undefined,
+    updatedAt: new Date().toISOString()
+  }
+
+  await input.bookmarkRepository.update(analyzingBookmark)
+
+  const analysis = await input.provider.analyze({
+    title: analyzingBookmark.title,
+    url: analyzingBookmark.url,
+    content
+  })
+  const analyzedBookmark: BookmarkRecord = {
+    ...analyzingBookmark,
+    summary: analysis.summary,
+    tags: analysis.tags,
+    status: "done",
+    updatedAt: new Date().toISOString()
+  }
+
+  await input.bookmarkRepository.update(analyzedBookmark)
+
+  return analyzedBookmark
+}
+
+function normalizeContent(bookmark: BookmarkRecord): string {
+  const extractedText = normalizeOptionalValue(bookmark.extractedText)
+
+  if (extractedText) {
+    return extractedText
+  }
+
+  const selectedText = normalizeOptionalValue(bookmark.selectedText)
+
+  if (selectedText) {
+    return selectedText
+  }
+
+  return bookmark.title.trim()
+}
+
+function normalizeOptionalValue(value: string | undefined): string | undefined {
+  const normalized = value?.trim()
+
+  return normalized ? normalized : undefined
+}
