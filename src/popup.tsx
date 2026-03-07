@@ -8,7 +8,7 @@ import { searchBookmarks } from "./features/bookmarks/search-bookmarks"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
-import { OpenAiCompatibleProvider } from "./lib/providers/openai-compatible-provider"
+import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import type { AiProvider } from "./lib/providers/provider"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
@@ -16,7 +16,7 @@ import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
 
 type PopupProps = {
-  services?: PopupServices
+  services?: Partial<PopupServices>
 }
 
 type PopupServices = {
@@ -49,16 +49,11 @@ const DEFAULT_POPUP_SERVICES: PopupServices = {
 
     return activeTab
   },
-  createProvider: (config) =>
-    new OpenAiCompatibleProvider({
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
-      model: config.model
-    })
+  createProvider: defaultCreateProvider
 }
 
 function Popup({ services }: PopupProps) {
-  const popupServices = useMemo(() => services ?? DEFAULT_POPUP_SERVICES, [services])
+  const popupServices = useMemo(() => ({ ...DEFAULT_POPUP_SERVICES, ...services }), [services])
   const [statusMessage, setStatusMessage] = useState("Ready to save the current page.")
   const [statusTone, setStatusTone] = useState<"info" | "success">("info")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

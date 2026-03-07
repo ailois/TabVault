@@ -7,6 +7,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import Popup from "../../src/popup"
 import type { BookmarkRepository } from "../../src/lib/storage/bookmark-repository"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import { ClaudeProvider } from "../../src/lib/providers/claude-provider"
+import { GeminiProvider } from "../../src/lib/providers/gemini-provider"
+import { OpenAiCompatibleProvider } from "../../src/lib/providers/openai-compatible-provider"
 import type { AiProvider } from "../../src/lib/providers/provider"
 import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
@@ -108,12 +111,74 @@ describe("Popup state", () => {
     expect(screen().text()).toContain("Saved: Example page")
     expect(screen().text()).toContain("Analysis failed")
   })
+
+  it.each<readonly [ProviderConfig["provider"], ProviderConfig]>([
+    [
+      "openai",
+      {
+        provider: "openai",
+        apiKey: "sk-openai",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4o-mini",
+        enabled: true
+      }
+    ],
+    [
+      "claude",
+      {
+        provider: "claude",
+        apiKey: "sk-claude",
+        model: "claude-sonnet-4-5",
+        enabled: true
+      }
+    ],
+    [
+      "gemini",
+      {
+        provider: "gemini",
+        apiKey: "sk-gemini",
+        model: "gemini-1.5-flash",
+        enabled: true
+      }
+    ]
+  ])("routes %s auto-analysis through the default provider factory", async (providerName, providerConfig) => {
+    const analyzeBookmark = vi.fn(
+      async ({ bookmark }: { bookmark: BookmarkRecord; provider: AiProvider }) => bookmark
+    )
+    const services = createServices({
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: providerConfig.provider,
+          autoAnalyzeOnSave: true
+        })),
+        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
+      }),
+      analyzeBookmark
+    })
+
+    await renderPopup(services)
+    await clickButton("Save current page")
+
+    const provider = analyzeBookmark.mock.calls[0]?.[0]?.provider
+
+    if (providerName === "openai") {
+      expect(provider).toBeInstanceOf(OpenAiCompatibleProvider)
+    }
+
+    if (providerName === "claude") {
+      expect(provider).toBeInstanceOf(ClaudeProvider)
+    }
+
+    if (providerName === "gemini") {
+      expect(provider).toBeInstanceOf(GeminiProvider)
+    }
+  })
 })
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-async function renderPopup(services: TestPopupServices): Promise<void> {
+async function renderPopup(services: Partial<TestPopupServices>): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
@@ -168,10 +233,10 @@ type TestPopupServices = {
   }) => Promise<BookmarkRecord>
   extractPage: (tabId: number) => Promise<string | undefined>
   queryActiveTab: () => Promise<{ id?: number; title?: string | null; url?: string | null } | undefined>
-  createProvider: (config: ProviderConfig) => AiProvider
+  createProvider?: (config: ProviderConfig) => AiProvider
 }
 
-function createServices(overrides: Partial<TestPopupServices> = {}): TestPopupServices {
+function createServices(overrides: Partial<TestPopupServices> = {}): Partial<TestPopupServices> {
   return {
     bookmarkRepository: createBookmarkRepository(),
     settingsRepository: createSettingsRepository(),
@@ -195,7 +260,6 @@ function createServices(overrides: Partial<TestPopupServices> = {}): TestPopupSe
       title: "Example page",
       url: "https://example.com/article"
     })),
-    createProvider: vi.fn((config) => createAiProvider(config)),
     ...overrides
   }
 }
