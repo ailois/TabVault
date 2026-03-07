@@ -11,8 +11,8 @@ TabVault lets you save the current page, keep bookmarks locally, search them in 
 - ✅ Search saved bookmarks in the popup
 - ✅ Persist bookmarks in IndexedDB
 - ✅ Persist app/provider settings in `chrome.storage.sync`
-- ✅ Run AI analysis with an enabled provider config when auto-analyze is turned on in settings data
-- ⚠️ The options page exists, but the full settings form is not implemented yet
+- ✅ Run AI analysis with an enabled OpenAI-compatible, Claude, or Gemini provider config when auto-analyze is turned on in settings
+- ⚠️ The options page now supports basic app/provider editing, but the settings UI is still intentionally minimal for the MVP
 
 ## Tech stack
 
@@ -75,12 +75,23 @@ npx vitest run
 
 ## Provider keys and settings
 
-TabVault currently stores settings in browser sync storage, not in a remote backend.
+TabVault stores settings in browser sync storage, not in a remote backend.
 
 - App settings key: `app-settings`
 - Provider configs key: `provider-configs`
 
-The checked-in options page is still a placeholder, so provider keys are **not** entered through a finished settings form yet. For the current MVP, seed settings manually from an extension page DevTools console:
+Open the extension's **Options** page to edit the current MVP settings UI. The checked-in form supports:
+
+- `defaultProvider`
+- `autoAnalyzeOnSave`
+- provider `enabled` toggle
+- provider `apiKey`
+- provider `model`
+- OpenAI-compatible `baseUrl`
+
+This settings UI is still basic on purpose: it focuses on direct editing of the stored values and does not yet add advanced validation, onboarding, or richer provider management flows.
+
+If you want to seed values directly instead of using the options page, you can still write them from an extension page DevTools console:
 
 ```js
 await chrome.storage.sync.set({
@@ -95,6 +106,18 @@ await chrome.storage.sync.set({
       baseUrl: "https://api.openai.com/v1",
       model: "gpt-4o-mini",
       enabled: true
+    },
+    {
+      provider: "claude",
+      apiKey: "YOUR_KEY_HERE",
+      model: "claude-sonnet-4-5",
+      enabled: false
+    },
+    {
+      provider: "gemini",
+      apiKey: "YOUR_KEY_HERE",
+      model: "gemini-1.5-flash",
+      enabled: false
     }
   ]
 })
@@ -104,15 +127,16 @@ Current provider config shape:
 
 - `provider`: `openai` | `claude` | `gemini`
 - `apiKey`: provider key
-- `baseUrl?`: optional override for OpenAI-compatible endpoints
-- `model`: model name to call
+- `baseUrl?`: optional override for OpenAI-compatible endpoints only
+- `model`: provider-specific model name string (`gpt-*`, `claude-*`, `gemini-*`, etc.)
 - `enabled`: whether the provider can be selected
 
 Notes:
 
-- The popup currently creates an OpenAI-compatible provider instance from the selected config.
+- The popup now routes provider selection through a shared factory and supports OpenAI-compatible, Claude, and Gemini analysis paths.
 - `defaultProvider` defaults to `openai`.
 - `autoAnalyzeOnSave` defaults to `false`, so saving a page works without AI setup.
+- The options page is now the primary way to switch default provider, toggle auto-analyze, and edit provider credentials/config for this MVP.
 
 ## Loading the built extension
 
@@ -123,6 +147,8 @@ After `npm run build`:
 3. Click **Load unpacked**
 4. Select `build/chrome-mv3-prod`
 
-## Short roadmap note
+## Current limitations
 
-Near-term follow-up work is to replace the placeholder options page with a real settings UI for provider management.
+- The checked-in options UI is a basic MVP form, not a polished/final settings experience.
+- Provider configuration is still storage-driven under the hood via `chrome.storage.sync`; the UI is a thin editor over those values.
+- There is no advanced validation, connection testing, provider-specific guidance, or non-provider settings management beyond the current basic form.
