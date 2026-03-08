@@ -6,6 +6,7 @@ type GeminiProviderConfig = {
   apiKey: string
   model: string
   fetchImpl?: FetchLike
+  timeoutMs?: number
 }
 
 type GeminiResponse = {
@@ -35,53 +36,69 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 export class GeminiProvider implements AiProvider {
   private readonly fetchImpl: FetchLike
+  private readonly timeoutMs: number
 
   constructor(private readonly config: GeminiProviderConfig) {
     this.fetchImpl = config.fetchImpl ?? fetch
+    this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
   async analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
+    const controller = new AbortController()
+    const url = `${GEMINI_API_URL}/${this.config.model}:generateContent`
+    const body = JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: buildPrompt(input)
+            }
+          ]
+        }
+      ]
+    })
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, this.timeoutMs)
+
+    let response: Awaited<ReturnType<FetchLike>>
+
     try {
-      const response = await this.fetchImpl(`${GEMINI_API_URL}/${this.config.model}:generateContent`, {
+      response = await this.fetchImpl(url, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "content-type": "application/json",
           "x-goog-api-key": this.config.apiKey
         },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: buildPrompt(input)
-                }
-              ]
-            }
-          ]
-        })
+        body
       })
-
-      if (!response.ok) {
-        throw normalizeProviderError(new Error(`Gemini request failed with status ${response.status}`), {
-          code: getErrorCode(response.status),
-          message: getErrorMessage(response.status)
-        })
-      }
-
-      const data = (await response.json()) as GeminiResponse
-
-      ensureNotSafetyBlocked(data)
-
-      return parseAnalyzeResult(extractTextContent(data))
     } catch (error) {
       throw normalizeProviderError(error, {
         code: "network_error",
         message: "Gemini request failed"
       })
+    } finally {
+      clearTimeout(timeoutId)
     }
+
+    if (!response.ok) {
+      throw normalizeProviderError(new Error(`Gemini request failed with status ${response.status}`), {
+        code: getErrorCode(response.status),
+        message: getErrorMessage(response.status)
+      })
+    }
+
+    const data = (await response.json()) as GeminiResponse
+
+    ensureNotSafetyBlocked(data)
+
+    return parseAnalyzeResult(extractTextContent(data))
   }
 }
+
+const DEFAULT_TIMEOUT_MS = 30_000
 
 function buildPrompt(input: AnalyzeInput): string {
   return (
