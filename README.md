@@ -74,6 +74,12 @@ npm run typecheck
 npx vitest run
 ```
 
+## Documentation
+
+- Manual testing guide: `docs/manual-testing.md`
+- QA regression checklist: `docs/qa-checklist.md`
+- Design and implementation plans: `docs/plans/`
+
 ## Provider keys and settings
 
 TabVault stores settings in browser sync storage, not in a remote backend.
