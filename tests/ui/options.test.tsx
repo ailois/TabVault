@@ -6,6 +6,9 @@ import { act } from "react"
 import { afterEach, describe, expect, it } from "vitest"
 
 import Options from "../../src/options"
+import ProviderSettingsForm from "../../src/components/provider-settings-form"
+import type { ProviderValidation } from "../../src/features/settings/settings-validation"
+import type { ProviderFormState } from "../../src/features/settings/provider-form-state"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -60,6 +63,29 @@ describe("Options", () => {
     expect(geminiSection?.querySelector("#gemini-model")).toBeTruthy()
     expect(geminiSection?.textContent).not.toContain("Base URL")
   })
+
+  it("renders provider field validation messages passed through props", async () => {
+    await renderProviderSettingsForm(
+      {
+        provider: "openai",
+        apiKey: "",
+        baseUrl: "",
+        model: "",
+        enabled: true
+      },
+      {
+        apiKey: "API key is required",
+        model: "Model is required",
+        baseUrl: "Base URL is required"
+      }
+    )
+
+    const openAiSection = getSectionByHeading("OpenAI-compatible")
+
+    expect(openAiSection?.textContent).toContain("API key is required")
+    expect(openAiSection?.textContent).toContain("Model is required")
+    expect(openAiSection?.textContent).toContain("Base URL is required")
+  })
 })
 
 let container: HTMLDivElement | null = null
@@ -82,6 +108,16 @@ async function renderOptions(): Promise<void> {
 
   await act(async () => {
     root.render(<Options services={{ settingsRepository }} />)
+  })
+}
+
+async function renderProviderSettingsForm(value: ProviderFormState, fieldErrors: ProviderValidation): Promise<void> {
+  container = document.createElement("div")
+  document.body.appendChild(container)
+  root = createRoot(container)
+
+  await act(async () => {
+    root.render(<ProviderSettingsForm fieldErrors={fieldErrors} onChange={() => {}} value={value} />)
   })
 }
 

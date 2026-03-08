@@ -1,10 +1,12 @@
 import React from "react"
 
 import type { ProviderFormState } from "../features/settings/provider-form-state"
+import type { ProviderValidation } from "../features/settings/settings-validation"
 
 type ProviderSettingsFormProps = {
   value: ProviderFormState
   onChange: (nextValue: ProviderFormState) => void
+  fieldErrors?: ProviderValidation
 }
 
 const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
@@ -13,7 +15,7 @@ const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
   gemini: "Gemini"
 }
 
-function ProviderSettingsForm({ value, onChange }: ProviderSettingsFormProps) {
+function ProviderSettingsForm({ value, onChange, fieldErrors }: ProviderSettingsFormProps) {
   const providerLabel = PROVIDER_LABELS[value.provider]
 
   const updateField = <K extends keyof ProviderFormState>(field: K, fieldValue: ProviderFormState[K]) => {
@@ -44,6 +46,7 @@ function ProviderSettingsForm({ value, onChange }: ProviderSettingsFormProps) {
           type="password"
           value={value.apiKey}
         />
+        {fieldErrors?.apiKey ? <p>{fieldErrors.apiKey}</p> : null}
       </div>
 
       <div>
@@ -54,6 +57,7 @@ function ProviderSettingsForm({ value, onChange }: ProviderSettingsFormProps) {
           type="text"
           value={value.model}
         />
+        {fieldErrors?.model ? <p>{fieldErrors.model}</p> : null}
       </div>
 
       {value.provider === "openai" ? (
@@ -65,6 +69,7 @@ function ProviderSettingsForm({ value, onChange }: ProviderSettingsFormProps) {
             type="url"
             value={value.baseUrl ?? ""}
           />
+          {fieldErrors?.baseUrl ? <p>{fieldErrors.baseUrl}</p> : null}
         </div>
       ) : null}
     </section>

@@ -3,6 +3,7 @@ import React from "react"
 import ProviderSettingsForm from "./components/provider-settings-form"
 import { DEFAULT_APP_SETTINGS } from "./features/settings/default-settings"
 import { buildProviderFormState } from "./features/settings/provider-form-state"
+import { validateSettingsForm } from "./features/settings/settings-validation"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 
@@ -28,9 +29,10 @@ function Options({ services }: OptionsProps) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasLoadError, setHasLoadError] = React.useState(false)
   const isSavingRef = React.useRef(false)
+  const validation = React.useMemo(() => validateSettingsForm(appSettings, providers), [appSettings, providers])
 
   const handleSave = React.useCallback(async () => {
-    if (isLoading || hasLoadError || isSavingRef.current) {
+    if (isLoading || hasLoadError || isSavingRef.current || validation.hasErrors) {
       return
     }
 
@@ -49,7 +51,7 @@ function Options({ services }: OptionsProps) {
     } finally {
       isSavingRef.current = false
     }
-  }, [appSettings, optionsServices, providers])
+  }, [appSettings, hasLoadError, isLoading, optionsServices, providers, validation.hasErrors])
 
   React.useEffect(() => {
     let isMounted = true
@@ -106,6 +108,7 @@ function Options({ services }: OptionsProps) {
             <option value="claude">Claude</option>
             <option value="gemini">Gemini</option>
           </select>
+          {validation.defaultProvider ? <p>{validation.defaultProvider}</p> : null}
         </div>
 
         <label>
@@ -133,12 +136,16 @@ function Options({ services }: OptionsProps) {
               )
             )
           }}
+          fieldErrors={validation.providers[provider.provider]}
           value={provider}
         />
       ))}
 
       <div>
-        <button disabled={isLoading || hasLoadError || saveStatus === "saving"} onClick={() => void handleSave()} type="button">
+        <button
+          disabled={isLoading || hasLoadError || saveStatus === "saving" || validation.hasErrors}
+          onClick={() => void handleSave()}
+          type="button">
           Save settings
         </button>
         <p aria-live="polite" data-testid="save-status" role="status">

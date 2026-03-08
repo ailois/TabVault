@@ -34,7 +34,7 @@ describe("Options save state", () => {
         autoAnalyzeOnSave: false
       }),
       saveAppSettings,
-      getProviders: async () => [],
+      getProviders: async () => getValidProviders(),
       saveProviders
     }
 
@@ -98,7 +98,7 @@ describe("Options save state", () => {
       saveAppSettings: async () => {
         await saveCompletion.promise
       },
-      getProviders: async () => [],
+      getProviders: async () => getValidProviders(),
       saveProviders: async () => {
         await saveCompletion.promise
       }
@@ -127,7 +127,7 @@ describe("Options save state", () => {
       saveAppSettings: async () => {
         throw new Error("save failed")
       },
-      getProviders: async () => [],
+      getProviders: async () => getValidProviders(),
       saveProviders: async () => {}
     }
 
@@ -136,6 +136,162 @@ describe("Options save state", () => {
     await flushPromises()
 
     expect(getSaveStatusText()).toBe("Failed to save settings")
+  })
+
+  it("disables save and renders an app-level error when the default provider is disabled", async () => {
+    await renderOptions(createSettingsRepository())
+
+    await clickCheckbox(getSectionCheckbox("OpenAI-compatible"), true)
+    await changeSelectValue("default-provider", "claude")
+
+    expect(getSaveButton()?.disabled).toBe(true)
+    expect(getAppSettingsSection()?.textContent).toContain("Default provider must be enabled")
+  })
+
+  it("disables save when an enabled provider is missing required fields", async () => {
+    await renderOptions(createSettingsRepository())
+
+    await clickCheckbox(getSectionCheckbox("OpenAI-compatible"), true)
+    await changeInputValue("openai-model", "")
+    await changeInputValue("openai-base-url", "")
+
+    expect(getSaveButton()?.disabled).toBe(true)
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("API key is required")
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("Model is required")
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("Base URL is required")
+  })
+
+  it("does not persist invalid settings when save is clicked", async () => {
+    const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
+    const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
+
+    await renderOptions(
+      createSettingsRepository({
+        saveAppSettings,
+        saveProviders
+      })
+    )
+
+    await clickCheckbox(getSectionCheckbox("OpenAI-compatible"), true)
+    await clickSave()
+
+    expect(getSaveButton()?.disabled).toBe(true)
+    expect(saveAppSettings).not.toHaveBeenCalled()
+    expect(saveProviders).not.toHaveBeenCalled()
+    expect(getSaveStatusText()).toBe("Status: Not saved yet")
+  })
+
+  it("disables save when enabled OpenAI has an invalid base URL", async () => {
+    const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
+    const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
+
+    await renderOptions(
+      createSettingsRepository({
+        saveAppSettings,
+        saveProviders,
+        getProviders: async () => [
+          {
+            provider: "openai",
+            apiKey: "openai-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4o-mini",
+            enabled: true
+          },
+          {
+            provider: "claude",
+            apiKey: "claude-key",
+            model: "claude-sonnet-4-5",
+            enabled: false
+          },
+          {
+            provider: "gemini",
+            apiKey: "gemini-key",
+            model: "gemini-1.5-flash",
+            enabled: false
+          }
+        ]
+      })
+    )
+
+    await changeInputValue("openai-base-url", "not-a-url")
+    await clickSave()
+
+    expect(getSaveButton()?.disabled).toBe(true)
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("Base URL must be a valid URL")
+    expect(saveAppSettings).not.toHaveBeenCalled()
+    expect(saveProviders).not.toHaveBeenCalled()
+  })
+
+  it("allows save when a disabled provider has empty fields", async () => {
+    const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
+    const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
+
+    await renderOptions(
+      createSettingsRepository({
+        saveAppSettings,
+        saveProviders,
+        getAppSettings: async () => ({
+          defaultProvider: "claude",
+          autoAnalyzeOnSave: false
+        }),
+        getProviders: async () => [
+          {
+            provider: "openai",
+            apiKey: "",
+            baseUrl: "",
+            model: "",
+            enabled: false
+          },
+          {
+            provider: "claude",
+            apiKey: "claude-key",
+            model: "claude-sonnet-4-5",
+            enabled: true
+          },
+          {
+            provider: "gemini",
+            apiKey: "",
+            model: "",
+            enabled: false
+          }
+        ]
+      })
+    )
+
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).not.toContain("Base URL is required")
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).not.toContain("API key is required")
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).not.toContain("Model is required")
+    expect(getSaveButton()?.disabled).toBe(false)
+
+    await clickSave()
+    await flushPromises()
+
+    expect(saveAppSettings).toHaveBeenCalledWith({
+      defaultProvider: "claude",
+      autoAnalyzeOnSave: false
+    })
+    expect(saveProviders).toHaveBeenCalledWith([
+      {
+        provider: "openai",
+        apiKey: "",
+        baseUrl: "",
+        model: "",
+        enabled: false
+      },
+      {
+        provider: "claude",
+        apiKey: "claude-key",
+        model: "claude-sonnet-4-5",
+        enabled: true
+      },
+      {
+        provider: "gemini",
+        apiKey: "",
+        model: "",
+        enabled: false
+      }
+    ])
+    expect(getSaveStatusText()).toBe("Saved settings")
   })
 })
 
@@ -226,6 +382,10 @@ function getAppSettingsCheckbox(): HTMLInputElement | null | undefined {
   return getSectionByHeading("App settings")?.querySelector<HTMLInputElement>('input[type="checkbox"]')
 }
 
+function getAppSettingsSection(): HTMLElement | undefined {
+  return getSectionByHeading("App settings")
+}
+
 function getSectionCheckbox(heading: string): HTMLInputElement | null | undefined {
   return getSectionByHeading(heading)?.querySelector<HTMLInputElement>('input[type="checkbox"]')
 }
@@ -259,4 +419,41 @@ function createDeferred<T>(): {
   })
 
   return { promise, resolve }
+}
+
+function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): SettingsRepository {
+  return {
+    getAppSettings: async () => ({
+      defaultProvider: "openai",
+      autoAnalyzeOnSave: false
+    }),
+    saveAppSettings: async () => {},
+    getProviders: async () => [],
+    saveProviders: async () => {},
+    ...overrides
+  }
+}
+
+function getValidProviders(): ProviderConfig[] {
+  return [
+    {
+      provider: "openai",
+      apiKey: "openai-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      enabled: true
+    },
+    {
+      provider: "claude",
+      apiKey: "claude-key",
+      model: "claude-sonnet-4-5",
+      enabled: false
+    },
+    {
+      provider: "gemini",
+      apiKey: "gemini-key",
+      model: "gemini-1.5-flash",
+      enabled: false
+    }
+  ]
 }
