@@ -6,6 +6,7 @@ type ClaudeProviderConfig = {
   apiKey: string
   model: string
   fetchImpl?: FetchLike
+  timeoutMs?: number
 }
 
 type ClaudeResponse = {
@@ -29,51 +30,66 @@ const ANTHROPIC_VERSION = "2023-06-01"
 
 export class ClaudeProvider implements AiProvider {
   private readonly fetchImpl: FetchLike
+  private readonly timeoutMs: number
 
   constructor(private readonly config: ClaudeProviderConfig) {
     this.fetchImpl = config.fetchImpl ?? fetch
+    this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
   async analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
+    const controller = new AbortController()
+    const body = JSON.stringify({
+      model: this.config.model,
+      max_tokens: 300,
+      messages: [
+        {
+          role: "user",
+          content: buildPrompt(input)
+        }
+      ]
+    })
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, this.timeoutMs)
+
+    let response: Awaited<ReturnType<FetchLike>>
+
     try {
-      const response = await this.fetchImpl(CLAUDE_API_URL, {
+      response = await this.fetchImpl(CLAUDE_API_URL, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "content-type": "application/json",
           "x-api-key": this.config.apiKey,
           "anthropic-version": ANTHROPIC_VERSION
         },
-        body: JSON.stringify({
-          model: this.config.model,
-          max_tokens: 300,
-          messages: [
-            {
-              role: "user",
-              content: buildPrompt(input)
-            }
-          ]
-        })
+        body
       })
-
-      if (!response.ok) {
-        throw normalizeProviderError(new Error(`Claude request failed with status ${response.status}`), {
-          code: getErrorCode(response.status),
-          message: getErrorMessage(response.status)
-        })
-      }
-
-      const data = (await response.json()) as ClaudeResponse
-      const text = extractTextContent(data)
-
-      return parseAnalyzeResult(text)
     } catch (error) {
       throw normalizeProviderError(error, {
         code: "network_error",
         message: "Claude request failed"
       })
+    } finally {
+      clearTimeout(timeoutId)
     }
+
+    if (!response.ok) {
+      throw normalizeProviderError(new Error(`Claude request failed with status ${response.status}`), {
+        code: getErrorCode(response.status),
+        message: getErrorMessage(response.status)
+      })
+    }
+
+    const data = (await response.json()) as ClaudeResponse
+    const text = extractTextContent(data)
+
+    return parseAnalyzeResult(text)
   }
 }
+
+const DEFAULT_TIMEOUT_MS = 30_000
 
 function buildPrompt(input: AnalyzeInput): string {
   return (
