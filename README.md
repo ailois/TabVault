@@ -12,6 +12,7 @@ TabVault lets you save the current page, keep bookmarks locally, search them in 
 - ✅ Persist bookmarks in IndexedDB
 - ✅ Persist app/provider settings in `chrome.storage.sync`
 - ✅ Run AI analysis with an enabled OpenAI-compatible, Claude, or Gemini provider config when auto-analyze is turned on in settings
+- ✅ OpenAI-compatible analysis now uses real `chat/completions` network requests; Claude and Gemini continue to use their own live provider APIs
 - ⚠️ The options page now supports basic app/provider editing, but the settings UI is still intentionally minimal for the MVP
 
 ## Tech stack
@@ -134,6 +135,8 @@ Current provider config shape:
 Notes:
 
 - The popup now routes provider selection through a shared factory and supports OpenAI-compatible, Claude, and Gemini analysis paths.
+- The OpenAI-compatible provider now sends real network requests to `{baseUrl}/chat/completions` instead of returning stubbed output.
+- Claude and Gemini remain available through their existing live API integrations; this phase specifically upgraded the OpenAI-compatible path.
 - `defaultProvider` defaults to `openai`.
 - `autoAnalyzeOnSave` defaults to `false`, so saving a page works without AI setup.
 - The options page is now the primary way to switch default provider, toggle auto-analyze, and edit provider credentials/config for this MVP.
@@ -152,3 +155,4 @@ After `npm run build`:
 - The checked-in options UI is a basic MVP form, not a polished/final settings experience.
 - Provider configuration is still storage-driven under the hood via `chrome.storage.sync`; the UI is a thin editor over those values.
 - There is no advanced validation, connection testing, provider-specific guidance, or non-provider settings management beyond the current basic form.
+- Provider support is still MVP-level overall: OpenAI-compatible now has a real request path, but the extension still lacks richer provider UX such as connection testing and advanced validation.
