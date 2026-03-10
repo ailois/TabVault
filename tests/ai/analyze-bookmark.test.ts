@@ -4,6 +4,33 @@ import type { BookmarkRepository } from "../../src/lib/storage/bookmark-reposito
 import type { BookmarkRecord } from "../../src/types/bookmark"
 
 describe("analyzeBookmark", () => {
+  it("writes status error to the repository and rethrows when the provider throws", async () => {
+    const { analyzeBookmark } = await import("../../src/features/ai/analyze-bookmark")
+    const bookmarkRepository = createBookmarkRepository()
+    const provider = {
+      analyze: vi.fn(async () => {
+        throw new Error("Provider network error")
+      })
+    }
+    const bookmark = createBookmark()
+
+    await expect(
+      analyzeBookmark({ bookmark, provider, bookmarkRepository })
+    ).rejects.toThrow("Provider network error")
+
+    expect(bookmarkRepository.update).toHaveBeenCalledTimes(2)
+
+    const firstUpdate = vi.mocked(bookmarkRepository.update).mock.calls[0]?.[0]
+    const secondUpdate = vi.mocked(bookmarkRepository.update).mock.calls[1]?.[0]
+
+    expect(firstUpdate).toMatchObject({ status: "analyzing" })
+    expect(secondUpdate).toMatchObject({
+      id: bookmark.id,
+      status: "error",
+      errorMessage: "Provider network error"
+    })
+  })
+
   it("updates bookmark status before and after provider analysis", async () => {
     const { analyzeBookmark } = await import("../../src/features/ai/analyze-bookmark")
     const bookmarkRepository = createBookmarkRepository()
@@ -32,7 +59,6 @@ describe("analyzeBookmark", () => {
     expect(firstUpdate).toMatchObject({
       id: bookmark.id,
       status: "analyzing",
-      summary: undefined,
       tags: []
     })
     expect(provider.analyze).toHaveBeenCalledWith({

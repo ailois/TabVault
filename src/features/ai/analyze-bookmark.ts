@@ -10,7 +10,6 @@ export async function analyzeBookmark(input: {
   const content = normalizeContent(input.bookmark)
   const analyzingBookmark: BookmarkRecord = {
     ...input.bookmark,
-    summary: input.bookmark.summary,
     status: "analyzing",
     errorMessage: undefined,
     updatedAt: new Date().toISOString()
@@ -18,22 +17,35 @@ export async function analyzeBookmark(input: {
 
   await input.bookmarkRepository.update(analyzingBookmark)
 
-  const analysis = await input.provider.analyze({
-    title: analyzingBookmark.title,
-    url: analyzingBookmark.url,
-    content
-  })
-  const analyzedBookmark: BookmarkRecord = {
-    ...analyzingBookmark,
-    summary: analysis.summary,
-    tags: analysis.tags,
-    status: "done",
-    updatedAt: new Date().toISOString()
+  try {
+    const analysis = await input.provider.analyze({
+      title: analyzingBookmark.title,
+      url: analyzingBookmark.url,
+      content
+    })
+    const analyzedBookmark: BookmarkRecord = {
+      ...analyzingBookmark,
+      summary: analysis.summary,
+      tags: analysis.tags,
+      status: "done",
+      updatedAt: new Date().toISOString()
+    }
+
+    await input.bookmarkRepository.update(analyzedBookmark)
+
+    return analyzedBookmark
+  } catch (error) {
+    const failedBookmark: BookmarkRecord = {
+      ...analyzingBookmark,
+      status: "error",
+      errorMessage: error instanceof Error ? error.message : "Analysis failed",
+      updatedAt: new Date().toISOString()
+    }
+
+    await input.bookmarkRepository.update(failedBookmark)
+
+    throw error
   }
-
-  await input.bookmarkRepository.update(analyzedBookmark)
-
-  return analyzedBookmark
 }
 
 function normalizeContent(bookmark: BookmarkRecord): string {
