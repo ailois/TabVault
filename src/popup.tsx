@@ -158,14 +158,13 @@ function Popup({ services }: PopupProps) {
   return (
     <main aria-labelledby="popup-title" style={pageStyle}>
       <div data-testid="popup-shell" style={shellStyle}>
-        <header>
+        <header style={{ marginBottom: spacing.xs }}>
           <h1 id="popup-title">TabVault</h1>
           <p>Save and search your local bookmark library.</p>
         </header>
         <section aria-labelledby="popup-actions-title" style={actionsSectionStyle}>
-          <h2 id="popup-actions-title">Actions</h2>
-          <div style={actionsRowStyle}>
-            <button
+          <h2 id="popup-actions-title" style={visuallyHiddenStyle}>Actions</h2>
+          <button
               data-testid="popup-primary-action"
               disabled={isSaving || isAnalyzing}
               onClick={() => void handleSaveCurrentPage()}
@@ -181,12 +180,10 @@ function Popup({ services }: PopupProps) {
               type="button">
               {isLoadingBookmarks ? "Loading bookmarks..." : "Reload bookmarks"}
             </button>
-          </div>
         </section>
         <section aria-labelledby="popup-feedback-title" style={feedbackSectionStyle}>
-          <h2 id="popup-feedback-title">Feedback</h2>
+          <h2 id="popup-feedback-title" style={visuallyHiddenStyle}>Feedback</h2>
           <article data-feedback-kind="status" data-tone={statusTone} style={getStatusCardStyle(statusTone)}>
-            <h3>Status</h3>
             <p aria-live="polite" role="status">
               {statusMessage}
             </p>
@@ -195,7 +192,6 @@ function Popup({ services }: PopupProps) {
         </section>
         <section aria-labelledby="popup-library-title" style={librarySectionStyle}>
           <h2 id="popup-library-title">Library</h2>
-          <p>Search and review saved bookmarks.</p>
           <div>
             <label htmlFor="bookmark-search">Search bookmarks</label>
             <input
@@ -244,14 +240,15 @@ const shellStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   height: "100%",
-  gap: spacing.md,
+  gap: spacing.sm,
   backgroundColor: colors.page
 }
 
 const actionsSectionStyle: React.CSSProperties = {
-  display: "grid",
+  display: "flex",
+  flexWrap: "wrap",
   gap: spacing.sm,
-  padding: spacing.md,
+  padding: `${spacing.sm} ${spacing.md}`,
   border: `1px solid ${controls.input.border}`,
   borderRadius: radius.large,
   backgroundColor: colors.surfaceElevated,
@@ -299,6 +296,18 @@ const feedbackSectionStyle: React.CSSProperties = {
   gap: spacing.sm
 }
 
+const visuallyHiddenStyle: React.CSSProperties = {
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  padding: 0,
+  margin: "-1px",
+  overflow: "hidden",
+  clip: "rect(0,0,0,0)",
+  whiteSpace: "nowrap",
+  border: 0
+}
+
 const librarySectionStyle: React.CSSProperties = {
   flex: 1,
   overflowY: "auto",
@@ -309,7 +318,7 @@ const librarySectionStyle: React.CSSProperties = {
 
 function getStatusCardStyle(statusTone: "info" | "success"): React.CSSProperties {
   return {
-    padding: spacing.md,
+    padding: `${spacing.sm} ${spacing.md}`,
     border: `1px solid ${statusTone === "success" ? colors.borderStrong : colors.borderMuted}`,
     borderRadius: radius.medium,
     backgroundColor: colors.surface
