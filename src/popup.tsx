@@ -14,6 +14,7 @@ import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-re
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
+import { colors, controls, radius, shadow, spacing } from "./ui/design-tokens"
 
 type PopupProps = {
   services?: Partial<PopupServices>
@@ -107,7 +108,7 @@ function Popup({ services }: PopupProps) {
       await loadBookmarks()
       await maybeAnalyzeBookmark(savedBookmark)
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Failed to save current page"))
+      setErrorMessage(getSaveErrorMessage(error))
       setStatusTone("info")
       setStatusMessage("Ready to save the current page.")
     } finally {
@@ -155,28 +156,61 @@ function Popup({ services }: PopupProps) {
   }
 
   return (
-    <main>
-      <h1>TabVault</h1>
-      <button disabled={isSaving || isAnalyzing} onClick={() => void handleSaveCurrentPage()} type="button">
-        {isAnalyzing ? "Analyzing..." : isSaving ? "Saving..." : "Save current page"}
-      </button>
-      <button disabled={isLoadingBookmarks || isSaving || isAnalyzing} onClick={() => void loadBookmarks()} type="button">
-        {isLoadingBookmarks ? "Loading bookmarks..." : "Reload bookmarks"}
-      </button>
-      <div>
-        <label htmlFor="bookmark-search">Search bookmarks</label>
-        <input
-          id="bookmark-search"
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search title, URL, summary, tags"
-          type="search"
-          value={searchQuery}
-        />
+    <main aria-labelledby="popup-title" style={pageStyle}>
+      <div data-testid="popup-shell" style={shellStyle}>
+        <header>
+          <h1 id="popup-title">TabVault</h1>
+          <p>Save and search your local bookmark library.</p>
+        </header>
+        <section aria-labelledby="popup-actions-title" style={actionsSectionStyle}>
+          <h2 id="popup-actions-title">Actions</h2>
+          <div style={actionsRowStyle}>
+            <button
+              data-testid="popup-primary-action"
+              disabled={isSaving || isAnalyzing}
+              onClick={() => void handleSaveCurrentPage()}
+              style={primaryActionButtonStyle}
+              type="button">
+              {isAnalyzing ? "Analyzing..." : isSaving ? "Saving..." : "Save current page"}
+            </button>
+            <button
+              data-testid="popup-secondary-action"
+              disabled={isLoadingBookmarks || isSaving || isAnalyzing}
+              onClick={() => void loadBookmarks()}
+              style={secondaryActionButtonStyle}
+              type="button">
+              {isLoadingBookmarks ? "Loading bookmarks..." : "Reload bookmarks"}
+            </button>
+          </div>
+        </section>
+        <section aria-labelledby="popup-feedback-title" style={feedbackSectionStyle}>
+          <h2 id="popup-feedback-title">Feedback</h2>
+          <article data-feedback-kind="status" data-tone={statusTone} style={getStatusCardStyle(statusTone)}>
+            <h3>Status</h3>
+            <p aria-live="polite" role="status">
+              {statusMessage}
+            </p>
+          </article>
+          {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+        </section>
+        <section aria-labelledby="popup-library-title" style={librarySectionStyle}>
+          <h2 id="popup-library-title">Library</h2>
+          <p>Search and review saved bookmarks.</p>
+          <div>
+            <label htmlFor="bookmark-search">Search bookmarks</label>
+            <input
+              id="bookmark-search"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search title, URL, summary, tags"
+              style={searchInputStyle}
+              type="search"
+              value={searchQuery}
+            />
+          </div>
+          <p>{filteredBookmarks.length} bookmark(s)</p>
+        </section>
+        <BookmarkList bookmarks={filteredBookmarks} />
       </div>
-      <p data-tone={statusTone}>{statusMessage}</p>
-      {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
-      <p>{filteredBookmarks.length} bookmark(s)</p>
-      <BookmarkList bookmarks={filteredBookmarks} />
     </main>
   )
 }
@@ -185,4 +219,99 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
 
+function getSaveErrorMessage(error: unknown): string {
+  const message = getErrorMessage(error, "Failed to save current page")
+
+  if (message === "Active tab title is required" || message === "Active tab URL is required") {
+    return "Current tab can't be saved because its title or URL is unavailable."
+  }
+
+  return message
+}
+
 export default Popup
+
+const pageStyle: React.CSSProperties = {
+  width: "400px",
+  height: "560px",
+  overflow: "hidden",
+  padding: spacing.md,
+  backgroundColor: colors.page,
+  boxSizing: "border-box"
+}
+
+const shellStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  height: "100%",
+  gap: spacing.md,
+  backgroundColor: colors.page
+}
+
+const actionsSectionStyle: React.CSSProperties = {
+  display: "grid",
+  gap: spacing.sm,
+  padding: spacing.md,
+  border: `1px solid ${controls.input.border}`,
+  borderRadius: radius.large,
+  backgroundColor: colors.surfaceElevated,
+  boxShadow: shadow.soft
+}
+
+const actionsRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: spacing.sm
+}
+
+const actionButtonStyle: React.CSSProperties = {
+  padding: `${spacing.sm} ${spacing.md}`,
+  border: "none",
+  borderRadius: radius.pill,
+  fontWeight: 600,
+  cursor: "pointer"
+}
+
+const primaryActionButtonStyle: React.CSSProperties = {
+  ...actionButtonStyle,
+  backgroundColor: controls.primary.background,
+  color: controls.primary.foreground
+}
+
+const secondaryActionButtonStyle: React.CSSProperties = {
+  ...actionButtonStyle,
+  backgroundColor: controls.secondary.background,
+  color: controls.secondary.foreground
+}
+
+const searchInputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "10px 12px",
+  border: `1px solid ${controls.input.border}`,
+  borderRadius: radius.medium,
+  backgroundColor: controls.input.background,
+  color: colors.textPrimary
+}
+
+const feedbackSectionStyle: React.CSSProperties = {
+  display: "grid",
+  gap: spacing.sm
+}
+
+const librarySectionStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  minHeight: 0,
+  display: "grid",
+  gap: spacing.sm
+}
+
+function getStatusCardStyle(statusTone: "info" | "success"): React.CSSProperties {
+  return {
+    padding: spacing.md,
+    border: `1px solid ${statusTone === "success" ? colors.borderStrong : colors.borderMuted}`,
+    borderRadius: radius.medium,
+    backgroundColor: colors.surface
+  }
+}
