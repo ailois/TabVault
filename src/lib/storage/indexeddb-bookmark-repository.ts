@@ -13,7 +13,7 @@ export class IndexedDbBookmarkRepository implements BookmarkRepository {
   async list(): Promise<BookmarkRecord[]> {
     const bookmarks = await this.storage.getAll()
 
-    return bookmarks.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    return bookmarks.sort((left, right) => right.createdAt.localeCompare(left.createdAt))
   }
 
   async getById(id: string): Promise<BookmarkRecord | null> {

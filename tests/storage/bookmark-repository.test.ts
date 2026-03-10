@@ -17,7 +17,7 @@ class InMemoryBookmarkStorage implements BookmarkStorage {
 
   async getAll(): Promise<BookmarkRecord[]> {
     return Array.from(this.records.values()).sort((left, right) =>
-      left.createdAt.localeCompare(right.createdAt)
+      right.createdAt.localeCompare(left.createdAt)
     )
   }
 }
@@ -29,7 +29,7 @@ describe("IndexedDbBookmarkRepository", () => {
     repository = new IndexedDbBookmarkRepository(new InMemoryBookmarkStorage())
   })
 
-  it("saves bookmarks and lists them in created order", async () => {
+  it("saves bookmarks and lists them newest-first", async () => {
     const firstBookmark = createBookmark({
       id: "bookmark-1",
       title: "First",
@@ -46,7 +46,7 @@ describe("IndexedDbBookmarkRepository", () => {
     await repository.save(firstBookmark)
     await repository.save(secondBookmark)
 
-    await expect(repository.list()).resolves.toEqual([firstBookmark, secondBookmark])
+    await expect(repository.list()).resolves.toEqual([secondBookmark, firstBookmark])
   })
 
   it("returns null when a bookmark does not exist", async () => {
