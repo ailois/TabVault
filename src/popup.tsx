@@ -208,8 +208,8 @@ function Popup({ services }: PopupProps) {
             />
           </div>
           <p>{filteredBookmarks.length} bookmark(s)</p>
+          <BookmarkList bookmarks={filteredBookmarks} />
         </section>
-        <BookmarkList bookmarks={filteredBookmarks} />
       </div>
     </main>
   )
