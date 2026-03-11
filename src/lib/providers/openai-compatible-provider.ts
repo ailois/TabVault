@@ -32,7 +32,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
   private readonly timeoutMs: number
 
   constructor(private readonly config: OpenAiCompatibleProviderConfig) {
-    this.fetchImpl = config.fetchImpl ?? fetch
+    this.fetchImpl = config.fetchImpl ?? ((input, init) => fetch(input, init))
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
