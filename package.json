@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Local-first AI bookmark browser extension MVP",
+  "manifest": {
+    "permissions": ["storage", "activeTab", "scripting", "sidePanel", "bookmarks"]
+  },
   "scripts": {
     "dev": "plasmo dev",
     "build": "plasmo build",
