@@ -211,10 +211,10 @@ const descriptionStyle: React.CSSProperties = {
 }
 
 const enabledRowStyle: React.CSSProperties = {
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: `1px solid ${colors.borderMuted}`,
-  borderRadius: radius.medium,
-  backgroundColor: colors.surfaceMuted
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingBottom: spacing.sm
 }
 
 const enabledLabelStyle: React.CSSProperties = {
@@ -247,11 +247,12 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: `${spacing.sm} ${spacing.md}`,
-  border: `1px solid ${controls.input.border}`,
-  borderRadius: radius.small,
+  border: "none",
+  borderRadius: radius.medium,
   backgroundColor: controls.input.background,
   fontSize: "0.875rem",
-  transition: "border-color 0.15s ease, box-shadow 0.15s ease"
+  color: colors.textPrimary,
+  transition: "background-color 0.15s ease"
 }
 
 const errorStyle: React.CSSProperties = {
@@ -267,10 +268,10 @@ const testRowStyle: React.CSSProperties = {
 }
 
 const testButtonStyle: React.CSSProperties = {
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: `1px solid ${colors.border}`,
+  padding: `6px ${spacing.md}`,
+  border: "none",
   borderRadius: radius.medium,
-  backgroundColor: colors.surface,
+  backgroundColor: controls.secondary.background,
   color: colors.textSecondary,
   fontSize: "0.875rem",
   fontWeight: 500,
