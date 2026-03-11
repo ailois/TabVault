@@ -10,6 +10,7 @@ import ProviderSettingsForm from "../../src/components/provider-settings-form"
 import type { ProviderValidation } from "../../src/features/settings/settings-validation"
 import type { ProviderFormState } from "../../src/features/settings/provider-form-state"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import { colors, controls, radius, shadow, spacing } from "../../src/ui/design-tokens"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -29,39 +30,25 @@ describe("Options", () => {
   it("renders editable app and provider settings sections", async () => {
     await renderOptions()
 
-    expect(container?.textContent).toContain("TabVault Settings")
-    expect(container?.textContent).toContain("Save settings")
-    expect(container?.textContent).toContain("Status: Not saved yet")
+    const pageShell = container?.querySelector('[data-testid="settings-page-shell"]')
+    const pageHeader = container?.querySelector('[data-testid="settings-page-header"]')
+    const pageDescription = container?.querySelector('[data-testid="settings-page-description"]')
 
-    const appSection = getSectionByHeading("App settings")
+    expect(container?.textContent).toContain("TabVault Settings")
+    expect(container?.textContent).toContain("Configure providers and analysis behavior")
+    expect(pageShell).toBeTruthy()
+    expect(pageHeader?.textContent).toContain("TabVault Settings")
+    expect(pageDescription?.textContent).toContain("Configure providers and analysis behavior")
+
+    const appSection = getSectionByHeading("App Settings")
     const openAiSection = getSectionByHeading("OpenAI-compatible")
     const claudeSection = getSectionByHeading("Claude")
     const geminiSection = getSectionByHeading("Gemini")
 
-    expect(appSection?.textContent).toContain("Default provider")
-    expect(appSection?.textContent).toContain("Auto analyze on save")
-
-    expect(openAiSection?.textContent).toContain("Enabled")
-    expect(openAiSection?.textContent).toContain("API key")
-    expect(openAiSection?.textContent).toContain("Model")
-    expect(openAiSection?.textContent).toContain("Base URL")
-    expect(openAiSection?.querySelector("#openai-api-key")).toBeTruthy()
-    expect(openAiSection?.querySelector("#openai-model")).toBeTruthy()
-    expect(openAiSection?.querySelector("#openai-base-url")).toBeTruthy()
-
-    expect(claudeSection?.textContent).toContain("Enabled")
-    expect(claudeSection?.textContent).toContain("API key")
-    expect(claudeSection?.textContent).toContain("Model")
-    expect(claudeSection?.querySelector("#claude-api-key")).toBeTruthy()
-    expect(claudeSection?.querySelector("#claude-model")).toBeTruthy()
-    expect(claudeSection?.textContent).not.toContain("Base URL")
-
-    expect(geminiSection?.textContent).toContain("Enabled")
-    expect(geminiSection?.textContent).toContain("API key")
-    expect(geminiSection?.textContent).toContain("Model")
-    expect(geminiSection?.querySelector("#gemini-api-key")).toBeTruthy()
-    expect(geminiSection?.querySelector("#gemini-model")).toBeTruthy()
-    expect(geminiSection?.textContent).not.toContain("Base URL")
+    expect(appSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
+    expect(openAiSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
+    expect(claudeSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
+    expect(geminiSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
   })
 
   it("renders provider field validation messages passed through props", async () => {
@@ -81,10 +68,92 @@ describe("Options", () => {
     )
 
     const openAiSection = getSectionByHeading("OpenAI-compatible")
+    const apiKeyInput = getInputById("openai-api-key")
+    const modelInput = getInputById("openai-model")
+    const baseUrlInput = getInputById("openai-base-url")
+    const alerts = Array.from(openAiSection?.querySelectorAll('[role="alert"]') ?? [])
 
-    expect(openAiSection?.textContent).toContain("API key is required")
-    expect(openAiSection?.textContent).toContain("Model is required")
-    expect(openAiSection?.textContent).toContain("Base URL is required")
+    expect(alerts).toHaveLength(3)
+    expect(alerts.map((alert) => alert.textContent)).toEqual([
+      "API key is required",
+      "Model is required",
+      "Base URL is required"
+    ])
+    expect(apiKeyInput?.getAttribute("aria-invalid")).toBe("true")
+    expect(modelInput?.getAttribute("aria-invalid")).toBe("true")
+    expect(baseUrlInput?.getAttribute("aria-invalid")).toBe("true")
+    expect(apiKeyInput?.getAttribute("aria-describedby")).toBeTruthy()
+    expect(modelInput?.getAttribute("aria-describedby")).toBeTruthy()
+    expect(baseUrlInput?.getAttribute("aria-describedby")).toBeTruthy()
+  })
+
+  it("renders provider sections with readable descriptions and explicit field groupings", async () => {
+    await renderOptions()
+
+    assertProviderSectionStructure("OpenAI-compatible", {
+      description: "Use any OpenAI-compatible endpoint by providing an API key, model, and base URL.",
+      expectedFieldLabels: ["API key", "Model", "Base URL"]
+    })
+
+    assertProviderSectionStructure("Claude", {
+      description: "Use your Anthropic API key and preferred Claude model for analysis.",
+      expectedFieldLabels: ["API key", "Model"]
+    })
+
+    assertProviderSectionStructure("Gemini", {
+      description: "Use your Google AI Studio API key and Gemini model for analysis.",
+      expectedFieldLabels: ["API key", "Model"]
+    })
+  })
+
+  it("uses shared design tokens for the settings shell and provider controls", async () => {
+    await renderOptions()
+
+    const pageShell = container?.querySelector<HTMLElement>('[data-testid="settings-page-shell"]')
+    const sectionCard = container?.querySelector<HTMLElement>('[data-testid="settings-section-card"]')
+    const saveActions = container?.querySelector<HTMLElement>('[data-testid="settings-save-actions"]')
+    const saveStatus = container?.querySelector<HTMLElement>('[data-testid="save-status"]')
+    const saveButton = Array.from(container?.querySelectorAll("button") ?? []).find(
+      (candidate): candidate is HTMLButtonElement => candidate.textContent === "Save settings"
+    )
+
+    expect(pageShell?.style.gap).toBe(spacing.lg)
+    expect(sectionCard?.style.padding).toBe(spacing.lg)
+    expect(sectionCard?.style.backgroundColor).toBe("rgb(255, 255, 255)")
+    expect(saveActions?.style.borderRadius).toBe(radius.large)
+    expect(saveActions?.style.backgroundColor).toBe("rgb(255, 255, 255)")
+    expect(saveActions?.style.boxShadow).toBe("0 -2px 8px rgba(0,0,0,0.04)")
+    expect(saveStatus?.style.color).toBe("rgb(113, 113, 122)")
+    expect(saveButton?.style.backgroundColor).toBe("rgb(24, 24, 27)")
+    expect(saveButton?.style.color).toBe("rgb(250, 250, 250)")
+    expect(saveButton?.style.borderRadius).toBe(radius.medium)
+  })
+
+  it("uses shared design tokens for provider form copy, rows, and inputs", async () => {
+    await renderProviderSettingsForm(
+      {
+        provider: "openai",
+        apiKey: "",
+        baseUrl: "",
+        model: "",
+        enabled: false
+      },
+      {}
+    )
+
+    const description = container?.querySelector<HTMLElement>('[data-testid="provider-description"]')
+    const enabledRow = container?.querySelector<HTMLElement>('[data-testid="provider-enabled-row"]')
+    const fieldStack = container?.querySelector<HTMLElement>('[data-testid="provider-field-stack"]')
+    const apiKeyInput = getInputById("openai-api-key")
+
+    expect(description?.style.color).toBe("rgb(113, 113, 122)")
+    expect(enabledRow?.style.padding).toBe(`${spacing.sm} ${spacing.md}`)
+    expect(enabledRow?.style.borderRadius).toBe(radius.medium)
+    expect(enabledRow?.style.backgroundColor).toBe("rgb(244, 244, 245)")
+    expect(fieldStack?.style.gap).toBe(spacing.xs)
+    expect(apiKeyInput?.style.padding).toBe(`${spacing.sm} ${spacing.md}`)
+    expect(apiKeyInput?.style.borderRadius).toBe(radius.small)
+    expect(apiKeyInput?.style.backgroundColor).toBe("rgb(255, 255, 255)")
   })
 })
 
@@ -126,5 +195,39 @@ function getSectionByHeading(heading: string): HTMLElement | undefined {
     const sectionHeading = section.querySelector("h2")
 
     return sectionHeading?.textContent === heading
+  })
+}
+
+function getInputById(id: string): HTMLInputElement | null | undefined {
+  return container?.querySelector<HTMLInputElement>(`#${id}`)
+}
+
+function assertProviderSectionStructure(
+  heading: string,
+  options: {
+    description: string
+    expectedFieldLabels: string[]
+  }
+): void {
+  const section = getSectionByHeading(heading)
+
+  expect(section).toBeTruthy()
+  const description = section?.querySelector('[data-testid="provider-description"]')
+  expect(description).toBeTruthy()
+  expect(description?.textContent ?? "").toContain(options.description)
+
+  const enabledRow = section?.querySelector('[data-testid="provider-enabled-row"]')
+  expect(enabledRow).toBeTruthy()
+  expect(enabledRow?.textContent).toContain("Enabled")
+  expect(enabledRow?.querySelector('input[type="checkbox"]')).toBeTruthy()
+
+  const fieldStacks = Array.from(section?.querySelectorAll('[data-testid="provider-field-stack"]') ?? [])
+  expect(fieldStacks).toHaveLength(options.expectedFieldLabels.length)
+
+  options.expectedFieldLabels.forEach((label, index) => {
+    const fieldStack = fieldStacks[index]
+
+    expect(fieldStack?.querySelector("label")?.textContent).toContain(label)
+    expect(fieldStack?.querySelector("input")).toBeTruthy()
   })
 }

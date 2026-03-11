@@ -14,7 +14,7 @@ import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-re
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
-import { colors, controls, radius, shadow, spacing } from "./ui/design-tokens"
+import { colors, controls, GLOBAL_FOCUS_STYLES, radius, shadow, spacing } from "./ui/design-tokens"
 
 type PopupProps = {
   services?: Partial<PopupServices>
@@ -71,6 +71,16 @@ function Popup({ services }: PopupProps) {
 
   useEffect(() => {
     void loadBookmarks()
+  }, [])
+
+  useEffect(() => {
+    const style = document.createElement("style")
+    style.textContent = GLOBAL_FOCUS_STYLES
+    document.head.appendChild(style)
+
+    return () => {
+      style.remove()
+    }
   }, [])
 
   async function loadBookmarks(): Promise<void> {

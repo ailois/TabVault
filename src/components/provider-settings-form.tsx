@@ -2,6 +2,7 @@ import React from "react"
 
 import type { ProviderFormState } from "../features/settings/provider-form-state"
 import type { ProviderValidation } from "../features/settings/settings-validation"
+import { colors, controls, radius, spacing } from "../ui/design-tokens"
 
 type ProviderSettingsFormProps = {
   value: ProviderFormState
@@ -15,8 +16,25 @@ const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
   gemini: "Gemini"
 }
 
+const PROVIDER_DESCRIPTIONS: Record<ProviderFormState["provider"], string> = {
+  openai: "Use any OpenAI-compatible endpoint by providing an API key, model, and base URL.",
+  claude: "Use your Anthropic API key and preferred Claude model for analysis.",
+  gemini: "Use your Google AI Studio API key and Gemini model for analysis."
+}
+
+const PROVIDER_COLORS: Record<ProviderFormState["provider"], string> = {
+  openai: "#10a37f",
+  claude: "#d97706",
+  gemini: "#4285f4"
+}
+
 function ProviderSettingsForm({ value, onChange, fieldErrors }: ProviderSettingsFormProps) {
   const providerLabel = PROVIDER_LABELS[value.provider]
+  const providerDescription = PROVIDER_DESCRIPTIONS[value.provider]
+  const providerColor = PROVIDER_COLORS[value.provider]
+  const apiKeyErrorId = `${value.provider}-api-key-error`
+  const modelErrorId = `${value.provider}-model-error`
+  const baseUrlErrorId = `${value.provider}-base-url-error`
 
   const updateField = <K extends keyof ProviderFormState>(field: K, fieldValue: ProviderFormState[K]) => {
     onChange({
@@ -26,54 +44,177 @@ function ProviderSettingsForm({ value, onChange, fieldErrors }: ProviderSettings
   }
 
   return (
-    <section>
-      <h2>{providerLabel}</h2>
+    <section style={sectionStyle}>
+      <div style={headerStyle}>
+        <h2 style={headingStyle}>
+          <span style={{ ...colorDotStyle, backgroundColor: providerColor }} aria-hidden="true" />
+          {providerLabel}
+        </h2>
+        <p data-testid="provider-description" style={descriptionStyle}>
+          {providerDescription}
+        </p>
+      </div>
 
-      <label>
-        <input
-          checked={value.enabled}
-          onChange={(event) => updateField("enabled", event.target.checked)}
-          type="checkbox"
-        />
-        Enabled
-      </label>
+      <div data-testid="provider-enabled-row" style={enabledRowStyle}>
+        <label style={enabledLabelStyle}>
+          <span>Enabled</span>
+          <input
+            checked={value.enabled}
+            onChange={(event) => updateField("enabled", event.target.checked)}
+            style={checkboxStyle}
+            type="checkbox"
+          />
+        </label>
+      </div>
 
-      <div>
-        <label htmlFor={`${value.provider}-api-key`}>API key</label>
+      <div data-testid="provider-field-stack" style={fieldStackStyle}>
+        <label htmlFor={`${value.provider}-api-key`} style={fieldLabelStyle}>
+          API key
+        </label>
         <input
+          aria-describedby={fieldErrors?.apiKey ? apiKeyErrorId : undefined}
+          aria-invalid={fieldErrors?.apiKey ? true : undefined}
           id={`${value.provider}-api-key`}
           onChange={(event) => updateField("apiKey", event.target.value)}
+          style={inputStyle}
           type="password"
           value={value.apiKey}
         />
-        {fieldErrors?.apiKey ? <p>{fieldErrors.apiKey}</p> : null}
+        {fieldErrors?.apiKey ? (
+          <p aria-live="polite" id={apiKeyErrorId} role="alert" style={errorStyle}>
+            {fieldErrors.apiKey}
+          </p>
+        ) : null}
       </div>
 
-      <div>
-        <label htmlFor={`${value.provider}-model`}>Model</label>
+      <div data-testid="provider-field-stack" style={fieldStackStyle}>
+        <label htmlFor={`${value.provider}-model`} style={fieldLabelStyle}>
+          Model
+        </label>
         <input
+          aria-describedby={fieldErrors?.model ? modelErrorId : undefined}
+          aria-invalid={fieldErrors?.model ? true : undefined}
           id={`${value.provider}-model`}
           onChange={(event) => updateField("model", event.target.value)}
+          style={inputStyle}
           type="text"
           value={value.model}
         />
-        {fieldErrors?.model ? <p>{fieldErrors.model}</p> : null}
+        {fieldErrors?.model ? (
+          <p aria-live="polite" id={modelErrorId} role="alert" style={errorStyle}>
+            {fieldErrors.model}
+          </p>
+        ) : null}
       </div>
 
       {value.provider === "openai" ? (
-        <div>
-          <label htmlFor="openai-base-url">Base URL</label>
+        <div data-testid="provider-field-stack" style={fieldStackStyle}>
+          <label htmlFor="openai-base-url" style={fieldLabelStyle}>
+            Base URL
+          </label>
           <input
+            aria-describedby={fieldErrors?.baseUrl ? baseUrlErrorId : undefined}
+            aria-invalid={fieldErrors?.baseUrl ? true : undefined}
             id="openai-base-url"
             onChange={(event) => updateField("baseUrl", event.target.value)}
+            style={inputStyle}
             type="url"
             value={value.baseUrl ?? ""}
           />
-          {fieldErrors?.baseUrl ? <p>{fieldErrors.baseUrl}</p> : null}
+          {fieldErrors?.baseUrl ? (
+            <p aria-live="polite" id={baseUrlErrorId} role="alert" style={errorStyle}>
+              {fieldErrors.baseUrl}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>
   )
+}
+
+const sectionStyle: React.CSSProperties = {
+  display: "grid",
+  gap: spacing.md
+}
+
+const headerStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "4px"
+}
+
+const headingStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: "1rem",
+  fontWeight: 600,
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.sm
+}
+
+const colorDotStyle: React.CSSProperties = {
+  display: "inline-block",
+  width: "8px",
+  height: "8px",
+  borderRadius: "50%",
+  flexShrink: 0
+}
+
+const descriptionStyle: React.CSSProperties = {
+  margin: 0,
+  color: colors.textMuted,
+  fontSize: "0.8125rem",
+  lineHeight: 1.5,
+  maxWidth: "60ch"
+}
+
+const enabledRowStyle: React.CSSProperties = {
+  padding: `${spacing.sm} ${spacing.md}`,
+  border: `1px solid ${colors.borderMuted}`,
+  borderRadius: radius.medium,
+  backgroundColor: colors.surfaceMuted
+}
+
+const enabledLabelStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: spacing.md,
+  fontWeight: 500,
+  fontSize: "0.875rem"
+}
+
+const checkboxStyle: React.CSSProperties = {
+  width: "18px",
+  height: "18px",
+  accentColor: controls.primary.background
+}
+
+const fieldStackStyle: React.CSSProperties = {
+  display: "grid",
+  gap: spacing.xs
+}
+
+const fieldLabelStyle: React.CSSProperties = {
+  fontWeight: 500,
+  fontSize: "0.875rem",
+  color: colors.textSecondary
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: `${spacing.sm} ${spacing.md}`,
+  border: `1px solid ${controls.input.border}`,
+  borderRadius: radius.small,
+  backgroundColor: controls.input.background,
+  fontSize: "0.875rem",
+  transition: "border-color 0.15s ease, box-shadow 0.15s ease"
+}
+
+const errorStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: "0.8125rem",
+  color: colors.textDanger
 }
 
 export default ProviderSettingsForm
