@@ -30,7 +30,7 @@ describe("SidePanel", () => {
     })
 
     expect(container.textContent).toContain("TabVault Pro")
-    expect(container.textContent).toContain("Manage your bookmarks")
+    expect(container.textContent).toContain("Import and manage your bookmarks")
     expect(container.querySelector("button")?.textContent).toContain("Import Chrome Bookmarks")
   })
 
