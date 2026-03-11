@@ -1,13 +1,14 @@
 export const colors = {
-  page: "#fafafa",
+  page: "#ffffff",
   surface: "#ffffff",
   surfaceElevated: "#ffffff",
   surfaceMuted: "#f4f4f5",
+  surfaceHover: "#f8fafc",
   border: "#e4e4e7",
-  borderMuted: "#f4f4f5",
+  borderMuted: "#f1f5f9",
   borderStrong: "#94a3b8",
   borderFocus: "#2563eb",
-  textPrimary: "#18181b",
+  textPrimary: "#0f172a",
   textSecondary: "#3f3f46",
   textMuted: "#71717a",
   textSuccess: "#166534",
@@ -23,15 +24,14 @@ export const spacing = {
 } as const
 
 export const radius = {
-  small: "6px",
-  medium: "8px",
-  large: "12px",
+  small: "4px",
+  medium: "6px",
+  large: "8px",
   pill: "999px"
 } as const
 
 export const shadow = {
-  soft: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)",
-  medium: "0 4px 12px rgba(0,0,0,0.1)"
+  soft: "0 -1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)"
 } as const
 
 export const typography = {
@@ -55,16 +55,16 @@ export const typography = {
 
 export const controls = {
   primary: {
-    background: "#18181b",
-    foreground: "#fafafa"
+    background: "#0f172a",
+    foreground: "#ffffff"
   },
   secondary: {
     background: "#f4f4f5",
-    foreground: "#18181b"
+    foreground: "#0f172a"
   },
   input: {
-    background: "#ffffff",
-    border: "#d4d4d8"
+    background: "#f8fafc",
+    border: "#e2e8f0"
   },
   focusOutline: "#2563eb"
 } as const
