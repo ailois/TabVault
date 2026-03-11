@@ -6,14 +6,16 @@ import { colors, radius, shadow, spacing, typography } from "../ui/design-tokens
 type BookmarkListProps = {
   bookmarks: BookmarkRecord[]
   onDelete: (id: string) => Promise<void>
+  onAnalyze: (id: string) => Promise<void>
 }
 
 type BookmarkCardProps = {
   bookmark: BookmarkRecord
   onDelete: (id: string) => Promise<void>
+  onAnalyze: (id: string) => Promise<void>
 }
 
-export function BookmarkList({ bookmarks, onDelete }: BookmarkListProps) {
+export function BookmarkList({ bookmarks, onDelete, onAnalyze }: BookmarkListProps) {
   if (bookmarks.length === 0) {
     return (
       <section aria-label="Bookmark results">
@@ -26,15 +28,17 @@ export function BookmarkList({ bookmarks, onDelete }: BookmarkListProps) {
     <ul aria-label="Bookmark results" style={listStyle}>
       {bookmarks.map((bookmark) => (
         <li key={bookmark.id}>
-          <BookmarkCard bookmark={bookmark} onDelete={onDelete} />
+          <BookmarkCard bookmark={bookmark} onDelete={onDelete} onAnalyze={onAnalyze} />
         </li>
       ))}
     </ul>
   )
 }
 
-function BookmarkCard({ bookmark, onDelete }: BookmarkCardProps) {
+function BookmarkCard({ bookmark, onDelete, onAnalyze }: BookmarkCardProps) {
   const [expanded, setExpanded] = useState(false)
+
+  const showAnalyzeButton = bookmark.status === "saved" || bookmark.status === "error"
 
   async function handleDelete(): Promise<void> {
     if (!window.confirm("Delete this bookmark?")) {
@@ -56,6 +60,17 @@ function BookmarkCard({ bookmark, onDelete }: BookmarkCardProps) {
             <span data-testid="bookmark-status-badge" style={errorBadgeStyle}>
               Error
             </span>
+          ) : null}
+          {showAnalyzeButton ? (
+            <button
+              aria-label={`Analyze ${bookmark.title}`}
+              data-testid="bookmark-analyze-button"
+              onClick={() => void onAnalyze(bookmark.id)}
+              style={analyzeButtonStyle}
+              type="button"
+            >
+              Analyze
+            </button>
           ) : null}
         </div>
         <button
@@ -186,6 +201,17 @@ const errorBadgeStyle: React.CSSProperties = {
   color: colors.textDanger,
   fontSize: "0.75rem",
   fontWeight: 500
+}
+
+const analyzeButtonStyle: React.CSSProperties = {
+  background: "none",
+  border: `1px solid ${colors.border}`,
+  borderRadius: radius.pill,
+  cursor: "pointer",
+  color: colors.textSecondary,
+  fontSize: "0.75rem",
+  fontWeight: 500,
+  padding: "2px 8px"
 }
 
 const deleteButtonStyle: React.CSSProperties = {

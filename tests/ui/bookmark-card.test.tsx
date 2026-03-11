@@ -148,6 +148,39 @@ describe("BookmarkCard", () => {
     expect(card?.style.borderRadius).toBe(radius.large)
     expect(card?.style.padding).toBe(spacing.md)
   })
+
+  it("shows Analyze button for saved bookmarks", async () => {
+    await renderList([createBookmark({ status: "saved" })])
+    expect(getCard()?.querySelector("[data-testid='bookmark-analyze-button']")).not.toBeNull()
+  })
+
+  it("shows Analyze button for error bookmarks", async () => {
+    await renderList([createBookmark({ status: "error" })])
+    expect(getCard()?.querySelector("[data-testid='bookmark-analyze-button']")).not.toBeNull()
+  })
+
+  it("hides Analyze button for analyzing bookmarks", async () => {
+    await renderList([createBookmark({ status: "analyzing" })])
+    expect(getCard()?.querySelector("[data-testid='bookmark-analyze-button']")).toBeNull()
+  })
+
+  it("hides Analyze button for done bookmarks", async () => {
+    await renderList([createBookmark({ status: "done" })])
+    expect(getCard()?.querySelector("[data-testid='bookmark-analyze-button']")).toBeNull()
+  })
+
+  it("calls onAnalyze with bookmark id when Analyze button is clicked", async () => {
+    const onAnalyze = vi.fn(async () => undefined)
+    await renderList([createBookmark({ id: "bm-1", status: "saved" })], vi.fn(async () => undefined), onAnalyze)
+
+    const analyzeBtn = getCard()?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
+
+    await act(async () => {
+      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    expect(onAnalyze).toHaveBeenCalledWith("bm-1")
+  })
 })
 
 let container: HTMLDivElement | null = null
@@ -155,14 +188,15 @@ let root: Root | null = null
 
 async function renderList(
   bookmarks: BookmarkRecord[],
-  onDelete: (id: string) => Promise<void> = vi.fn(async () => undefined)
+  onDelete: (id: string) => Promise<void> = vi.fn(async () => undefined),
+  onAnalyze: (id: string) => Promise<void> = vi.fn(async () => undefined)
 ): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<BookmarkList bookmarks={bookmarks} onDelete={onDelete} />)
+    root.render(<BookmarkList bookmarks={bookmarks} onDelete={onDelete} onAnalyze={onAnalyze} />)
   })
 }
 
