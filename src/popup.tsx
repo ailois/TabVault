@@ -97,6 +97,15 @@ function Popup({ services }: PopupProps) {
     }
   }
 
+  async function handleDeleteBookmark(id: string): Promise<void> {
+    try {
+      await popupServices.bookmarkRepository.delete(id)
+      await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Failed to delete bookmark"))
+    }
+  }
+
   async function handleSaveCurrentPage(): Promise<void> {
     setIsSaving(true)
     setIsAnalyzing(false)
@@ -214,7 +223,7 @@ function Popup({ services }: PopupProps) {
             />
           </div>
           <p>{filteredBookmarks.length} bookmark(s)</p>
-          <BookmarkList bookmarks={filteredBookmarks} />
+          <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDeleteBookmark} />
         </section>
       </div>
     </main>

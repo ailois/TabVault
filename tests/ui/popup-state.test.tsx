@@ -284,6 +284,33 @@ describe("Popup state", () => {
       expect(provider).toBeInstanceOf(GeminiProvider)
     }
   })
+
+  it("removes a bookmark from the list after it is deleted", async () => {
+    const bookmark = createBookmark({ id: "bm-to-delete", title: "Page to delete" })
+    vi.spyOn(window, "confirm").mockReturnValue(true)
+
+    const deleteBookmark = vi.fn(async () => undefined)
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [bookmark]),
+        delete: deleteBookmark
+      })
+    })
+
+    await renderPopup(services)
+
+    expect(screen().text()).toContain("Page to delete")
+
+    const deleteBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-delete-button']")
+
+    await act(async () => {
+      deleteBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    await flush()
+
+    expect(deleteBookmark).toHaveBeenCalledWith("bm-to-delete")
+  })
 })
 
 let container: HTMLDivElement | null = null
