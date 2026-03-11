@@ -152,8 +152,8 @@ describe("Popup state", () => {
     expect(errorAlert?.getAttribute("role")).toBe("alert")
     expect(screen().getStatusCard()?.style.backgroundColor).toBe(normalizeCssColor(colors.surface))
     expect(screen().getStatusCard()?.style.borderRadius).toBe(radius.medium)
-    expect(errorAlert?.style.backgroundColor).toBe(normalizeCssColor(colors.surface))
-    expect(errorAlert?.style.borderColor).toBe(normalizeCssColor(colors.textDanger))
+    expect(errorAlert?.style.backgroundColor).toBe("rgb(254, 242, 242)")
+    expect(errorAlert?.style.color).toBe("rgb(153, 27, 27)")
   })
 
   it("shows a save failure banner when saving the current page fails", async () => {
