@@ -176,7 +176,7 @@ async function renderOptions(): Promise<void> {
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<Options services={{ settingsRepository }} />)
+    root.render(<Options services={{ settingsRepository, testConnection: async () => {} }} />)
   })
 }
 
@@ -186,7 +186,7 @@ async function renderProviderSettingsForm(value: ProviderFormState, fieldErrors:
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<ProviderSettingsForm fieldErrors={fieldErrors} onChange={() => {}} value={value} />)
+    root.render(<ProviderSettingsForm fieldErrors={fieldErrors} onChange={() => {}} onTestConnection={async () => "ok"} value={value} />)
   })
 }
 

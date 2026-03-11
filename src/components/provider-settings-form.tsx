@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 
 import type { ProviderFormState } from "../features/settings/provider-form-state"
 import type { ProviderValidation } from "../features/settings/settings-validation"
@@ -8,6 +8,7 @@ type ProviderSettingsFormProps = {
   value: ProviderFormState
   onChange: (nextValue: ProviderFormState) => void
   fieldErrors?: ProviderValidation
+  onTestConnection: (value: ProviderFormState) => Promise<"ok" | string>
 }
 
 const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
@@ -28,7 +29,13 @@ const PROVIDER_COLORS: Record<ProviderFormState["provider"], string> = {
   gemini: "#4285f4"
 }
 
-function ProviderSettingsForm({ value, onChange, fieldErrors }: ProviderSettingsFormProps) {
+function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }: ProviderSettingsFormProps) {
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | string>("idle")
+
+  useEffect(() => {
+    setTestStatus("idle")
+  }, [value])
+
   const providerLabel = PROVIDER_LABELS[value.provider]
   const providerDescription = PROVIDER_DESCRIPTIONS[value.provider]
   const providerColor = PROVIDER_COLORS[value.provider]
@@ -41,6 +48,22 @@ function ProviderSettingsForm({ value, onChange, fieldErrors }: ProviderSettings
       ...value,
       [field]: fieldValue
     })
+  }
+
+  const canTest =
+    value.enabled &&
+    value.apiKey.trim().length > 0 &&
+    value.model.trim().length > 0 &&
+    (value.provider !== "openai" || (value.baseUrl ?? "").trim().length > 0)
+
+  async function handleTestConnection(): Promise<void> {
+    setTestStatus("testing")
+    const result = await onTestConnection(value)
+    setTestStatus(result)
+
+    if (result === "ok") {
+      setTimeout(() => setTestStatus("idle"), 3000)
+    }
   }
 
   return (
@@ -128,6 +151,26 @@ function ProviderSettingsForm({ value, onChange, fieldErrors }: ProviderSettings
           ) : null}
         </div>
       ) : null}
+
+      <div style={testRowStyle}>
+        <button
+          data-testid="provider-test-button"
+          disabled={!canTest || testStatus === "testing"}
+          onClick={() => void handleTestConnection()}
+          style={testButtonStyle}
+          type="button"
+        >
+          {testStatus === "testing" ? "Testing..." : "Test connection"}
+        </button>
+        {testStatus !== "idle" && testStatus !== "testing" ? (
+          <span
+            data-testid="connection-test-result"
+            style={testStatus === "ok" ? testSuccessStyle : testErrorStyle}
+          >
+            {testStatus === "ok" ? "✓ Connected" : testStatus}
+          </span>
+        ) : null}
+      </div>
     </section>
   )
 }
@@ -213,6 +256,33 @@ const inputStyle: React.CSSProperties = {
 
 const errorStyle: React.CSSProperties = {
   margin: 0,
+  fontSize: "0.8125rem",
+  color: colors.textDanger
+}
+
+const testRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.sm
+}
+
+const testButtonStyle: React.CSSProperties = {
+  padding: `${spacing.sm} ${spacing.md}`,
+  border: `1px solid ${colors.border}`,
+  borderRadius: radius.medium,
+  backgroundColor: colors.surface,
+  color: colors.textSecondary,
+  fontSize: "0.875rem",
+  fontWeight: 500,
+  cursor: "pointer"
+}
+
+const testSuccessStyle: React.CSSProperties = {
+  fontSize: "0.8125rem",
+  color: colors.textSuccess
+}
+
+const testErrorStyle: React.CSSProperties = {
   fontSize: "0.8125rem",
   color: colors.textDanger
 }

@@ -6,6 +6,8 @@ import { buildProviderFormState } from "./features/settings/provider-form-state"
 import { validateSettingsForm } from "./features/settings/settings-validation"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
+import { createProvider } from "./lib/providers/provider-factory"
+import type { ProviderConfig } from "./types/settings"
 import { colors, controls, GLOBAL_FOCUS_STYLES, radius, shadow, spacing } from "./ui/design-tokens"
 
 type OptionsProps = {
@@ -14,12 +16,20 @@ type OptionsProps = {
 
 type OptionsServices = {
   settingsRepository: SettingsRepository
+  testConnection: (config: ProviderConfig) => Promise<void>
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
 
 const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
-  settingsRepository: new ChromeSettingsRepository()
+  settingsRepository: new ChromeSettingsRepository(),
+  testConnection: async (config: ProviderConfig) => {
+    await createProvider(config).analyze({
+      title: "test",
+      url: "https://test",
+      content: "Say OK"
+    })
+  }
 }
 
 function Options({ services }: OptionsProps) {
@@ -31,6 +41,16 @@ function Options({ services }: OptionsProps) {
   const [hasLoadError, setHasLoadError] = React.useState(false)
   const isSavingRef = React.useRef(false)
   const validation = React.useMemo(() => validateSettingsForm(appSettings, providers), [appSettings, providers])
+
+  function buildProviderConfig(formState: typeof providers[0]): ProviderConfig {
+    return {
+      provider: formState.provider,
+      apiKey: formState.apiKey,
+      model: formState.model,
+      baseUrl: formState.baseUrl,
+      enabled: formState.enabled
+    }
+  }
 
   const handleSave = React.useCallback(async () => {
     if (isLoading || hasLoadError || isSavingRef.current || validation.hasErrors) {
@@ -167,6 +187,14 @@ function Options({ services }: OptionsProps) {
                   )
                 }}
                 fieldErrors={validation.providers[provider.provider]}
+                onTestConnection={async (formValue) => {
+                  try {
+                    await optionsServices.testConnection(buildProviderConfig(formValue))
+                    return "ok"
+                  } catch (error) {
+                    return error instanceof Error ? error.message : "Connection failed"
+                  }
+                }}
                 value={provider}
               />
             </div>

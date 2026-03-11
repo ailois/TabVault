@@ -51,7 +51,7 @@ describe("Options load state", () => {
     await renderOptions(settingsRepository)
 
     expect(getSelect("default-provider")?.value).toBe("claude")
-    expect(getSectionByHeading("App settings")?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true)
+    expect(getSectionByHeading("App Settings")?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true)
 
     expect(getInput("openai-api-key")?.value).toBe("openai-key")
     expect(getInput("openai-model")?.value).toBe("gpt-4.1-mini")
@@ -77,7 +77,7 @@ async function renderOptions(settingsRepository: SettingsRepository): Promise<vo
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<Options services={{ settingsRepository }} />)
+    root.render(<Options services={{ settingsRepository, testConnection: async () => {} }} />)
   })
 }
 

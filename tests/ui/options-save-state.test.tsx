@@ -118,6 +118,17 @@ describe("Options save state", () => {
     expect(getSaveButton()?.disabled).toBe(false)
   })
 
+  it("renders save controls inside a dedicated bottom action area", async () => {
+    await renderOptions(createSettingsRepository())
+
+    const actionArea = getSaveActionArea()
+
+    expect(actionArea).toBeDefined()
+    expect(actionArea?.textContent).toContain("Save settings")
+    expect(actionArea?.querySelector("button")?.textContent).toBe("Save settings")
+    expect(actionArea?.querySelector('[data-testid="save-status"]')?.textContent).toBe("Status: Not saved yet")
+  })
+
   it("shows Failed to save settings when persisting throws", async () => {
     const settingsRepository: SettingsRepository = {
       getAppSettings: async () => ({
@@ -145,7 +156,7 @@ describe("Options save state", () => {
     await changeSelectValue("default-provider", "claude")
 
     expect(getSaveButton()?.disabled).toBe(true)
-    expect(getAppSettingsSection()?.textContent).toContain("Default provider must be enabled")
+    expect(getAppSettingsValidationAlert()?.textContent).toBe("Default provider must be enabled")
   })
 
   it("disables save when an enabled provider is missing required fields", async () => {
@@ -155,10 +166,17 @@ describe("Options save state", () => {
     await changeInputValue("openai-model", "")
     await changeInputValue("openai-base-url", "")
 
+    const providerAlerts = getSectionAlerts("OpenAI-compatible")
+
     expect(getSaveButton()?.disabled).toBe(true)
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("API key is required")
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("Model is required")
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("Base URL is required")
+    expect(providerAlerts.map((alert) => alert.textContent)).toEqual([
+      "API key is required",
+      "Model is required",
+      "Base URL is required"
+    ])
+    expect(getInput("openai-api-key")?.getAttribute("aria-invalid")).toBe("true")
+    expect(getInput("openai-model")?.getAttribute("aria-invalid")).toBe("true")
+    expect(getInput("openai-base-url")?.getAttribute("aria-invalid")).toBe("true")
   })
 
   it("does not persist invalid settings when save is clicked", async () => {
@@ -304,7 +322,7 @@ async function renderOptions(settingsRepository: SettingsRepository): Promise<vo
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<Options services={{ settingsRepository }} />)
+    root.render(<Options services={{ settingsRepository, testConnection: async () => {} }} />)
   })
 }
 
@@ -379,11 +397,15 @@ function setElementValue(element: HTMLInputElement, value: string): void {
 }
 
 function getAppSettingsCheckbox(): HTMLInputElement | null | undefined {
-  return getSectionByHeading("App settings")?.querySelector<HTMLInputElement>('input[type="checkbox"]')
+  return getSectionByHeading("App Settings")?.querySelector<HTMLInputElement>('input[type="checkbox"]')
 }
 
 function getAppSettingsSection(): HTMLElement | undefined {
-  return getSectionByHeading("App settings")
+  return getSectionByHeading("App Settings")
+}
+
+function getAppSettingsValidationAlert(): HTMLElement | undefined {
+  return getAppSettingsSection()?.querySelector<HTMLElement>('[role="alert"]') ?? undefined
 }
 
 function getSectionCheckbox(heading: string): HTMLInputElement | null | undefined {
@@ -398,8 +420,16 @@ function getSectionByHeading(heading: string): HTMLElement | undefined {
   })
 }
 
+function getSectionAlerts(heading: string): HTMLElement[] {
+  return Array.from(getSectionByHeading(heading)?.querySelectorAll<HTMLElement>('[role="alert"]') ?? [])
+}
+
 function getSaveStatusText(): string | undefined {
   return container?.querySelector<HTMLElement>('[data-testid="save-status"]')?.textContent ?? undefined
+}
+
+function getSaveActionArea(): HTMLElement | undefined {
+  return container?.querySelector<HTMLElement>('[data-testid="settings-save-actions"]') ?? undefined
 }
 
 function getSaveButton(): HTMLButtonElement | undefined {
