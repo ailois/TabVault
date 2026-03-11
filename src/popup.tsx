@@ -63,10 +63,15 @@ function Popup({ services }: PopupProps) {
   const [isLoadingBookmarks, setIsLoadingBookmarks] = useState(true)
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
 
   const filteredBookmarks = useMemo(
     () => searchBookmarks(bookmarks, searchQuery),
     [bookmarks, searchQuery]
+  )
+
+  const hasPendingBookmarks = bookmarks.some(
+    (b) => b.status === "saved" || b.status === "error"
   )
 
   useEffect(() => {
@@ -135,6 +140,52 @@ function Popup({ services }: PopupProps) {
       // Error is written to bookmark record by analyzeBookmark; reload to show updated status
       await loadBookmarks()
     }
+  }
+
+  async function handleAnalyzeAll(): Promise<void> {
+    const pending = bookmarks.filter(
+      (b) => b.status === "saved" || b.status === "error"
+    )
+
+    if (pending.length === 0) {
+      return
+    }
+
+    const settings = await popupServices.settingsRepository.getAppSettings()
+    const providers = await popupServices.settingsRepository.getProviders()
+    const selectedProvider = providers.find(
+      (provider) => provider.enabled && provider.provider === settings.defaultProvider
+    )
+
+    if (!selectedProvider?.apiKey.trim()) {
+      setErrorMessage("Add an API key in Settings to enable analysis.")
+      return
+    }
+
+    setErrorMessage(null)
+
+    for (let i = 0; i < pending.length; i++) {
+      const bookmark = pending[i]!
+      setAnalyzeProgress({ current: i + 1, total: pending.length })
+      setStatusMessage(`Analyzing ${i + 1}/${pending.length}...`)
+      setStatusTone("info")
+
+      try {
+        await popupServices.analyzeBookmark({
+          bookmark,
+          provider: popupServices.createProvider(selectedProvider),
+          bookmarkRepository: popupServices.bookmarkRepository
+        })
+      } catch {
+        // Error written to bookmark record; continue with next
+      }
+
+      await loadBookmarks()
+    }
+
+    setAnalyzeProgress(null)
+    setStatusMessage("Ready to save the current page.")
+    setStatusTone("info")
   }
 
   async function handleSaveCurrentPage(): Promise<void> {
@@ -229,6 +280,16 @@ function Popup({ services }: PopupProps) {
               style={secondaryActionButtonStyle}
               type="button">
               {isLoadingBookmarks ? "Loading bookmarks..." : "Reload bookmarks"}
+            </button>
+            <button
+              data-testid="popup-analyze-all-action"
+              disabled={!hasPendingBookmarks || isSaving || analyzeProgress !== null}
+              onClick={() => void handleAnalyzeAll()}
+              style={secondaryActionButtonStyle}
+              type="button">
+              {analyzeProgress
+                ? `Analyzing ${analyzeProgress.current}/${analyzeProgress.total}...`
+                : "Analyze all"}
             </button>
         </section>
         <section aria-labelledby="popup-feedback-title" style={feedbackSectionStyle}>

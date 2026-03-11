@@ -377,6 +377,57 @@ describe("Popup state", () => {
 
     expect(screen().getErrorAlert()?.textContent).toContain("Add an API key in Settings")
   })
+
+  it("shows Analyze all button in the actions section", async () => {
+    await renderPopup(createServices())
+    expect(screen().getActionsSection()?.textContent).toContain("Analyze all")
+  })
+
+  it("disables Analyze all when no bookmarks are pending analysis", async () => {
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [createBookmark({ status: "done" })])
+      })
+    })
+    await renderPopup(services)
+
+    const analyzeAllBtn = screen().getButton("Analyze all")
+    expect(analyzeAllBtn?.hasAttribute("disabled")).toBe(true)
+  })
+
+  it("calls analyzeBookmark for each pending bookmark when Analyze all is clicked", async () => {
+    const b1 = createBookmark({ id: "bm-1", status: "saved" })
+    const b2 = createBookmark({ id: "bm-2", status: "error" })
+    const b3 = createBookmark({ id: "bm-3", status: "done" })
+    const analyzeBookmark = vi.fn(async () => b1)
+    const providerConfig: ProviderConfig = {
+      provider: "openai",
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      enabled: true
+    }
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [b1, b2, b3])
+      }),
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false
+        })),
+        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
+      }),
+      analyzeBookmark
+    })
+
+    await renderPopup(services)
+    await clickButton("Analyze all")
+
+    expect(analyzeBookmark).toHaveBeenCalledTimes(2)
+    expect(analyzeBookmark.mock.calls[0]?.[0]?.bookmark.id).toBe("bm-1")
+    expect(analyzeBookmark.mock.calls[1]?.[0]?.bookmark.id).toBe("bm-2")
+  })
 })
 
 let container: HTMLDivElement | null = null
