@@ -106,6 +106,37 @@ function Popup({ services }: PopupProps) {
     }
   }
 
+  async function handleAnalyzeBookmark(id: string): Promise<void> {
+    const settings = await popupServices.settingsRepository.getAppSettings()
+    const providers = await popupServices.settingsRepository.getProviders()
+    const selectedProvider = providers.find(
+      (provider) => provider.enabled && provider.provider === settings.defaultProvider
+    )
+
+    if (!selectedProvider?.apiKey.trim()) {
+      setErrorMessage("Add an API key in Settings to enable analysis.")
+      return
+    }
+
+    const bookmark = bookmarks.find((b) => b.id === id)
+
+    if (!bookmark) {
+      return
+    }
+
+    try {
+      await popupServices.analyzeBookmark({
+        bookmark,
+        provider: popupServices.createProvider(selectedProvider),
+        bookmarkRepository: popupServices.bookmarkRepository
+      })
+      await loadBookmarks()
+    } catch {
+      // Error is written to bookmark record by analyzeBookmark; reload to show updated status
+      await loadBookmarks()
+    }
+  }
+
   async function handleSaveCurrentPage(): Promise<void> {
     setIsSaving(true)
     setIsAnalyzing(false)
@@ -223,7 +254,7 @@ function Popup({ services }: PopupProps) {
             />
           </div>
           <p>{filteredBookmarks.length} bookmark(s)</p>
-          <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDeleteBookmark} />
+          <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDeleteBookmark} onAnalyze={handleAnalyzeBookmark} />
         </section>
       </div>
     </main>

@@ -311,6 +311,72 @@ describe("Popup state", () => {
 
     expect(deleteBookmark).toHaveBeenCalledWith("bm-to-delete")
   })
+
+  it("analyzes a bookmark when the Analyze button is clicked on a card", async () => {
+    const bookmark = createBookmark({ id: "bm-to-analyze", title: "Page to analyze", status: "saved" })
+    const analyzeBookmark = vi.fn(async () => bookmark)
+    const providerConfig: ProviderConfig = {
+      provider: "openai",
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      enabled: true
+    }
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [bookmark])
+      }),
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false
+        })),
+        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
+      }),
+      analyzeBookmark
+    })
+
+    await renderPopup(services)
+
+    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
+
+    await act(async () => {
+      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    await flush()
+
+    expect(analyzeBookmark).toHaveBeenCalledOnce()
+    expect(analyzeBookmark.mock.calls[0]?.[0]?.bookmark.id).toBe("bm-to-analyze")
+  })
+
+  it("shows error banner when Analyze is clicked but no provider is configured", async () => {
+    const bookmark = createBookmark({ id: "bm-1", status: "saved" })
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [bookmark])
+      }),
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false
+        })),
+        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [])
+      })
+    })
+
+    await renderPopup(services)
+
+    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
+
+    await act(async () => {
+      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    await flush()
+
+    expect(screen().getErrorAlert()?.textContent).toContain("Add an API key in Settings")
+  })
 })
 
 let container: HTMLDivElement | null = null
