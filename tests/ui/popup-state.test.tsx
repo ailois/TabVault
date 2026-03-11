@@ -414,6 +414,7 @@ function createBookmarkRepository(overrides: Partial<BookmarkRepository> = {}): 
     list: vi.fn(async () => []),
     getById: vi.fn(async () => null),
     update: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
     ...overrides
   }
 }

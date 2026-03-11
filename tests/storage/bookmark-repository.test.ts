@@ -20,6 +20,10 @@ class InMemoryBookmarkStorage implements BookmarkStorage {
       right.createdAt.localeCompare(left.createdAt)
     )
   }
+
+  async delete(id: string): Promise<void> {
+    this.records.delete(id)
+  }
 }
 
 describe("IndexedDbBookmarkRepository", () => {
@@ -81,6 +85,16 @@ describe("IndexedDbBookmarkRepository", () => {
 
     await expect(repository.getById(bookmark.id)).resolves.toEqual(updatedBookmark)
     await expect(repository.list()).resolves.toEqual([updatedBookmark])
+  })
+
+  it("deletes a saved bookmark by id", async () => {
+    const bookmark = createBookmark({ id: "bookmark-1" })
+
+    await repository.save(bookmark)
+    await repository.delete("bookmark-1")
+
+    await expect(repository.list()).resolves.toEqual([])
+    await expect(repository.getById("bookmark-1")).resolves.toBeNull()
   })
 })
 

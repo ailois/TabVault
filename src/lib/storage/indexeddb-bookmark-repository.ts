@@ -23,4 +23,8 @@ export class IndexedDbBookmarkRepository implements BookmarkRepository {
   async update(bookmark: BookmarkRecord): Promise<void> {
     await this.storage.put(bookmark)
   }
+
+  async delete(id: string): Promise<void> {
+    await this.storage.delete(id)
+  }
 }

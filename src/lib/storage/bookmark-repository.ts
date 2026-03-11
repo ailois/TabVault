@@ -5,4 +5,5 @@ export interface BookmarkRepository {
   list(): Promise<BookmarkRecord[]>
   getById(id: string): Promise<BookmarkRecord | null>
   update(bookmark: BookmarkRecord): Promise<void>
+  delete(id: string): Promise<void>
 }

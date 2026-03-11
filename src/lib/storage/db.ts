@@ -8,6 +8,7 @@ export interface BookmarkStorage {
   put(bookmark: BookmarkRecord): Promise<void>
   get(id: string): Promise<BookmarkRecord | null>
   getAll(): Promise<BookmarkRecord[]>
+  delete(id: string): Promise<void>
 }
 
 export class IndexedDbBookmarkStorage implements BookmarkStorage {
@@ -38,6 +39,16 @@ export class IndexedDbBookmarkStorage implements BookmarkStorage {
     const store = transaction.objectStore(BOOKMARK_STORE_NAME)
 
     return runRequest<BookmarkRecord[]>(store.getAll())
+  }
+
+  async delete(id: string): Promise<void> {
+    const database = await this.databaseFactory()
+    const transaction = database.transaction(BOOKMARK_STORE_NAME, "readwrite")
+    const store = transaction.objectStore(BOOKMARK_STORE_NAME)
+
+    store.delete(id)
+
+    await waitForTransaction(transaction)
   }
 }
 
