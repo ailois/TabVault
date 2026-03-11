@@ -258,15 +258,12 @@ const pageDescriptionStyle: React.CSSProperties = {
 
 const pageSectionsStyle: React.CSSProperties = {
   display: "grid",
-  gap: spacing.sm
+  gap: spacing.lg
 }
 
 const sectionCardStyle: React.CSSProperties = {
-  padding: spacing.lg,
-  border: `1px solid ${colors.border}`,
-  borderRadius: radius.large,
-  backgroundColor: colors.surface,
-  boxShadow: shadow.soft
+  padding: `0 0 ${spacing.lg} 0`,
+  borderBottom: `1px solid ${colors.borderMuted}`
 }
 
 const sectionHeadingStyle: React.CSSProperties = {
@@ -292,12 +289,12 @@ const selectStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: `${spacing.sm} ${spacing.md}`,
-  border: `1px solid ${controls.input.border}`,
-  borderRadius: radius.small,
+  border: "none",
+  borderRadius: radius.medium,
   backgroundColor: controls.input.background,
   color: colors.textPrimary,
   fontSize: "0.875rem",
-  transition: "border-color 0.15s ease, box-shadow 0.15s ease"
+  transition: "background-color 0.15s ease"
 }
 
 const appErrorStyle: React.CSSProperties = {
@@ -307,10 +304,9 @@ const appErrorStyle: React.CSSProperties = {
 }
 
 const enabledRowContainerStyle: React.CSSProperties = {
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: `1px solid ${colors.borderMuted}`,
-  borderRadius: radius.medium,
-  backgroundColor: colors.surfaceMuted
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between"
 }
 
 const enabledRowLabelStyle: React.CSSProperties = {
@@ -337,10 +333,9 @@ const saveActionsSectionStyle: React.CSSProperties = {
   justifyContent: "space-between",
   gap: spacing.md,
   padding: `${spacing.md} ${spacing.lg}`,
-  borderTop: `1px solid ${colors.border}`,
-  borderRadius: radius.large,
-  backgroundColor: colors.surface,
-  boxShadow: "0 -2px 8px rgba(0,0,0,0.04)"
+  borderTop: `1px solid ${colors.borderMuted}`,
+  backgroundColor: colors.page,
+  boxShadow: shadow.soft
 }
 
 const saveActionsCopyStyle: React.CSSProperties = {
