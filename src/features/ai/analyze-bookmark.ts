@@ -6,8 +6,9 @@ export async function analyzeBookmark(input: {
   bookmark: BookmarkRecord
   provider: AiProvider
   bookmarkRepository: BookmarkRepository
+  contentOverride?: string
 }): Promise<BookmarkRecord> {
-  const content = normalizeContent(input.bookmark)
+  const content = input.contentOverride ? input.contentOverride : normalizeContent(input.bookmark)
   const analyzingBookmark: BookmarkRecord = {
     ...input.bookmark,
     status: "analyzing",
