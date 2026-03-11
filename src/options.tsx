@@ -391,7 +391,7 @@ function getSaveStatusMessage(saveStatus: SaveStatus, isLoading: boolean, hasLoa
     case "error":
       return "Failed to save settings"
     default:
-      return "Status: Not saved yet"
+      return "Ready"
   }
 }
 

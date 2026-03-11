@@ -65,9 +65,10 @@ export class OpenAiCompatibleProvider implements AiProvider {
         body
       })
     } catch (error) {
+      const message = error instanceof Error ? error.message : "OpenAI-compatible request failed"
       throw normalizeProviderError(error, {
         code: "network_error",
-        message: "OpenAI-compatible request failed"
+        message
       })
     } finally {
       clearTimeout(timeoutId)

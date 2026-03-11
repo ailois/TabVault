@@ -126,7 +126,7 @@ describe("Options save state", () => {
     expect(actionArea).toBeDefined()
     expect(actionArea?.textContent).toContain("Save settings")
     expect(actionArea?.querySelector("button")?.textContent).toBe("Save settings")
-    expect(actionArea?.querySelector('[data-testid="save-status"]')?.textContent).toBe("Status: Not saved yet")
+    expect(actionArea?.querySelector('[data-testid="save-status"]')?.textContent).toBe("Ready")
   })
 
   it("shows Failed to save settings when persisting throws", async () => {
@@ -196,7 +196,7 @@ describe("Options save state", () => {
     expect(getSaveButton()?.disabled).toBe(true)
     expect(saveAppSettings).not.toHaveBeenCalled()
     expect(saveProviders).not.toHaveBeenCalled()
-    expect(getSaveStatusText()).toBe("Status: Not saved yet")
+    expect(getSaveStatusText()).toBe("Ready")
   })
 
   it("disables save when enabled OpenAI has an invalid base URL", async () => {
