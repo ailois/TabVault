@@ -37,6 +37,7 @@ export function BookmarkList({ bookmarks, onDelete, onAnalyze }: BookmarkListPro
 
 function BookmarkCard({ bookmark, onDelete, onAnalyze }: BookmarkCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [hovered, setHovered] = useState(false)
 
   const showAnalyzeButton = bookmark.status === "saved" || bookmark.status === "error"
 
@@ -49,7 +50,12 @@ function BookmarkCard({ bookmark, onDelete, onAnalyze }: BookmarkCardProps) {
   }
 
   return (
-    <article data-bookmark-card="true" style={cardStyle}>
+    <article
+      data-bookmark-card="true"
+      style={{ ...cardStyle, backgroundColor: hovered ? colors.surfaceHover : colors.surface }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div style={cardHeaderStyle}>
         <div style={cardHeaderLeftStyle}>
           {bookmark.status === "analyzing" ? (
@@ -152,8 +158,6 @@ function getBookmarkHost(url: string): string {
 }
 
 const listStyle: React.CSSProperties = {
-  display: "grid",
-  gap: spacing.sm,
   listStyle: "none",
   margin: 0,
   padding: 0
@@ -161,12 +165,12 @@ const listStyle: React.CSSProperties = {
 
 const cardStyle: React.CSSProperties = {
   backgroundColor: colors.surface,
-  border: `1px solid ${colors.border}`,
-  borderRadius: radius.large,
-  boxShadow: shadow.soft,
-  padding: spacing.md,
+  borderBottom: `1px solid ${colors.borderMuted}`,
+  padding: `${spacing.md} ${spacing.sm}`,
   display: "grid",
-  gap: spacing.xs
+  gap: spacing.xs,
+  cursor: "pointer",
+  transition: "background-color 0.15s ease"
 }
 
 const cardHeaderStyle: React.CSSProperties = {
@@ -205,13 +209,14 @@ const errorBadgeStyle: React.CSSProperties = {
 
 const analyzeButtonStyle: React.CSSProperties = {
   background: "none",
-  border: `1px solid ${colors.border}`,
-  borderRadius: radius.pill,
+  border: "none",
+  borderRadius: radius.small,
   cursor: "pointer",
-  color: colors.textSecondary,
+  color: colors.textMuted,
   fontSize: "0.75rem",
   fontWeight: 500,
-  padding: "2px 8px"
+  padding: "2px 6px",
+  transition: "color 0.1s ease"
 }
 
 const deleteButtonStyle: React.CSSProperties = {
@@ -282,11 +287,10 @@ const tagListStyle: React.CSSProperties = {
 
 const tagStyle: React.CSSProperties = {
   backgroundColor: colors.surfaceMuted,
-  border: `1px solid ${colors.borderMuted}`,
   borderRadius: radius.pill,
   color: colors.textSecondary,
-  fontSize: "0.75rem",
-  fontWeight: 600,
+  fontSize: typography.tag.size,
+  fontWeight: typography.tag.weight,
   padding: "2px 8px"
 }
 
