@@ -63,8 +63,7 @@ export const controls = {
     foreground: "#0f172a"
   },
   input: {
-    background: "#f8fafc",
-    border: "#e2e8f0"
+    background: colors.surfaceHover
   },
   focusOutline: "#2563eb"
 } as const
