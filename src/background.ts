@@ -7,7 +7,13 @@ import { createProvider } from "./lib/providers/provider-factory"
 const repo = new IndexedDbBookmarkRepository()
 const settingsRepo = new ChromeSettingsRepository()
 
+let analysisRunning = false
+let analysisCurrent = 0
+let analysisTotal = 0
+
 async function processAnalysisQueue() {
+  if (analysisRunning) return // Prevent concurrent runs
+
   const bookmarks = await repo.list()
   const pending = bookmarks.filter(b => b.status === "saved" || b.status === "error")
 
@@ -21,35 +27,41 @@ async function processAnalysisQueue() {
 
   const provider = createProvider(selectedProvider)
 
+  analysisRunning = true
+  analysisTotal = pending.length
+  analysisCurrent = 0
+
   for (let i = 0; i < pending.length; i++) {
     const bookmark = pending[i]!
+    analysisCurrent = i + 1
 
     // Notify frontend
     chrome.runtime.sendMessage({
       type: "ANALYSIS_PROGRESS",
-      current: i + 1,
-      total: pending.length,
+      current: analysisCurrent,
+      total: analysisTotal,
       bookmarkId: bookmark.id
-    }).catch(() => {}) // Ignore if Side Panel is closed
+    }).catch(() => {}) // Ignore if no listener
 
     try {
-      // 1. Fetch raw HTML content
       const response = await fetch(bookmark.url)
       const html = await response.text()
-      // Extremely basic content extraction for background: just strip tags
       const textContent = html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').slice(0, 10000)
 
-      // 2. Analyze
       await analyzeBookmark({
         bookmark,
         provider,
         bookmarkRepository: repo,
-        contentOverride: textContent // We need to update analyzeBookmark to accept an override or pass it here
+        contentOverride: textContent
       })
     } catch {
       // Errors are handled by analyzeBookmark internally
     }
   }
+
+  analysisRunning = false
+  analysisCurrent = 0
+  analysisTotal = 0
 
   chrome.runtime.sendMessage({ type: "ANALYSIS_COMPLETE" }).catch(() => {})
 }
@@ -75,5 +87,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .then(() => sendResponse({ success: true }))
       .catch(err => sendResponse({ success: false, error: String(err) }))
     return true
+  }
+
+  if (message.type === "GET_ANALYSIS_STATUS") {
+    sendResponse({ running: analysisRunning, current: analysisCurrent, total: analysisTotal })
+    return false
   }
 })
