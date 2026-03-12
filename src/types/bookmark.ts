@@ -1,5 +1,6 @@
 export type BookmarkRecord = {
   id: string
+  parentId?: string
   url: string
   title: string
   selectedText?: string
