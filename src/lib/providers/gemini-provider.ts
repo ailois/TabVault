@@ -1,4 +1,5 @@
 import { normalizeProviderError } from "./provider-errors"
+import { buildLanguageInstruction } from "./language-instruction"
 import { parseAnalyzeResult } from "./provider-output"
 import type { AiProvider, AnalyzeInput, AnalyzeResult } from "./provider"
 
@@ -102,7 +103,8 @@ const DEFAULT_TIMEOUT_MS = 30_000
 
 function buildPrompt(input: AnalyzeInput): string {
   return (
-    'Analyze this bookmark and return strict JSON with shape {"summary":"string","tags":["string"]}. ' +
+    'Analyze this bookmark and return strict JSON with shape {"summary":"string","tags":["string"]}.' +
+    buildLanguageInstruction(input.summaryLanguage) + "\n" +
     `Bookmark title: ${input.title}\n` +
     `Bookmark URL: ${input.url}\n` +
     `Bookmark content: ${input.content}`
