@@ -131,6 +131,30 @@ describe("SidePanel", () => {
     expect(container?.textContent).toContain("React Docs")
     // expect(container?.textContent).not.toContain("Vitest Guide") // This might fail if search isn't triggered correctly in this test setup
   })
+
+  it("renders bookmark list in compact mode with no summary or tags visible", async () => {
+    const b1 = createBookmark({
+      id: "1",
+      title: "My Article",
+      status: "done",
+      summary: "A long summary text",
+      tags: ["research"]
+    })
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [b1])
+      })
+    })
+
+    await renderSidePanel(services)
+
+    // Summary should NOT appear in compact mode
+    expect(container?.textContent).not.toContain("A long summary text")
+    // Tags should NOT appear in compact mode
+    expect(container?.textContent).not.toContain("research")
+    // Title should appear
+    expect(container?.textContent).toContain("My Article")
+  })
 })
 
 function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {

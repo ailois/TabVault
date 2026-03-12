@@ -7,15 +7,17 @@ type BookmarkListProps = {
   bookmarks: BookmarkRecord[]
   onDelete: (id: string) => Promise<void>
   onAnalyze: (id: string) => Promise<void>
+  compact?: boolean
 }
 
 type BookmarkCardProps = {
   bookmark: BookmarkRecord
   onDelete: (id: string) => Promise<void>
   onAnalyze: (id: string) => Promise<void>
+  compact?: boolean
 }
 
-export function BookmarkList({ bookmarks, onDelete, onAnalyze }: BookmarkListProps) {
+export function BookmarkList({ bookmarks, onDelete, onAnalyze, compact = false }: BookmarkListProps) {
   if (bookmarks.length === 0) {
     return (
       <section aria-label="Bookmark results">
@@ -28,14 +30,14 @@ export function BookmarkList({ bookmarks, onDelete, onAnalyze }: BookmarkListPro
     <ul aria-label="Bookmark results" style={listStyle}>
       {bookmarks.map((bookmark) => (
         <li key={bookmark.id}>
-          <BookmarkCard bookmark={bookmark} onDelete={onDelete} onAnalyze={onAnalyze} />
+          <BookmarkCard bookmark={bookmark} onDelete={onDelete} onAnalyze={onAnalyze} compact={compact} />
         </li>
       ))}
     </ul>
   )
 }
 
-function BookmarkCard({ bookmark, onDelete, onAnalyze }: BookmarkCardProps) {
+function BookmarkCard({ bookmark, onDelete, onAnalyze, compact = false }: BookmarkCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [hovered, setHovered] = useState(false)
 
@@ -47,6 +49,57 @@ function BookmarkCard({ bookmark, onDelete, onAnalyze }: BookmarkCardProps) {
     }
 
     await onDelete(bookmark.id)
+  }
+
+  if (compact) {
+    return (
+      <article
+        data-bookmark-card="true"
+        style={{ ...compactCardStyle, backgroundColor: hovered ? colors.surfaceHover : colors.surface }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <div style={compactMainRowStyle}>
+          <div style={compactStatusDotContainerStyle}>
+            {bookmark.status === "analyzing" && <span style={dotAmberStyle} title="Analyzing" />}
+            {bookmark.status === "error" && <span style={dotRedStyle} title="Error" />}
+            {bookmark.status === "done" && <span style={dotGreenStyle} title="Done" />}
+          </div>
+          <a
+            href={bookmark.url}
+            rel="noreferrer"
+            style={compactTitleLinkStyle}
+            target="_blank"
+            title={bookmark.title}
+          >
+            {bookmark.title}
+          </a>
+          <span style={compactMetaStyle}>{getBookmarkHost(bookmark.url)}</span>
+          <div style={{ ...compactActionsStyle, opacity: hovered ? 1 : 0 }}>
+            {showAnalyzeButton && (
+              <button
+                aria-label={`Analyze ${bookmark.title}`}
+                data-testid="bookmark-analyze-button"
+                onClick={() => void onAnalyze(bookmark.id)}
+                style={compactActionButtonStyle}
+                type="button"
+              >
+                Analyze
+              </button>
+            )}
+            <button
+              aria-label={`Delete ${bookmark.title}`}
+              data-testid="bookmark-delete-button"
+              onClick={() => void handleDelete()}
+              style={compactActionButtonStyle}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      </article>
+    )
   }
 
   return (
@@ -298,4 +351,87 @@ const errorMessageStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "0.8125rem",
   color: colors.textDanger
+}
+
+const compactCardStyle: React.CSSProperties = {
+  backgroundColor: colors.surface,
+  borderBottom: `1px solid ${colors.borderMuted}`,
+  padding: `6px ${spacing.sm}`,
+  display: "flex",
+  alignItems: "center"
+}
+
+const compactMainRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.xs,
+  width: "100%",
+  overflow: "hidden"
+}
+
+const compactStatusDotContainerStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: "8px",
+  display: "flex",
+  alignItems: "center"
+}
+
+const dotAmberStyle: React.CSSProperties = {
+  display: "inline-block",
+  width: "6px",
+  height: "6px",
+  borderRadius: "50%",
+  backgroundColor: "#f59e0b"
+}
+
+const dotRedStyle: React.CSSProperties = {
+  display: "inline-block",
+  width: "6px",
+  height: "6px",
+  borderRadius: "50%",
+  backgroundColor: colors.textDanger
+}
+
+const dotGreenStyle: React.CSSProperties = {
+  display: "inline-block",
+  width: "6px",
+  height: "6px",
+  borderRadius: "50%",
+  backgroundColor: "#22c55e"
+}
+
+const compactTitleLinkStyle: React.CSSProperties = {
+  color: colors.textPrimary,
+  textDecoration: "none",
+  fontSize: "0.875rem",
+  fontWeight: 500,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  flex: 1,
+  minWidth: 0
+}
+
+const compactMetaStyle: React.CSSProperties = {
+  color: colors.textMuted,
+  fontSize: "0.75rem",
+  flexShrink: 0,
+  whiteSpace: "nowrap"
+}
+
+const compactActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "2px",
+  flexShrink: 0,
+  transition: "opacity 0.15s ease"
+}
+
+const compactActionButtonStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  color: colors.textMuted,
+  fontSize: "0.75rem",
+  padding: "2px 4px",
+  borderRadius: radius.small
 }

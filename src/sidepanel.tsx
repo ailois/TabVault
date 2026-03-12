@@ -220,6 +220,7 @@ export default function SidePanel({ services }: SidePanelProps) {
           ) : (
             <BookmarkList
               bookmarks={filteredBookmarks}
+              compact={true}
               onDelete={handleDeleteBookmark}
               onAnalyze={handleAnalyzeBookmark}
             />
