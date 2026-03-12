@@ -52,7 +52,8 @@ async function processAnalysisQueue() {
         bookmark,
         provider,
         bookmarkRepository: repo,
-        contentOverride: textContent
+        contentOverride: textContent,
+        summaryLanguage: settings.summaryLanguage
       })
     } catch {
       // Errors are handled by analyzeBookmark internally

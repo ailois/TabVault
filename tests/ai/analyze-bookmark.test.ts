@@ -64,7 +64,8 @@ describe("analyzeBookmark", () => {
     expect(provider.analyze).toHaveBeenCalledWith({
       title: bookmark.title,
       url: bookmark.url,
-      content: "Example content for analysis."
+      content: "Example content for analysis.",
+      summaryLanguage: undefined
     })
     expect(secondUpdate).toMatchObject({
       id: bookmark.id,
@@ -74,6 +75,25 @@ describe("analyzeBookmark", () => {
     })
     expect(result).toEqual(secondUpdate)
   })
+  it("forwards summaryLanguage to the provider analyze call", async () => {
+    const { analyzeBookmark } = await import("../../src/features/ai/analyze-bookmark")
+    const bookmarkRepository = createBookmarkRepository()
+    const provider = {
+      analyze: vi.fn(async () => ({ summary: "Summary", tags: ["tag"] }))
+    }
+    const bookmark = createBookmark()
+
+    await analyzeBookmark({
+      bookmark,
+      provider,
+      bookmarkRepository,
+      summaryLanguage: "zh"
+    })
+
+    expect(provider.analyze).toHaveBeenCalledWith(
+      expect.objectContaining({ summaryLanguage: "zh" })
+    )
+  })
 })
 
 function createBookmarkRepository(): BookmarkRepository {
@@ -81,7 +101,8 @@ function createBookmarkRepository(): BookmarkRepository {
     save: vi.fn(async () => undefined),
     list: vi.fn(async () => []),
     getById: vi.fn(async () => null),
-    update: vi.fn(async () => undefined)
+    update: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined)
   }
 }
 

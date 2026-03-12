@@ -1,12 +1,14 @@
 import type { AiProvider } from "../../lib/providers/provider"
 import type { BookmarkRepository } from "../../lib/storage/bookmark-repository"
 import type { BookmarkRecord } from "../../types/bookmark"
+import type { SummaryLanguage } from "../../types/settings"
 
 export async function analyzeBookmark(input: {
   bookmark: BookmarkRecord
   provider: AiProvider
   bookmarkRepository: BookmarkRepository
   contentOverride?: string
+  summaryLanguage?: SummaryLanguage
 }): Promise<BookmarkRecord> {
   const content = input.contentOverride ? input.contentOverride : normalizeContent(input.bookmark)
   const analyzingBookmark: BookmarkRecord = {
@@ -22,7 +24,8 @@ export async function analyzeBookmark(input: {
     const analysis = await input.provider.analyze({
       title: analyzingBookmark.title,
       url: analyzingBookmark.url,
-      content
+      content,
+      summaryLanguage: input.summaryLanguage
     })
     const analyzedBookmark: BookmarkRecord = {
       ...analyzingBookmark,
