@@ -40,10 +40,15 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [isLoadingBookmarks, setIsLoadingBookmarks] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
 
   const filteredBookmarks = useMemo(
     () => searchBookmarks(bookmarks, searchQuery),
     [bookmarks, searchQuery]
+  )
+
+  const hasPendingBookmarks = bookmarks.some(
+    (b) => b.status === "saved" || b.status === "error"
   )
 
   const browserName = useMemo(() => getBrowserName(), [])
@@ -66,10 +71,24 @@ export default function SidePanel({ services }: SidePanelProps) {
   useEffect(() => {
     const listener = (message: any) => {
       if (message.type === "IMPORT_COMPLETE" || message.type === "ANALYSIS_COMPLETE") {
+        setAnalyzeProgress(null)
         void loadBookmarks()
+      }
+      if (message.type === "ANALYSIS_PROGRESS") {
+        setAnalyzeProgress({ current: message.current, total: message.total })
       }
     }
     globalThis.chrome?.runtime?.onMessage.addListener(listener)
+
+    globalThis.chrome?.runtime?.sendMessage(
+      { type: "GET_ANALYSIS_STATUS" },
+      (response: any) => {
+        if (response?.running) {
+          setAnalyzeProgress({ current: response.current, total: response.total })
+        }
+      }
+    )
+
     return () => globalThis.chrome?.runtime?.onMessage.removeListener(listener)
   }, [])
 
@@ -121,6 +140,24 @@ export default function SidePanel({ services }: SidePanelProps) {
     }
   }
 
+  async function handleAnalyzeAll(): Promise<void> {
+    if (!hasPendingBookmarks) return
+
+    const settings = await sidePanelServices.settingsRepository.getAppSettings()
+    const providers = await sidePanelServices.settingsRepository.getProviders()
+    const selectedProvider = providers.find(
+      (provider) => provider.enabled && provider.provider === settings.defaultProvider
+    )
+
+    if (!selectedProvider?.apiKey.trim()) {
+      setErrorMessage("Add an API key in Settings to enable analysis.")
+      return
+    }
+
+    setErrorMessage(null)
+    globalThis.chrome?.runtime?.sendMessage({ type: "ANALYZE_ALL" }, () => {})
+  }
+
   async function handleImport() {
     setIsImporting(true)
     setStatus("Importing...")
@@ -156,6 +193,18 @@ export default function SidePanel({ services }: SidePanelProps) {
             type="search"
             value={searchQuery}
           />
+        </div>
+
+        <div style={actionsRowStyle}>
+          <button
+            disabled={!hasPendingBookmarks || analyzeProgress !== null}
+            onClick={() => void handleAnalyzeAll()}
+            style={secondaryActionButtonStyle}
+            type="button">
+            {analyzeProgress
+              ? `Analyzing ${analyzeProgress.current}/${analyzeProgress.total}...`
+              : "Analyze all"}
+          </button>
         </div>
 
         {errorMessage && <div style={errorContainerStyle}><ErrorBanner message={errorMessage} /></div>}
@@ -242,6 +291,23 @@ const searchInputStyle: React.CSSProperties = {
 
 const errorContainerStyle: React.CSSProperties = {
   padding: `0 ${spacing.lg}`
+}
+
+const actionsRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: spacing.sm,
+  padding: `0 ${spacing.lg} ${spacing.sm}`
+}
+
+const secondaryActionButtonStyle: React.CSSProperties = {
+  padding: "4px 10px",
+  border: "none",
+  borderRadius: radius.pill,
+  backgroundColor: controls.secondary.background,
+  color: colors.textMuted,
+  fontSize: "0.8125rem",
+  fontWeight: 500,
+  cursor: "pointer"
 }
 
 const librarySectionStyle: React.CSSProperties = {

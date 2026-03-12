@@ -142,14 +142,32 @@ function Popup({ services }: PopupProps) {
     }
   }
 
-  async function handleAnalyzeAll(): Promise<void> {
-    const pending = bookmarks.filter(
-      (b) => b.status === "saved" || b.status === "error"
+  useEffect(() => {
+    const listener = (message: any) => {
+      if (message.type === "ANALYSIS_PROGRESS") {
+        setAnalyzeProgress({ current: message.current, total: message.total })
+      }
+      if (message.type === "ANALYSIS_COMPLETE") {
+        setAnalyzeProgress(null)
+        void loadBookmarks()
+      }
+    }
+    globalThis.chrome?.runtime?.onMessage.addListener(listener)
+
+    globalThis.chrome?.runtime?.sendMessage(
+      { type: "GET_ANALYSIS_STATUS" },
+      (response: any) => {
+        if (response?.running) {
+          setAnalyzeProgress({ current: response.current, total: response.total })
+        }
+      }
     )
 
-    if (pending.length === 0) {
-      return
-    }
+    return () => globalThis.chrome?.runtime?.onMessage.removeListener(listener)
+  }, [])
+
+  async function handleAnalyzeAll(): Promise<void> {
+    if (!hasPendingBookmarks) return
 
     const settings = await popupServices.settingsRepository.getAppSettings()
     const providers = await popupServices.settingsRepository.getProviders()
@@ -163,29 +181,7 @@ function Popup({ services }: PopupProps) {
     }
 
     setErrorMessage(null)
-
-    for (let i = 0; i < pending.length; i++) {
-      const bookmark = pending[i]!
-      setAnalyzeProgress({ current: i + 1, total: pending.length })
-      setStatusMessage(`Analyzing ${i + 1}/${pending.length}...`)
-      setStatusTone("info")
-
-      try {
-        await popupServices.analyzeBookmark({
-          bookmark,
-          provider: popupServices.createProvider(selectedProvider),
-          bookmarkRepository: popupServices.bookmarkRepository
-        })
-      } catch {
-        // Error written to bookmark record; continue with next
-      }
-
-      await loadBookmarks()
-    }
-
-    setAnalyzeProgress(null)
-    setStatusMessage("Ready to save the current page.")
-    setStatusTone("info")
+    globalThis.chrome?.runtime?.sendMessage({ type: "ANALYZE_ALL" }, () => {})
   }
 
   async function handleSaveCurrentPage(): Promise<void> {
@@ -259,64 +255,68 @@ function Popup({ services }: PopupProps) {
   return (
     <main aria-labelledby="popup-title" style={pageStyle}>
       <div data-testid="popup-shell" style={shellStyle}>
-        <header style={{ marginBottom: spacing.xs }}>
-          <h1 id="popup-title">TabVault</h1>
-          <p>Save and search your local bookmark library.</p>
-        </header>
-        <section aria-labelledby="popup-actions-title" style={actionsSectionStyle}>
+        {/* Search bar — always at top */}
+        <div style={searchBarStyle}>
+          <label htmlFor="bookmark-search" style={visuallyHiddenStyle}>Search bookmarks</label>
+          <input
+            id="bookmark-search"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search title, URL, summary, tags..."
+            style={searchInputStyle}
+            type="search"
+            value={searchQuery}
+          />
+        </div>
+
+        {/* Secondary actions row */}
+        <section aria-labelledby="popup-actions-title" style={actionsRowStyle}>
           <h2 id="popup-actions-title" style={visuallyHiddenStyle}>Actions</h2>
           <button
-              data-testid="popup-primary-action"
-              disabled={isSaving || isAnalyzing}
-              onClick={() => void handleSaveCurrentPage()}
-              style={primaryActionButtonStyle}
-              type="button">
-              {isAnalyzing ? "Analyzing..." : isSaving ? "Saving..." : "Save current page"}
-            </button>
-            <button
-              data-testid="popup-secondary-action"
-              disabled={isLoadingBookmarks || isSaving || isAnalyzing}
-              onClick={() => void loadBookmarks()}
-              style={secondaryActionButtonStyle}
-              type="button">
-              {isLoadingBookmarks ? "Loading bookmarks..." : "Reload bookmarks"}
-            </button>
-            <button
-              data-testid="popup-analyze-all-action"
-              disabled={!hasPendingBookmarks || isSaving || analyzeProgress !== null}
-              onClick={() => void handleAnalyzeAll()}
-              style={secondaryActionButtonStyle}
-              type="button">
-              {analyzeProgress
-                ? `Analyzing ${analyzeProgress.current}/${analyzeProgress.total}...`
-                : "Analyze all"}
-            </button>
+            data-testid="popup-secondary-action"
+            disabled={isLoadingBookmarks || isSaving || isAnalyzing}
+            onClick={() => void loadBookmarks()}
+            style={secondaryActionButtonStyle}
+            type="button">
+            {isLoadingBookmarks ? "Loading..." : "Reload"}
+          </button>
+          <button
+            data-testid="popup-analyze-all-action"
+            disabled={!hasPendingBookmarks || isSaving || analyzeProgress !== null}
+            onClick={() => void handleAnalyzeAll()}
+            style={secondaryActionButtonStyle}
+            type="button">
+            {analyzeProgress
+              ? `Analyzing ${analyzeProgress.current}/${analyzeProgress.total}...`
+              : "Analyze all"}
+          </button>
         </section>
-        <section aria-labelledby="popup-feedback-title" style={feedbackSectionStyle}>
-          <h2 id="popup-feedback-title" style={visuallyHiddenStyle}>Feedback</h2>
-          <article data-feedback-kind="status" data-tone={statusTone} style={getStatusCardStyle(statusTone)}>
-            <p aria-live="polite" role="status">
-              {statusMessage}
-            </p>
-          </article>
-          {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
-        </section>
+
+        {/* Status/error feedback — inline text, not a card */}
+        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+        {statusTone === "success" ? (
+          <p aria-live="polite" role="status" style={statusTextStyle}>{statusMessage}</p>
+        ) : null}
+
+        {/* Bookmark count label + list */}
         <section aria-labelledby="popup-library-title" style={librarySectionStyle}>
-          <h2 id="popup-library-title">Library</h2>
-          <div>
-            <label htmlFor="bookmark-search">Search bookmarks</label>
-            <input
-              id="bookmark-search"
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search title, URL, summary, tags"
-              style={searchInputStyle}
-              type="search"
-              value={searchQuery}
-            />
-          </div>
-          <p>{filteredBookmarks.length} bookmark(s)</p>
+          <h2 id="popup-library-title" style={libraryHeadingStyle}>
+            Library
+            <span style={bookmarkCountStyle}>{filteredBookmarks.length}</span>
+          </h2>
           <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDeleteBookmark} onAnalyze={handleAnalyzeBookmark} />
         </section>
+
+        {/* Primary action — sticky footer */}
+        <footer style={stickyFooterStyle}>
+          <button
+            data-testid="popup-primary-action"
+            disabled={isSaving || isAnalyzing}
+            onClick={() => void handleSaveCurrentPage()}
+            style={primaryActionButtonStyle}
+            type="button">
+            {isAnalyzing ? "Analyzing..." : isSaving ? "Saving..." : "Save current page"}
+          </button>
+        </footer>
       </div>
     </main>
   )
@@ -342,69 +342,107 @@ const pageStyle: React.CSSProperties = {
   width: "400px",
   height: "560px",
   overflow: "hidden",
-  padding: spacing.md,
   backgroundColor: colors.page,
-  boxSizing: "border-box"
+  boxSizing: "border-box",
+  display: "flex",
+  flexDirection: "column"
 }
 
 const shellStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   height: "100%",
-  gap: spacing.sm,
   backgroundColor: colors.page
 }
 
-const actionsSectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: spacing.sm,
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: `1px solid ${controls.input.border}`,
-  borderRadius: radius.large,
-  backgroundColor: colors.surfaceElevated,
-  boxShadow: shadow.soft
-}
-
-const actionsRowStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: spacing.sm
-}
-
-const actionButtonStyle: React.CSSProperties = {
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: "none",
-  borderRadius: radius.pill,
-  fontWeight: 600,
-  cursor: "pointer"
-}
-
-const primaryActionButtonStyle: React.CSSProperties = {
-  ...actionButtonStyle,
-  backgroundColor: controls.primary.background,
-  color: controls.primary.foreground
-}
-
-const secondaryActionButtonStyle: React.CSSProperties = {
-  ...actionButtonStyle,
-  backgroundColor: controls.secondary.background,
-  color: controls.secondary.foreground
+const searchBarStyle: React.CSSProperties = {
+  padding: `${spacing.md} ${spacing.md} ${spacing.sm}`
 }
 
 const searchInputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: "10px 12px",
-  border: `1px solid ${controls.input.border}`,
-  borderRadius: radius.medium,
-  backgroundColor: controls.input.background,
-  color: colors.textPrimary
+  border: "none",
+  borderBottom: `1px solid ${colors.borderMuted}`,
+  borderRadius: 0,
+  backgroundColor: "transparent",
+  color: colors.textPrimary,
+  fontSize: "0.9375rem"
 }
 
-const feedbackSectionStyle: React.CSSProperties = {
-  display: "grid",
-  gap: spacing.sm
+const actionsRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: spacing.sm,
+  padding: `0 ${spacing.md} ${spacing.sm}`
+}
+
+const secondaryActionButtonStyle: React.CSSProperties = {
+  padding: "4px 10px",
+  border: "none",
+  borderRadius: radius.pill,
+  backgroundColor: controls.secondary.background,
+  color: colors.textMuted,
+  fontSize: "0.8125rem",
+  fontWeight: 500,
+  cursor: "pointer"
+}
+
+const statusTextStyle: React.CSSProperties = {
+  margin: `0 ${spacing.md}`,
+  fontSize: "0.8125rem",
+  color: colors.textSuccess,
+  padding: `0 0 ${spacing.xs}`
+}
+
+const librarySectionStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  minHeight: 0
+}
+
+const libraryHeadingStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.xs,
+  margin: 0,
+  padding: `${spacing.xs} ${spacing.md}`,
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  color: colors.textMuted,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em"
+}
+
+const bookmarkCountStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "1px 6px",
+  borderRadius: radius.pill,
+  backgroundColor: colors.surfaceMuted,
+  fontSize: "0.7rem",
+  fontWeight: 600,
+  color: colors.textMuted
+}
+
+const stickyFooterStyle: React.CSSProperties = {
+  padding: spacing.md,
+  borderTop: `1px solid ${colors.borderMuted}`,
+  backgroundColor: colors.page,
+  boxShadow: shadow.soft
+}
+
+const primaryActionButtonStyle: React.CSSProperties = {
+  width: "100%",
+  padding: `${spacing.sm} ${spacing.md}`,
+  border: "none",
+  borderRadius: radius.medium,
+  backgroundColor: controls.primary.background,
+  color: controls.primary.foreground,
+  fontWeight: 600,
+  fontSize: "0.9375rem",
+  cursor: "pointer"
 }
 
 const visuallyHiddenStyle: React.CSSProperties = {
@@ -417,21 +455,4 @@ const visuallyHiddenStyle: React.CSSProperties = {
   clip: "rect(0,0,0,0)",
   whiteSpace: "nowrap",
   border: 0
-}
-
-const librarySectionStyle: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  minHeight: 0,
-  display: "grid",
-  gap: spacing.sm
-}
-
-function getStatusCardStyle(statusTone: "info" | "success"): React.CSSProperties {
-  return {
-    padding: `${spacing.sm} ${spacing.md}`,
-    border: `1px solid ${statusTone === "success" ? colors.borderStrong : colors.borderMuted}`,
-    borderRadius: radius.medium,
-    backgroundColor: colors.surface
-  }
 }

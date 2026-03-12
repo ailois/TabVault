@@ -40,32 +40,26 @@ describe("Popup state", () => {
 
     await renderPopup(services)
 
-    expect(screen().getButton("Loading bookmarks...")?.textContent).toBe("Loading bookmarks...")
-    expect(screen().getButton("Loading bookmarks...")?.hasAttribute("disabled")).toBe(true)
+    expect(screen().getButton("Loading...")?.textContent).toBe("Loading...")
+    expect(screen().getButton("Loading...")?.hasAttribute("disabled")).toBe(true)
 
     listDeferred.resolve([])
     await flush()
   })
 
-  it("renders a popup shell with header copy and a dedicated actions section", async () => {
+  it("renders a popup shell with a search bar and actions section", async () => {
     await renderPopup(createServices())
-
-    expect(screen().getMain()?.querySelector("header h1")?.textContent).toBe("TabVault")
-    expect(screen().text()).toContain("Save and search your local bookmark library.")
 
     const actionsSection = screen().getActionsSection()
 
     expect(actionsSection?.querySelector("h2")?.textContent).toBe("Actions")
-    expect(actionsSection?.textContent).toContain("Save current page")
-    expect(actionsSection?.textContent).toContain("Reload bookmarks")
+    expect(actionsSection?.textContent).toContain("Reload")
+    expect(actionsSection?.textContent).toContain("Analyze all")
 
-    expect(screen().getMain()?.style.padding).toBe(spacing.md)
     expect(screen().getPopupShell()?.style.backgroundColor).toBe(normalizeCssColor(colors.page))
-    expect(actionsSection?.style.backgroundColor).toBe(normalizeCssColor(colors.surfaceElevated))
-    expect(actionsSection?.style.borderRadius).toBe(radius.large)
-    expect(actionsSection?.style.boxShadow).toBe(shadow.soft)
     expect(screen().getPrimaryActionButton()?.style.backgroundColor).toBe(normalizeCssColor(controls.primary.background))
     expect(screen().getSecondaryActionButton()?.style.backgroundColor).toBe(normalizeCssColor(controls.secondary.background))
+    expect(container?.querySelector("footer [data-testid='popup-primary-action']")).not.toBeNull()
   })
 
   it("renders search and bookmark count inside a dedicated library section", async () => {
@@ -80,10 +74,10 @@ describe("Popup state", () => {
     const librarySection = screen().getLibrarySection()
     const searchInput = container?.querySelector("#bookmark-search")
 
-    expect(librarySection?.querySelector("h2")?.textContent).toBe("Library")
-    expect(librarySection?.textContent).toContain("Search bookmarks")
+    expect(librarySection?.querySelector("h2")?.textContent).toContain("Library")
+    expect(librarySection?.querySelector("h2")?.textContent).toContain("2")
+    expect(container?.querySelector("label[for='bookmark-search']")).not.toBeNull()
     expect(searchInput?.getAttribute("type")).toBe("search")
-    expect(librarySection?.textContent).toContain("2 bookmark(s)")
   })
 
   it("renders bookmark results as cards with title, metadata, summary, and tags", async () => {
@@ -111,9 +105,8 @@ describe("Popup state", () => {
     expect(bookmarkCard?.textContent).toContain("research")
     expect(bookmarkCard?.textContent).toContain("alpha")
     expect(bookmarkCard?.style.backgroundColor).toBe(normalizeCssColor(colors.surfaceElevated))
-    expect(bookmarkCard?.style.borderColor).toBe(normalizeCssColor(colors.border))
-    expect(bookmarkCard?.style.borderRadius).toBe(radius.large)
-    expect(bookmarkCard?.style.padding).toBe(spacing.md)
+    expect(bookmarkCard?.style.borderBottom).toBe(`1px solid ${normalizeCssColor(colors.borderMuted)}`)
+    expect(bookmarkCard?.style.padding).not.toBe("")
     expect(metadata?.style.color).toBe(normalizeCssColor(colors.textMuted))
     expect(tag?.style.backgroundColor).toBe(normalizeCssColor(colors.surfaceMuted))
     expect(tag?.style.color).toBe(normalizeCssColor(colors.textSecondary))
@@ -140,18 +133,14 @@ describe("Popup state", () => {
     await renderPopup(services)
     await clickButton("Save current page")
 
-    const feedbackSection = screen().getFeedbackSection()
     const statusRegion = screen().getStatusRegion()
     const errorAlert = screen().getErrorAlert()
 
-    expect(feedbackSection?.querySelector("h2")?.textContent).toBe("Feedback")
-    expect(statusRegion?.textContent).toContain("Saved: Example page")
+    expect(screen().getStatusRegion()?.textContent).toContain("Saved: Example page")
     expect(statusRegion?.getAttribute("role")).toBe("status")
     expect(statusRegion?.getAttribute("aria-live")).toBe("polite")
     expect(errorAlert?.textContent).toContain("Add an API key in Settings to enable automatic analysis.")
     expect(errorAlert?.getAttribute("role")).toBe("alert")
-    expect(screen().getStatusCard()?.style.backgroundColor).toBe(normalizeCssColor(colors.surface))
-    expect(screen().getStatusCard()?.style.borderRadius).toBe(radius.medium)
     expect(errorAlert?.style.backgroundColor).toBe("rgb(254, 242, 242)")
     expect(errorAlert?.style.color).toBe("rgb(153, 27, 27)")
   })
@@ -166,9 +155,8 @@ describe("Popup state", () => {
     await renderPopup(services)
     await clickButton("Save current page")
 
-    expect(screen().getFeedbackSection()).not.toBeNull()
-    expect(screen().getStatusRegion()?.textContent).toContain("Ready to save the current page.")
     expect(screen().getErrorAlert()?.textContent).toContain("Failed to save current page")
+    expect(screen().getStatusRegion()).toBeNull()
   })
 
   it("shows a clearer message when the active tab metadata is unavailable", async () => {
@@ -213,7 +201,6 @@ describe("Popup state", () => {
     await renderPopup(services)
     await clickButton("Save current page")
 
-    expect(screen().getStatusRegion()?.textContent).toContain("Analyzing saved bookmark...")
     expect(screen().getButton("Analyzing...")?.textContent).toBe("Analyzing...")
 
     analyzeDeferred.reject(new Error("Analysis failed"))
@@ -314,7 +301,7 @@ describe("Popup state", () => {
 
   it("analyzes a bookmark when the Analyze button is clicked on a card", async () => {
     const bookmark = createBookmark({ id: "bm-to-analyze", title: "Page to analyze", status: "saved" })
-    const analyzeBookmark = vi.fn(async () => bookmark)
+    const analyzeBookmark = vi.fn(async (input: { bookmark: BookmarkRecord }) => bookmark)
     const providerConfig: ProviderConfig = {
       provider: "openai",
       apiKey: "test-key",
@@ -347,7 +334,7 @@ describe("Popup state", () => {
     await flush()
 
     expect(analyzeBookmark).toHaveBeenCalledOnce()
-    expect(analyzeBookmark.mock.calls[0]?.[0]?.bookmark.id).toBe("bm-to-analyze")
+    expect(analyzeBookmark.mock.calls[0]![0]!.bookmark.id).toBe("bm-to-analyze")
   })
 
   it("shows error banner when Analyze is clicked but no provider is configured", async () => {
@@ -381,6 +368,7 @@ describe("Popup state", () => {
   it("shows Analyze all button in the actions section", async () => {
     await renderPopup(createServices())
     expect(screen().getActionsSection()?.textContent).toContain("Analyze all")
+    expect(screen().getActionsSection()?.textContent).toContain("Reload")
   })
 
   it("disables Analyze all when no bookmarks are pending analysis", async () => {
@@ -399,7 +387,7 @@ describe("Popup state", () => {
     const b1 = createBookmark({ id: "bm-1", status: "saved" })
     const b2 = createBookmark({ id: "bm-2", status: "error" })
     const b3 = createBookmark({ id: "bm-3", status: "done" })
-    const analyzeBookmark = vi.fn(async () => b1)
+    const sendMessageMock = vi.fn()
     const providerConfig: ProviderConfig = {
       provider: "openai",
       apiKey: "test-key",
@@ -407,6 +395,17 @@ describe("Popup state", () => {
       model: "gpt-4o-mini",
       enabled: true
     }
+
+    globalThis.chrome = {
+      runtime: {
+        sendMessage: sendMessageMock,
+        onMessage: {
+          addListener: vi.fn(),
+          removeListener: vi.fn()
+        }
+      }
+    } as any
+
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
         list: vi.fn(async () => [b1, b2, b3])
@@ -417,16 +416,16 @@ describe("Popup state", () => {
           autoAnalyzeOnSave: false
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
-      }),
-      analyzeBookmark
+      })
     })
 
     await renderPopup(services)
     await clickButton("Analyze all")
 
-    expect(analyzeBookmark).toHaveBeenCalledTimes(2)
-    expect(analyzeBookmark.mock.calls[0]?.[0]?.bookmark.id).toBe("bm-1")
-    expect(analyzeBookmark.mock.calls[1]?.[0]?.bookmark.id).toBe("bm-2")
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      { type: "ANALYZE_ALL" },
+      expect.any(Function)
+    )
   })
 })
 
@@ -479,7 +478,7 @@ function screen() {
     container?.querySelector<HTMLElement>("section[aria-labelledby='popup-feedback-title']") ?? null
   const getStatusCard = () => container?.querySelector<HTMLElement>("[data-feedback-kind='status']") ?? null
   const getStatusRegion = () =>
-    container?.querySelector<HTMLElement>("[data-feedback-kind='status'] [role='status']") ?? null
+    container?.querySelector<HTMLElement>("[role='status']") ?? null
   const getErrorAlert = () =>
     container?.querySelector<HTMLElement>("[role='alert']") ?? null
   const getLibrarySection = () =>
