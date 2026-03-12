@@ -158,6 +158,31 @@ function Options({ services }: OptionsProps) {
               ) : null}
             </div>
 
+            <div style={appFieldStackStyle}>
+              <label htmlFor="summary-language" style={fieldLabelStyle}>
+                Summary language
+              </label>
+              <select
+                id="summary-language"
+                onChange={(event) =>
+                  setAppSettings((currentSettings) => ({
+                    ...currentSettings,
+                    summaryLanguage: event.target.value as typeof currentSettings.summaryLanguage
+                  }))
+                }
+                style={selectStyle}
+                value={appSettings.summaryLanguage ?? "auto"}>
+                <option value="auto">Auto (follow content)</option>
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="es">Español</option>
+              </select>
+            </div>
+
             <div style={enabledRowContainerStyle}>
               <label style={enabledRowLabelStyle}>
                 <span>Auto analyze on save</span>
