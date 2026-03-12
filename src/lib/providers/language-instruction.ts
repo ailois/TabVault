@@ -10,6 +10,10 @@ const LANGUAGE_NAMES: Record<Exclude<SummaryLanguage, "auto">, string> = {
   es: "Spanish"
 }
 
+/**
+ * Returns a sentence fragment to append to the prompt, starting with a space.
+ * Returns "" when language is "auto" or undefined (no instruction needed).
+ */
 export function buildLanguageInstruction(language: SummaryLanguage | undefined): string {
   if (!language || language === "auto") return ""
   return ` Please respond in ${LANGUAGE_NAMES[language]}.`

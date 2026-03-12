@@ -21,4 +21,21 @@ describe("buildLanguageInstruction", () => {
   it("returns Japanese instruction for ja", () => {
     expect(buildLanguageInstruction("ja")).toBe(" Please respond in Japanese.")
   })
+
+  it("returns Korean instruction for ko", () => {
+    expect(buildLanguageInstruction("ko")).toBe(" Please respond in Korean.")
+  })
+
+  it("returns French instruction for fr", () => {
+    expect(buildLanguageInstruction("fr")).toBe(" Please respond in French.")
+  })
+
+  it("returns German instruction for de", () => {
+    expect(buildLanguageInstruction("de")).toBe(" Please respond in German.")
+  })
+
+  it("returns Spanish instruction for es", () => {
+    expect(buildLanguageInstruction("es")).toBe(" Please respond in Spanish.")
+  })
 })
+
