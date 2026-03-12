@@ -95,3 +95,51 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false
   }
 })
+
+// --- Chrome Bookmark Event Listeners for live sync ---
+if (globalThis.chrome?.bookmarks) {
+  chrome.bookmarks.onCreated.addListener(async (_id, bookmark) => {
+    if (bookmark.url) {
+      const now = new Date().toISOString()
+      const newRecord = {
+        id: bookmark.id,
+        parentId: bookmark.parentId,
+        url: bookmark.url,
+        title: bookmark.title || "",
+        tags: [],
+        status: "saved" as const,
+        createdAt: now,
+        updatedAt: now
+      }
+      await repo.save(newRecord)
+
+      // Check if auto-analyze is enabled
+      try {
+        const settings = await settingsRepo.getAppSettings()
+        if (settings.autoAnalyzeOnSave) {
+          processAnalysisQueue()
+        }
+      } catch {
+        // Settings not configured yet, skip auto-analyze
+      }
+    }
+    chrome.runtime.sendMessage({ type: "BOOKMARKS_CHANGED" }).catch(() => {})
+  })
+
+  chrome.bookmarks.onRemoved.addListener(async (id) => {
+    try {
+      await repo.delete(id)
+    } catch {
+      // Ignore if not found in IndexedDB
+    }
+    chrome.runtime.sendMessage({ type: "BOOKMARKS_CHANGED" }).catch(() => {})
+  })
+
+  chrome.bookmarks.onChanged.addListener(() => {
+    chrome.runtime.sendMessage({ type: "BOOKMARKS_CHANGED" }).catch(() => {})
+  })
+
+  chrome.bookmarks.onMoved.addListener(() => {
+    chrome.runtime.sendMessage({ type: "BOOKMARKS_CHANGED" }).catch(() => {})
+  })
+}
