@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { BookmarkList } from "./components/bookmark-list"
+import { BookmarkTree } from "./components/bookmark-tree"
 import { ErrorBanner } from "./components/error-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { searchBookmarks } from "./features/bookmarks/search-bookmarks"
@@ -41,10 +42,16 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
+  const [bookmarkTree, setBookmarkTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>([])
 
   const filteredBookmarks = useMemo(
     () => searchBookmarks(bookmarks, searchQuery),
     [bookmarks, searchQuery]
+  )
+
+  const metadataMap = useMemo(
+    () => bookmarks.reduce((acc, b) => ({ ...acc, [b.id]: b }), {} as Record<string, BookmarkRecord>),
+    [bookmarks]
   )
 
   const hasPendingBookmarks = bookmarks.some(
@@ -74,6 +81,9 @@ export default function SidePanel({ services }: SidePanelProps) {
         setAnalyzeProgress(null)
         void loadBookmarks()
       }
+      if (message.type === "BOOKMARKS_CHANGED") {
+        void loadBookmarks()
+      }
       if (message.type === "ANALYSIS_PROGRESS") {
         setAnalyzeProgress({ current: message.current, total: message.total })
       }
@@ -97,6 +107,10 @@ export default function SidePanel({ services }: SidePanelProps) {
     try {
       const savedBookmarks = await sidePanelServices.bookmarkRepository.list()
       setBookmarks(savedBookmarks)
+      if (globalThis.chrome?.bookmarks) {
+        const tree = await chrome.bookmarks.getTree()
+        setBookmarkTree(tree[0]?.children || tree)
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to load bookmarks")
     } finally {
@@ -217,12 +231,19 @@ export default function SidePanel({ services }: SidePanelProps) {
           </h2>
           {isLoadingBookmarks ? (
             <p style={loadingTextStyle}>Loading bookmarks...</p>
-          ) : (
+          ) : searchQuery ? (
             <BookmarkList
               bookmarks={filteredBookmarks}
               compact={true}
               onDelete={handleDeleteBookmark}
               onAnalyze={handleAnalyzeBookmark}
+            />
+          ) : (
+            <BookmarkTree
+              treeNodes={bookmarkTree}
+              metadataMap={metadataMap}
+              onAnalyze={handleAnalyzeBookmark}
+              onDelete={handleDeleteBookmark}
             />
           )}
         </section>
