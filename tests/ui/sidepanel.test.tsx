@@ -171,7 +171,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
   return {
     getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
       defaultProvider: "openai",
-      autoAnalyzeOnSave: false
+      autoAnalyzeOnSave: false,
+      summaryLanguage: "auto"
     })),
     saveAppSettings: vi.fn(async () => undefined),
     getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),

@@ -32,14 +32,16 @@ describe("ChromeSettingsRepository", () => {
   it("returns default app settings when none have been saved", async () => {
     await expect(repository.getAppSettings()).resolves.toEqual({
       defaultProvider: "openai",
-      autoAnalyzeOnSave: false
+      autoAnalyzeOnSave: false,
+      summaryLanguage: "auto"
     })
   })
 
   it("stores app settings under the explicit app settings key", async () => {
     const settings: AppSettings = {
       defaultProvider: "claude",
-      autoAnalyzeOnSave: true
+      autoAnalyzeOnSave: true,
+      summaryLanguage: "auto"
     }
 
     await repository.saveAppSettings(settings)

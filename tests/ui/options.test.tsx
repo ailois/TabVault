@@ -163,7 +163,8 @@ let root: Root | null = null
 const settingsRepository: SettingsRepository = {
   getAppSettings: async () => ({
     defaultProvider: "openai",
-    autoAnalyzeOnSave: false
+    autoAnalyzeOnSave: false,
+    summaryLanguage: "auto" as const
   }),
   saveAppSettings: async () => {},
   getProviders: async () => [],

@@ -124,7 +124,8 @@ describe("Popup state", () => {
       settingsRepository: createSettingsRepository({
         getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
           defaultProvider: "openai",
-          autoAnalyzeOnSave: true
+          autoAnalyzeOnSave: true,
+          summaryLanguage: "auto"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [])
       })
@@ -182,7 +183,8 @@ describe("Popup state", () => {
       settingsRepository: createSettingsRepository({
         getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
           defaultProvider: "openai",
-          autoAnalyzeOnSave: true
+          autoAnalyzeOnSave: true,
+          summaryLanguage: "auto"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
           {
@@ -247,7 +249,8 @@ describe("Popup state", () => {
       settingsRepository: createSettingsRepository({
         getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
           defaultProvider: providerConfig.provider,
-          autoAnalyzeOnSave: true
+          autoAnalyzeOnSave: true,
+          summaryLanguage: "auto"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
       }),
@@ -316,7 +319,8 @@ describe("Popup state", () => {
       settingsRepository: createSettingsRepository({
         getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
           defaultProvider: "openai",
-          autoAnalyzeOnSave: false
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
       }),
@@ -346,7 +350,8 @@ describe("Popup state", () => {
       settingsRepository: createSettingsRepository({
         getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
           defaultProvider: "openai",
-          autoAnalyzeOnSave: false
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [])
       })
@@ -413,7 +418,8 @@ describe("Popup state", () => {
       settingsRepository: createSettingsRepository({
         getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
           defaultProvider: "openai",
-          autoAnalyzeOnSave: false
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
       })
@@ -566,7 +572,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
   return {
     getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
       defaultProvider: "openai",
-      autoAnalyzeOnSave: false
+      autoAnalyzeOnSave: false,
+      summaryLanguage: "auto"
     })),
     saveAppSettings: vi.fn(async () => undefined),
     getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),

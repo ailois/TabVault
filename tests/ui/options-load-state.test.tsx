@@ -27,7 +27,8 @@ describe("Options load state", () => {
     const settingsRepository: SettingsRepository = {
       getAppSettings: async () => ({
         defaultProvider: "claude",
-        autoAnalyzeOnSave: true
+        autoAnalyzeOnSave: true,
+        summaryLanguage: "auto" as const
       }),
       saveAppSettings: async () => {},
       getProviders: async () => [

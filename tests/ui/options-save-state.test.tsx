@@ -31,7 +31,8 @@ describe("Options save state", () => {
     const settingsRepository: SettingsRepository = {
       getAppSettings: async () => ({
         defaultProvider: "openai",
-        autoAnalyzeOnSave: false
+        autoAnalyzeOnSave: false,
+        summaryLanguage: "auto" as const
       }),
       saveAppSettings,
       getProviders: async () => getValidProviders(),
@@ -59,7 +60,8 @@ describe("Options save state", () => {
 
     const expectedAppSettings = {
       defaultProvider: "gemini",
-      autoAnalyzeOnSave: true
+      autoAnalyzeOnSave: true,
+      summaryLanguage: "auto"
     } satisfies AppSettings
 
     const expectedProviders = [
@@ -93,7 +95,8 @@ describe("Options save state", () => {
     const settingsRepository: SettingsRepository = {
       getAppSettings: async () => ({
         defaultProvider: "openai",
-        autoAnalyzeOnSave: false
+        autoAnalyzeOnSave: false,
+        summaryLanguage: "auto" as const
       }),
       saveAppSettings: async () => {
         await saveCompletion.promise
@@ -133,7 +136,8 @@ describe("Options save state", () => {
     const settingsRepository: SettingsRepository = {
       getAppSettings: async () => ({
         defaultProvider: "openai",
-        autoAnalyzeOnSave: false
+        autoAnalyzeOnSave: false,
+        summaryLanguage: "auto" as const
       }),
       saveAppSettings: async () => {
         throw new Error("save failed")
@@ -250,7 +254,8 @@ describe("Options save state", () => {
         saveProviders,
         getAppSettings: async () => ({
           defaultProvider: "claude",
-          autoAnalyzeOnSave: false
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto" as const
         }),
         getProviders: async () => [
           {
@@ -286,7 +291,8 @@ describe("Options save state", () => {
 
     expect(saveAppSettings).toHaveBeenCalledWith({
       defaultProvider: "claude",
-      autoAnalyzeOnSave: false
+      autoAnalyzeOnSave: false,
+      summaryLanguage: "auto"
     })
     expect(saveProviders).toHaveBeenCalledWith([
       {
@@ -455,7 +461,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
   return {
     getAppSettings: async () => ({
       defaultProvider: "openai",
-      autoAnalyzeOnSave: false
+      autoAnalyzeOnSave: false,
+      summaryLanguage: "auto" as const
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [],

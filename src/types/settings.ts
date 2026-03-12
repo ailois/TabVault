@@ -8,7 +8,10 @@ export type ProviderConfig = {
   enabled: boolean
 }
 
+export type SummaryLanguage = "auto" | "zh" | "en" | "ja" | "ko" | "fr" | "de" | "es"
+
 export type AppSettings = {
   defaultProvider: ProviderType
   autoAnalyzeOnSave: boolean
+  summaryLanguage: SummaryLanguage
 }
