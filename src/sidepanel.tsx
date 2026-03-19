@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { BookmarkList } from "./components/bookmark-list"
 import { BookmarkTree } from "./components/bookmark-tree"
+import { BookmarkDrawer } from "./components/bookmark-drawer"
 import { ErrorBanner } from "./components/error-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
-import { searchBookmarks } from "./features/bookmarks/search-bookmarks"
+import { searchBookmarks, type SearchMode } from "./features/bookmarks/search-bookmarks"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
+import { ChromeThemeRepository } from "./lib/config/theme-repository"
+import type { ThemeRepository } from "./lib/config/theme-repository"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import type { AiProvider } from "./lib/providers/provider"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
@@ -13,7 +16,10 @@ import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
 import { getBrowserName } from "./lib/utils/browser"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
-import { colors, controls, GLOBAL_FOCUS_STYLES, radius, shadow, spacing } from "./ui/design-tokens"
+import { buildGlobalStyles, radius, spacing } from "./ui/design-tokens"
+import { useTheme } from "./ui/use-theme"
+import { useGlobalStyles } from "./ui/use-global-styles"
+import { ThemeProvider } from "./ui/theme-context"
 
 type SidePanelProps = {
   services?: Partial<SidePanelServices>
@@ -22,6 +28,7 @@ type SidePanelProps = {
 type SidePanelServices = {
   bookmarkRepository: BookmarkRepository
   settingsRepository: SettingsRepository
+  themeRepository: ThemeRepository
   analyzeBookmark: typeof defaultAnalyzeBookmark
   createProvider: (config: ProviderConfig) => AiProvider
 }
@@ -29,24 +36,29 @@ type SidePanelServices = {
 const DEFAULT_SIDEPANEL_SERVICES: SidePanelServices = {
   bookmarkRepository: new IndexedDbBookmarkRepository(),
   settingsRepository: new ChromeSettingsRepository(),
+  themeRepository: new ChromeThemeRepository(),
   analyzeBookmark: defaultAnalyzeBookmark,
   createProvider: defaultCreateProvider
 }
 
 export default function SidePanel({ services }: SidePanelProps) {
   const sidePanelServices = useMemo(() => ({ ...DEFAULT_SIDEPANEL_SERVICES, ...services }), [services])
+  const theme = useTheme(sidePanelServices.themeRepository)
+  useGlobalStyles(theme)
   const [status, setStatus] = useState<string>("")
   const [isImporting, setIsImporting] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([])
   const [isLoadingBookmarks, setIsLoadingBookmarks] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchMode, setSearchMode] = useState<SearchMode>("all")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
   const [bookmarkTree, setBookmarkTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>([])
+  const [selectedBookmark, setSelectedBookmark] = useState<BookmarkRecord | null>(null)
 
   const filteredBookmarks = useMemo(
-    () => searchBookmarks(bookmarks, searchQuery),
-    [bookmarks, searchQuery]
+    () => searchBookmarks(bookmarks, searchQuery, searchMode),
+    [bookmarks, searchQuery, searchMode]
   )
 
   const metadataMap = useMemo(
@@ -58,20 +70,14 @@ export default function SidePanel({ services }: SidePanelProps) {
     (b) => b.status === "saved" || b.status === "error"
   )
 
+  const hasClearableBookmarks = bookmarks.some(
+    (b) => b.status === "done" || b.status === "error" || b.status === "analyzing" || b.summary
+  )
+
   const browserName = useMemo(() => getBrowserName(), [])
 
   useEffect(() => {
     void loadBookmarks()
-  }, [])
-
-  useEffect(() => {
-    const style = document.createElement("style")
-    style.textContent = GLOBAL_FOCUS_STYLES
-    document.head.appendChild(style)
-
-    return () => {
-      style.remove()
-    }
   }, [])
 
   // Listen for background updates
@@ -154,6 +160,35 @@ export default function SidePanel({ services }: SidePanelProps) {
     }
   }
 
+  async function handleClearAnalysis(id: string): Promise<void> {
+    try {
+      await sidePanelServices.bookmarkRepository.clearAnalysis(id)
+      await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to clear analysis")
+    }
+  }
+
+  async function handleUpdateTags(id: string, aiTags: string[], userTags: string[]): Promise<void> {
+    const bookmark = bookmarks.find((b) => b.id === id)
+    if (!bookmark) return
+    try {
+      await sidePanelServices.bookmarkRepository.update({ ...bookmark, aiTags, userTags, updatedAt: new Date().toISOString() })
+      await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to update tags")
+    }
+  }
+
+  async function handleClearAllAnalysis(): Promise<void> {
+    try {
+      await sidePanelServices.bookmarkRepository.clearAllAnalysis()
+      await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to clear all analysis")
+    }
+  }
+
   async function handleAnalyzeAll(): Promise<void> {
     if (!hasPendingBookmarks) return
 
@@ -189,15 +224,142 @@ export default function SidePanel({ services }: SidePanelProps) {
     })
   }
 
+  const pageStyle: React.CSSProperties = {
+    backgroundColor: theme.surface,
+    minHeight: "100vh",
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column"
+  }
+
+  const headerStyle: React.CSSProperties = {
+    padding: `${spacing.sm} ${spacing.md}`,
+    borderBottom: `1px solid ${theme.borderMuted}`,
+    backgroundColor: theme.surfaceElevated,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between"
+  }
+
+  const subtitleStyle: React.CSSProperties = {
+    margin: 0,
+    color: theme.textMuted,
+    fontSize: "0.75rem"
+  }
+
+  const searchInputStyle: React.CSSProperties = {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "9px 12px",
+    border: `1px solid ${theme.border}`,
+    borderRadius: radius.medium,
+    backgroundColor: theme.surface,
+    color: theme.textPrimary,
+    fontSize: "0.875rem",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+  }
+
+  const secondaryActionButtonStyle: React.CSSProperties = {
+    padding: "4px 10px",
+    border: `1px solid ${theme.border}`,
+    borderRadius: radius.pill,
+    backgroundColor: theme.surface,
+    color: theme.textMuted,
+    fontSize: "0.8125rem",
+    fontWeight: 500,
+    cursor: "pointer"
+  }
+
+  const libraryHeadingStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: spacing.xs,
+    margin: 0,
+    padding: `${spacing.md} ${spacing.lg}`,
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    color: theme.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em"
+  }
+
+  const bookmarkCountStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "1px 6px",
+    borderRadius: radius.pill,
+    backgroundColor: theme.surfaceElevated,
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    color: theme.textMuted
+  }
+
+  const loadingTextStyle: React.CSSProperties = {
+    padding: `0 ${spacing.lg}`,
+    fontSize: "0.875rem",
+    color: theme.textMuted
+  }
+
+  const footerStyle: React.CSSProperties = {
+    padding: spacing.lg,
+    borderTop: `1px solid ${theme.borderMuted}`,
+    backgroundColor: theme.surface,
+    boxShadow: theme.shadow
+  }
+
+  const importButtonStyle: React.CSSProperties = {
+    width: "100%",
+    padding: `${spacing.sm} ${spacing.md}`,
+    border: "none",
+    borderRadius: "12px",
+    backgroundColor: theme.accent,
+    color: "#ffffff",
+    fontWeight: 600,
+    fontSize: "0.875rem",
+    cursor: "pointer",
+    boxShadow: "0 10px 24px rgba(99,102,241,0.22)"
+  }
+
+  const statusStyle: React.CSSProperties = {
+    margin: `0 ${spacing.lg} ${spacing.sm}`,
+    fontSize: "0.8125rem",
+    color: theme.textSuccess
+  }
+
   return (
+    <ThemeProvider theme={theme}>
     <main style={pageStyle}>
       <header style={headerStyle}>
-        <h1 style={titleStyle}>TabVault Pro</h1>
-        <p style={subtitleStyle}>Manage and search your library.</p>
+        <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+          <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: "1rem", color: theme.textPrimary }}>TabVault Pro</span>
+            <p style={subtitleStyle}>Manage and search your library.</p>
+          </div>
+        </div>
+        <button
+          aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
+          data-testid="theme-toggle-button"
+          onClick={() => theme.toggle()}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "1.125rem",
+            color: theme.textMuted,
+            padding: "4px",
+            borderRadius: radius.small,
+            lineHeight: 1
+          }}
+          type="button"
+        >
+          {theme.isDark ? "☀️" : "🌙"}
+        </button>
       </header>
 
-      <div style={contentStyle}>
-        <div style={searchBarStyle}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div style={{ padding: `${spacing.md} ${spacing.lg} ${spacing.sm}` }}>
           <label htmlFor="sidepanel-search" style={visuallyHiddenStyle}>Search bookmarks</label>
           <input
             id="sidepanel-search"
@@ -209,7 +371,32 @@ export default function SidePanel({ services }: SidePanelProps) {
           />
         </div>
 
-        <div style={actionsRowStyle}>
+        {/* Search filter chips */}
+        <div style={{ display: "flex", gap: spacing.xs, padding: `0 ${spacing.lg} ${spacing.xs}` }}>
+          {(["all", "title", "tags", "url"] as const).map((mode) => (
+            <button
+              data-testid="search-chip"
+              key={mode}
+              onClick={() => setSearchMode(mode)}
+              style={{
+                padding: "3px 10px",
+                border: searchMode === mode ? "none" : `1px solid ${theme.border}`,
+                borderRadius: radius.pill,
+                fontSize: "0.75rem",
+                fontWeight: searchMode === mode ? 600 : 500,
+                cursor: "pointer",
+                backgroundColor: searchMode === mode ? theme.accent : theme.surface,
+                color: searchMode === mode ? "#ffffff" : theme.textMuted,
+                transition: "background-color 0.15s ease, color 0.15s ease"
+              }}
+              type="button"
+            >
+              {mode === "all" ? "All" : mode === "tags" ? "Tags" : mode === "url" ? "URL" : "Title"}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: spacing.sm, padding: `0 ${spacing.lg} ${spacing.sm}` }}>
           <button
             disabled={!hasPendingBookmarks || analyzeProgress !== null}
             onClick={() => void handleAnalyzeAll()}
@@ -219,12 +406,19 @@ export default function SidePanel({ services }: SidePanelProps) {
               ? `Analyzing ${analyzeProgress.current}/${analyzeProgress.total}...`
               : "Analyze all"}
           </button>
+          <button
+            disabled={!hasClearableBookmarks}
+            onClick={() => void handleClearAllAnalysis()}
+            style={secondaryActionButtonStyle}
+            type="button">
+            Clear all
+          </button>
         </div>
 
-        {errorMessage && <div style={errorContainerStyle}><ErrorBanner message={errorMessage} /></div>}
+        {errorMessage && <div style={{ padding: `0 ${spacing.lg}` }}><ErrorBanner message={errorMessage} /></div>}
         {status && <p style={statusStyle}>{status}</p>}
 
-        <section aria-labelledby="sidepanel-library-title" style={librarySectionStyle}>
+        <section aria-labelledby="sidepanel-library-title" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <h2 id="sidepanel-library-title" style={libraryHeadingStyle}>
             Library
             <span style={bookmarkCountStyle}>{filteredBookmarks.length}</span>
@@ -237,14 +431,30 @@ export default function SidePanel({ services }: SidePanelProps) {
               compact={true}
               onDelete={handleDeleteBookmark}
               onAnalyze={handleAnalyzeBookmark}
+              onClearAnalysis={handleClearAnalysis}
+              onSelect={(id) => {
+                const bookmark = bookmarks.find((b) => b.id === id) ?? null
+                setSelectedBookmark(bookmark)
+              }}
             />
           ) : (
-            <BookmarkTree
-              treeNodes={bookmarkTree}
-              metadataMap={metadataMap}
-              onAnalyze={handleAnalyzeBookmark}
-              onDelete={handleDeleteBookmark}
-            />
+            <>
+              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", padding: "8px 16px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                YOUR FOLDERS
+              </div>
+              <BookmarkTree
+                treeNodes={bookmarkTree}
+                metadataMap={metadataMap}
+                onAnalyze={handleAnalyzeBookmark}
+                onDelete={handleDeleteBookmark}
+                onClearAnalysis={handleClearAnalysis}
+                selectedUrl={selectedBookmark?.url ?? null}
+                onSelect={(url) => {
+                  const bookmark = bookmarks.find((b) => b.url === url) ?? null
+                  setSelectedBookmark(bookmark)
+                }}
+              />
+            </>
           )}
         </section>
       </div>
@@ -259,139 +469,21 @@ export default function SidePanel({ services }: SidePanelProps) {
         </button>
       </footer>
     </main>
+    <BookmarkDrawer
+      bookmark={selectedBookmark}
+      onClose={() => setSelectedBookmark(null)}
+      onAnalyze={async (id) => {
+        setSelectedBookmark(null)
+        await handleAnalyzeBookmark(id)
+      }}
+      onClearAnalysis={async (id) => {
+        await handleClearAnalysis(id)
+        setSelectedBookmark(null)
+      }}
+      onUpdateTags={handleUpdateTags}
+    />
+    </ThemeProvider>
   )
-}
-
-const pageStyle: React.CSSProperties = {
-  backgroundColor: colors.page,
-  minHeight: "100vh",
-  boxSizing: "border-box",
-  display: "flex",
-  flexDirection: "column"
-}
-
-const headerStyle: React.CSSProperties = {
-  padding: `${spacing.lg} ${spacing.lg} ${spacing.md}`,
-  borderBottom: `1px solid ${colors.borderMuted}`
-}
-
-const titleStyle: React.CSSProperties = {
-  margin: "0 0 4px 0",
-  fontSize: "1.25rem",
-  fontWeight: 700,
-  color: colors.textPrimary
-}
-
-const subtitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: colors.textMuted,
-  fontSize: "0.875rem"
-}
-
-const contentStyle: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  minHeight: 0
-}
-
-const searchBarStyle: React.CSSProperties = {
-  padding: `${spacing.md} ${spacing.lg} ${spacing.sm}`
-}
-
-const searchInputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 12px",
-  border: "none",
-  borderBottom: `1px solid ${colors.borderMuted}`,
-  borderRadius: 0,
-  backgroundColor: "transparent",
-  color: colors.textPrimary,
-  fontSize: "0.9375rem"
-}
-
-const errorContainerStyle: React.CSSProperties = {
-  padding: `0 ${spacing.lg}`
-}
-
-const actionsRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: spacing.sm,
-  padding: `0 ${spacing.lg} ${spacing.sm}`
-}
-
-const secondaryActionButtonStyle: React.CSSProperties = {
-  padding: "4px 10px",
-  border: "none",
-  borderRadius: radius.pill,
-  backgroundColor: controls.secondary.background,
-  color: colors.textMuted,
-  fontSize: "0.8125rem",
-  fontWeight: 500,
-  cursor: "pointer"
-}
-
-const librarySectionStyle: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  minHeight: 0
-}
-
-const libraryHeadingStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: spacing.xs,
-  margin: 0,
-  padding: `${spacing.md} ${spacing.lg}`,
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  color: colors.textMuted,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em"
-}
-
-const bookmarkCountStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "1px 6px",
-  borderRadius: radius.pill,
-  backgroundColor: colors.surfaceMuted,
-  fontSize: "0.7rem",
-  fontWeight: 600,
-  color: colors.textMuted
-}
-
-const loadingTextStyle: React.CSSProperties = {
-  padding: `0 ${spacing.lg}`,
-  fontSize: "0.875rem",
-  color: colors.textMuted
-}
-
-const footerStyle: React.CSSProperties = {
-  padding: spacing.lg,
-  borderTop: `1px solid ${colors.borderMuted}`,
-  backgroundColor: colors.page,
-  boxShadow: shadow.soft
-}
-
-const importButtonStyle: React.CSSProperties = {
-  width: "100%",
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: "none",
-  borderRadius: radius.medium,
-  backgroundColor: controls.primary.background,
-  color: controls.primary.foreground,
-  fontWeight: 600,
-  fontSize: "0.875rem",
-  cursor: "pointer"
-}
-
-const statusStyle: React.CSSProperties = {
-  margin: `0 ${spacing.lg} ${spacing.sm}`,
-  fontSize: "0.8125rem",
-  color: colors.textSuccess
 }
 
 const visuallyHiddenStyle: React.CSSProperties = {

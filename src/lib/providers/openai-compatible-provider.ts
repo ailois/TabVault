@@ -82,7 +82,15 @@ export class OpenAiCompatibleProvider implements AiProvider {
       })
     }
 
-    const data = (await response.json()) as OpenAiCompatibleResponse
+    let data: OpenAiCompatibleResponse
+    try {
+      data = (await response.json()) as OpenAiCompatibleResponse
+    } catch (jsonError) {
+      throw normalizeProviderError(jsonError, {
+        code: "invalid_response",
+        message: "OpenAI-compatible returned invalid JSON (possible CORS or network error)"
+      })
+    }
     const text = extractTextContent(data)
 
     return parseAnalyzeResult(text)

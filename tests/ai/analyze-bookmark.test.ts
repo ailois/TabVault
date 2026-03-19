@@ -59,7 +59,7 @@ describe("analyzeBookmark", () => {
     expect(firstUpdate).toMatchObject({
       id: bookmark.id,
       status: "analyzing",
-      tags: []
+      aiTags: []
     })
     expect(provider.analyze).toHaveBeenCalledWith({
       title: bookmark.title,
@@ -71,7 +71,8 @@ describe("analyzeBookmark", () => {
       id: bookmark.id,
       status: "done",
       summary: "Short summary",
-      tags: ["example", "ai"]
+      aiTags: ["example", "ai"],
+      userTags: []
     })
     expect(result).toEqual(secondUpdate)
   })
@@ -102,7 +103,10 @@ function createBookmarkRepository(): BookmarkRepository {
     list: vi.fn(async () => []),
     getById: vi.fn(async () => null),
     update: vi.fn(async () => undefined),
-    delete: vi.fn(async () => undefined)
+    delete: vi.fn(async () => undefined),
+    clearAnalysis: vi.fn(async () => undefined),
+    clearAllAnalysis: vi.fn(async () => undefined),
+    clearErrorAnalysis: vi.fn(async () => undefined)
   }
 }
 
@@ -112,7 +116,8 @@ function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord
     title: "Example",
     url: "https://example.com/article",
     extractedText: "Example content",
-    tags: [],
+    aiTags: [],
+    userTags: [],
     status: "saved",
     createdAt: "2026-03-07T09:59:00.000Z",
     updatedAt: "2026-03-07T09:59:00.000Z",

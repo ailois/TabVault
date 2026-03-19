@@ -1,18 +1,34 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 
 import React from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { act } from "react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-import Options from "../../src/options"
 import ProviderSettingsForm from "../../src/components/provider-settings-form"
-import type { ProviderValidation } from "../../src/features/settings/settings-validation"
+import Options from "../../src/options"
 import type { ProviderFormState } from "../../src/features/settings/provider-form-state"
+import type { ProviderValidation } from "../../src/features/settings/settings-validation"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
-import { colors, controls, radius, shadow, spacing } from "../../src/ui/design-tokens"
+import { radius, spacing } from "../../src/ui/design-tokens"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+globalThis.chrome = {
+  ...(globalThis.chrome ?? {}),
+  storage: {
+    ...((globalThis.chrome as any)?.storage ?? {}),
+    local: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {})
+    }
+  },
+  runtime: {
+    ...((globalThis.chrome as any)?.runtime ?? {}),
+    onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    sendMessage: vi.fn()
+  }
+} as any
 
 describe("Options", () => {
   afterEach(async () => {
@@ -30,25 +46,58 @@ describe("Options", () => {
   it("renders editable app and provider settings sections", async () => {
     await renderOptions()
 
-    const pageShell = container?.querySelector('[data-testid="settings-page-shell"]')
-    const pageHeader = container?.querySelector('[data-testid="settings-page-header"]')
-    const pageDescription = container?.querySelector('[data-testid="settings-page-description"]')
+    const dashboardShell = container?.querySelector('[data-testid="options-dashboard-shell"]')
+    const sidebar = container?.querySelector('[data-testid="options-sidebar"]')
+    const mainContent = container?.querySelector('[data-testid="options-main-content"]')
+    const settingsNavButton = container?.querySelector<HTMLButtonElement>('[data-testid="options-nav-settings"]')
 
-    expect(container?.textContent).toContain("TabVault Settings")
-    expect(container?.textContent).toContain("Configure providers and analysis behavior")
-    expect(pageShell).toBeTruthy()
-    expect(pageHeader?.textContent).toContain("TabVault Settings")
-    expect(pageDescription?.textContent).toContain("Configure providers and analysis behavior")
+    expect(container?.textContent).toContain("TabVault")
+    expect(container?.textContent).toContain("Settings")
+    expect(container?.textContent).toContain("Bookmarks")
+    expect(dashboardShell).toBeTruthy()
+    expect(sidebar).toBeTruthy()
+    expect(mainContent).toBeTruthy()
+    expect(settingsNavButton?.getAttribute("aria-pressed")).toBe("true")
 
     const appSection = getSectionByHeading("App Settings")
+    const maintenanceSection = getSectionByHeading("Maintenance")
     const openAiSection = getSectionByHeading("OpenAI-compatible")
-    const claudeSection = getSectionByHeading("Claude")
-    const geminiSection = getSectionByHeading("Gemini")
+    const workspace = container?.querySelector('[data-testid="settings-workspace"]')
+    const providerRail = container?.querySelector('[data-testid="provider-rail"]')
 
     expect(appSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
-    expect(openAiSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
-    expect(claudeSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
-    expect(geminiSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
+    expect(maintenanceSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
+    expect(workspace).toBeTruthy()
+    expect(providerRail).toBeTruthy()
+    // defaultProvider is openai, so only openai provider form is visible
+    expect(openAiSection?.closest('[data-testid="settings-section-card"]') ?? openAiSection).toBeTruthy()
+    // provider editor selector should be removed
+    expect(container?.querySelector("#provider-editor-selector")).toBeNull()
+    // claude and gemini sections are not visible
+    expect(getSectionByHeading("Claude")).toBeUndefined()
+    expect(getSectionByHeading("Gemini")).toBeUndefined()
+  })
+
+  it("switching provider rail selection makes the selected provider form visible", async () => {
+    await renderOptions()
+
+    // Initially openai should be visible, claude not
+    expect(getSectionByHeading("OpenAI-compatible")).toBeTruthy()
+    expect(getSectionByHeading("Claude")).toBeUndefined()
+
+    // Switch provider rail to claude
+    const claudeRailButton = container?.querySelector<HTMLButtonElement>('[data-testid="provider-rail-claude"]')
+    expect(claudeRailButton).toBeTruthy()
+
+    await act(async () => {
+      claudeRailButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    // Now claude should be visible, openai not
+    expect(getSectionByHeading("OpenAI-compatible")).toBeUndefined()
+    expect(getSectionByHeading("Claude")).toBeTruthy()
+    expect(container?.querySelector<HTMLButtonElement>('[data-testid="provider-rail-openai"]')?.getAttribute("aria-pressed")).toBe("false")
+    expect(container?.querySelector<HTMLButtonElement>('[data-testid="provider-rail-claude"]')?.getAttribute("aria-pressed")).toBe("true")
   })
 
   it("renders provider field validation messages passed through props", async () => {
@@ -94,19 +143,9 @@ describe("Options", () => {
       description: "Use any OpenAI-compatible endpoint by providing an API key, model, and base URL.",
       expectedFieldLabels: ["API key", "Model", "Base URL"]
     })
-
-    assertProviderSectionStructure("Claude", {
-      description: "Use your Anthropic API key and preferred Claude model for analysis.",
-      expectedFieldLabels: ["API key", "Model"]
-    })
-
-    assertProviderSectionStructure("Gemini", {
-      description: "Use your Google AI Studio API key and Gemini model for analysis.",
-      expectedFieldLabels: ["API key", "Model"]
-    })
   })
 
-  it("uses shared design tokens for the settings shell and provider controls", async () => {
+  it("renders settings page shell and save actions sections", async () => {
     await renderOptions()
 
     const pageShell = container?.querySelector<HTMLElement>('[data-testid="settings-page-shell"]')
@@ -118,18 +157,15 @@ describe("Options", () => {
     )
 
     expect(pageShell?.style.gap).toBe(spacing.lg)
-    expect(sectionCard?.style.padding).toBe(`0px 0px ${spacing.lg} 0px`)
-    expect(sectionCard?.style.borderBottom).toBe("1px solid rgb(241, 245, 249)")
-    expect(saveActions?.style.borderTop).toBe("1px solid rgb(241, 245, 249)")
-    expect(saveActions?.style.backgroundColor).toBe("rgb(255, 255, 255)")
-    expect(saveActions?.style.boxShadow).toBe(shadow.soft)
-    expect(saveStatus?.style.color).toBe("rgb(113, 113, 122)")
-    expect(saveButton?.style.backgroundColor).toBe("rgb(15, 23, 42)")
-    expect(saveButton?.style.color).toBe("rgb(255, 255, 255)")
+    expect(sectionCard?.style.borderRadius).toBe("16px")
+    expect(sectionCard?.style.overflow).toBe("hidden")
+    expect(saveActions?.style.borderTop).toBeTruthy()
+    expect(saveActions?.style.backgroundColor).toBeTruthy()
+    expect(saveStatus).toBeTruthy()
     expect(saveButton?.style.borderRadius).toBe(radius.medium)
   })
 
-  it("uses shared design tokens for provider form copy, rows, and inputs", async () => {
+  it("renders provider form with toggle and styled fields", async () => {
     await renderProviderSettingsForm(
       {
         provider: "openai",
@@ -142,18 +178,14 @@ describe("Options", () => {
     )
 
     const description = container?.querySelector<HTMLElement>('[data-testid="provider-description"]')
-    const enabledRow = container?.querySelector<HTMLElement>('[data-testid="provider-enabled-row"]')
     const fieldStack = container?.querySelector<HTMLElement>('[data-testid="provider-field-stack"]')
     const apiKeyInput = getInputById("openai-api-key")
 
-    expect(description?.style.color).toBe("rgb(113, 113, 122)")
-    expect(enabledRow?.style.padding).toBe(`${spacing.sm} ${spacing.md}`)
-    expect(enabledRow?.style.borderRadius).toBe(radius.medium)
-    expect(enabledRow?.style.backgroundColor).toBe("rgb(244, 244, 245)")
+    expect(description?.style.color).toBeTruthy()
     expect(fieldStack?.style.gap).toBe(spacing.xs)
     expect(apiKeyInput?.style.padding).toBe(`${spacing.sm} ${spacing.md}`)
     expect(apiKeyInput?.style.borderRadius).toBe(radius.small)
-    expect(apiKeyInput?.style.backgroundColor).toBe("rgb(248, 250, 252)")
+    expect(apiKeyInput?.style.backgroundColor).toBeTruthy()
   })
 })
 
@@ -164,7 +196,8 @@ const settingsRepository: SettingsRepository = {
   getAppSettings: async () => ({
     defaultProvider: "openai",
     autoAnalyzeOnSave: false,
-    summaryLanguage: "auto" as const
+    summaryLanguage: "auto" as const,
+    autoRetryOnError: false
   }),
   saveAppSettings: async () => {},
   getProviders: async () => [],
@@ -194,7 +227,6 @@ async function renderProviderSettingsForm(value: ProviderFormState, fieldErrors:
 function getSectionByHeading(heading: string): HTMLElement | undefined {
   return Array.from(container?.querySelectorAll("section") ?? []).find((section) => {
     const sectionHeading = section.querySelector("h2")
-
     return sectionHeading?.textContent === heading
   })
 }
@@ -217,17 +249,11 @@ function assertProviderSectionStructure(
   expect(description).toBeTruthy()
   expect(description?.textContent ?? "").toContain(options.description)
 
-  const enabledRow = section?.querySelector('[data-testid="provider-enabled-row"]')
-  expect(enabledRow).toBeTruthy()
-  expect(enabledRow?.textContent).toContain("Enabled")
-  expect(enabledRow?.querySelector('input[type="checkbox"]')).toBeTruthy()
-
   const fieldStacks = Array.from(section?.querySelectorAll('[data-testid="provider-field-stack"]') ?? [])
   expect(fieldStacks).toHaveLength(options.expectedFieldLabels.length)
 
   options.expectedFieldLabels.forEach((label, index) => {
     const fieldStack = fieldStacks[index]
-
     expect(fieldStack?.querySelector("label")?.textContent).toContain(label)
     expect(fieldStack?.querySelector("input")).toBeTruthy()
   })

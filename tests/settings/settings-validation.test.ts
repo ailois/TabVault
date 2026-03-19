@@ -85,6 +85,7 @@ function createValidAppSettings(overrides: Partial<AppSettings> = {}): AppSettin
     defaultProvider: "openai",
     autoAnalyzeOnSave: false,
     summaryLanguage: "auto",
+    autoRetryOnError: false,
     ...overrides
   }
 }

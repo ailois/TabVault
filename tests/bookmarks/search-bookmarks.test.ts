@@ -10,21 +10,24 @@ describe("searchBookmarks", () => {
       title: "React docs",
       url: "https://react.dev/learn",
       summary: "Learn the React component model",
-      tags: ["frontend", "library"]
+      aiTags: ["frontend", "library"],
+      userTags: []
     })
     const cssBookmark = createBookmark({
       id: "bookmark-css",
       title: "CSS tricks",
       url: "https://css-tricks.com",
       summary: "Layout and animation patterns",
-      tags: ["design"]
+      aiTags: ["design"],
+      userTags: []
     })
     const apiBookmark = createBookmark({
       id: "bookmark-api",
       title: "Example API",
       url: "https://example.com/docs/graphql",
       summary: "Server query guide",
-      tags: ["backend", "graphql"]
+      aiTags: ["backend", "graphql"],
+      userTags: []
     })
 
     expect(searchBookmarks([reactBookmark, cssBookmark, apiBookmark], "react")).toEqual([reactBookmark])
@@ -42,6 +45,19 @@ describe("searchBookmarks", () => {
     expect(searchBookmarks(bookmarks, "")).toEqual(bookmarks)
     expect(searchBookmarks(bookmarks, "   ")).toEqual(bookmarks)
   })
+
+  it("searches both aiTags and userTags", () => {
+    const bm = createBookmark({
+      id: "bm-user-tag",
+      title: "Some page",
+      url: "https://example.com",
+      aiTags: ["ai-generated"],
+      userTags: ["my-custom-tag"]
+    })
+
+    expect(searchBookmarks([bm], "my-custom-tag")).toEqual([bm])
+    expect(searchBookmarks([bm], "ai-generated")).toEqual([bm])
+  })
 })
 
 function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {
@@ -49,7 +65,8 @@ function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord
     id: "bookmark-default",
     url: "https://example.com",
     title: "Example",
-    tags: [],
+    aiTags: [],
+    userTags: [],
     status: "saved",
     createdAt: "2026-03-07T10:00:00.000Z",
     updatedAt: "2026-03-07T10:00:00.000Z",

@@ -25,7 +25,7 @@ describe("saveCurrentPage", () => {
       url: "https://example.com/article",
       extractedText: "Extracted body text.",
       status: "saved",
-      tags: []
+      aiTags: []
     })
   })
 
@@ -70,6 +70,10 @@ function createBookmarkRepository(): BookmarkRepository {
     save: vi.fn(async () => undefined),
     list: vi.fn(async () => []),
     getById: vi.fn(async () => null),
-    update: vi.fn(async () => undefined)
+    update: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
+    clearAnalysis: vi.fn(async () => undefined),
+    clearAllAnalysis: vi.fn(async () => undefined),
+    clearErrorAnalysis: vi.fn(async () => undefined)
   }
 }

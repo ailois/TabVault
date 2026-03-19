@@ -14,4 +14,5 @@ export type AppSettings = {
   defaultProvider: ProviderType
   autoAnalyzeOnSave: boolean
   summaryLanguage: SummaryLanguage
+  autoRetryOnError: boolean
 }

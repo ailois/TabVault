@@ -6,6 +6,7 @@ import type { AiProvider, AnalyzeInput, AnalyzeResult } from "./provider"
 type ClaudeProviderConfig = {
   apiKey: string
   model: string
+  baseUrl?: string
   fetchImpl?: FetchLike
   timeoutMs?: number
 }
@@ -26,16 +27,19 @@ type FetchLike = (
   json(): Promise<unknown>
 }>
 
-const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 const ANTHROPIC_VERSION = "2023-06-01"
 
 export class ClaudeProvider implements AiProvider {
   private readonly fetchImpl: FetchLike
   private readonly timeoutMs: number
+  private readonly apiUrl: string
 
   constructor(private readonly config: ClaudeProviderConfig) {
     this.fetchImpl = config.fetchImpl ?? fetch
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    this.apiUrl = config.baseUrl
+      ? `${config.baseUrl.replace(/\/$/, "")}/messages`
+      : "https://api.anthropic.com/v1/messages"
   }
 
   async analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
@@ -57,7 +61,7 @@ export class ClaudeProvider implements AiProvider {
     let response: Awaited<ReturnType<FetchLike>>
 
     try {
-      response = await this.fetchImpl(CLAUDE_API_URL, {
+      response = await this.fetchImpl(this.apiUrl, {
         method: "POST",
         signal: controller.signal,
         headers: {
@@ -77,13 +81,28 @@ export class ClaudeProvider implements AiProvider {
     }
 
     if (!response.ok) {
+      let errorDetail = ""
+      try {
+        const errBody = (await response.json()) as { error?: { message?: string } }
+        errorDetail = errBody?.error?.message ? `: ${errBody.error.message}` : ""
+      } catch {
+        // ignore JSON parse errors on error body
+      }
       throw normalizeProviderError(new Error(`Claude request failed with status ${response.status}`), {
         code: getErrorCode(response.status),
-        message: getErrorMessage(response.status)
+        message: getErrorMessage(response.status) + errorDetail
       })
     }
 
-    const data = (await response.json()) as ClaudeResponse
+    let data: ClaudeResponse
+    try {
+      data = (await response.json()) as ClaudeResponse
+    } catch (jsonError) {
+      throw normalizeProviderError(jsonError, {
+        code: "invalid_response",
+        message: "Claude returned invalid JSON (possible CORS or proxy error)"
+      })
+    }
     const text = extractTextContent(data)
 
     return parseAnalyzeResult(text)

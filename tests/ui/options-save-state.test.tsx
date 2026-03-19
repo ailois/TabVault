@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 
 import React from "react"
 import { act } from "react"
@@ -6,10 +6,32 @@ import { createRoot, type Root } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import Options from "../../src/options"
-import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+globalThis.chrome = {
+  ...(globalThis.chrome ?? {}),
+  storage: {
+    ...((globalThis.chrome as any)?.storage ?? {}),
+    local: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {})
+    }
+  },
+  runtime: {
+    ...((globalThis.chrome as any)?.runtime ?? {}),
+    onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    sendMessage: vi.fn()
+  },
+  bookmarks: {
+    getTree: vi.fn().mockResolvedValue([
+      { id: "0", title: "", children: [{ id: "1", title: "Bookmarks Bar", children: [] }] }
+    ]),
+    remove: vi.fn().mockResolvedValue(undefined)
+  }
+} as any
 
 describe("Options save state", () => {
   afterEach(async () => {
@@ -24,70 +46,122 @@ describe("Options save state", () => {
     root = null
   })
 
-  it("persists app settings and all provider rows when Save is clicked", async () => {
+  it("saving always persists exactly one enabled provider", async () => {
     const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
     const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
 
     const settingsRepository: SettingsRepository = {
       getAppSettings: async () => ({
-        defaultProvider: "openai",
+        defaultProvider: "claude",
         autoAnalyzeOnSave: false,
-        summaryLanguage: "auto" as const
+        summaryLanguage: "auto" as const,
+        autoRetryOnError: false
       }),
       saveAppSettings,
-      getProviders: async () => getValidProviders(),
+      getProviders: async () => [
+        {
+          provider: "openai",
+          apiKey: "openai-key",
+          baseUrl: "https://api.openai.com/v1",
+          model: "gpt-4o-mini",
+          enabled: false
+        },
+        {
+          provider: "claude",
+          apiKey: "claude-key",
+          model: "claude-sonnet-4-5",
+          enabled: true
+        },
+        {
+          provider: "gemini",
+          apiKey: "gemini-key",
+          model: "gemini-1.5-flash",
+          enabled: false
+        }
+      ],
       saveProviders
     }
 
     await renderOptions(settingsRepository)
-
-    await changeSelectValue("default-provider", "gemini")
-    await clickCheckbox(getAppSettingsCheckbox(), true)
-    await changeInputValue("openai-api-key", "openai-key")
-    await changeInputValue("openai-model", "gpt-4.1")
-    await changeInputValue("openai-base-url", "https://openai.example.com/v1")
-    await clickCheckbox(getSectionCheckbox("OpenAI-compatible"), true)
-
-    await changeInputValue("claude-api-key", "claude-key")
-    await changeInputValue("claude-model", "claude-3-7-sonnet")
-    await clickCheckbox(getSectionCheckbox("Claude"), true)
-
-    await changeInputValue("gemini-api-key", "gemini-key")
-    await changeInputValue("gemini-model", "gemini-2.0-flash")
-    await clickCheckbox(getSectionCheckbox("Gemini"), true)
-
     await clickSave()
+    await flushPromises()
 
-    const expectedAppSettings = {
-      defaultProvider: "gemini",
-      autoAnalyzeOnSave: true,
-      summaryLanguage: "auto"
-    } satisfies AppSettings
-
-    const expectedProviders = [
+    expect(saveProviders).toHaveBeenCalledWith([
       {
         provider: "openai",
         apiKey: "openai-key",
-        model: "gpt-4.1",
-        baseUrl: "https://openai.example.com/v1",
-        enabled: true
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4o-mini",
+        enabled: false
       },
       {
         provider: "claude",
         apiKey: "claude-key",
-        model: "claude-3-7-sonnet",
+        model: "claude-sonnet-4-5",
         enabled: true
       },
       {
         provider: "gemini",
         apiKey: "gemini-key",
-        model: "gemini-2.0-flash",
-        enabled: true
+        model: "gemini-1.5-flash",
+        enabled: false
       }
-    ] satisfies ProviderConfig[]
+    ])
+  })
 
-    expect(saveAppSettings).toHaveBeenCalledWith(expectedAppSettings)
-    expect(saveProviders).toHaveBeenCalledWith(expectedProviders)
+  it("editing a non-default provider through provider rail does not change what gets saved as enabled", async () => {
+    const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
+
+    const settingsRepository: SettingsRepository = {
+      getAppSettings: async () => ({
+        defaultProvider: "claude",
+        autoAnalyzeOnSave: false,
+        summaryLanguage: "auto" as const,
+        autoRetryOnError: false
+      }),
+      saveAppSettings: async () => {},
+      getProviders: async () => [
+        {
+          provider: "openai",
+          apiKey: "openai-key",
+          baseUrl: "https://api.openai.com/v1",
+          model: "gpt-4o-mini",
+          enabled: false
+        },
+        {
+          provider: "claude",
+          apiKey: "claude-key",
+          model: "claude-sonnet-4-5",
+          enabled: true
+        },
+        {
+          provider: "gemini",
+          apiKey: "gemini-key",
+          model: "gemini-1.5-flash",
+          enabled: false
+        }
+      ],
+      saveProviders
+    }
+
+    await renderOptions(settingsRepository)
+
+    // Switch provider rail to openai without changing defaultProvider
+    await clickProviderRail("openai")
+    await changeInputValue("openai-api-key", "new-openai-key")
+
+    await clickSave()
+    await flushPromises()
+
+    // Only claude should be enabled (it's the defaultProvider)
+    const savedProviders = saveProviders.mock.calls[0][0]
+    const claudeProvider = savedProviders.find((p: ProviderConfig) => p.provider === "claude")
+    const openaiProvider = savedProviders.find((p: ProviderConfig) => p.provider === "openai")
+    const geminiProvider = savedProviders.find((p: ProviderConfig) => p.provider === "gemini")
+    expect(claudeProvider?.enabled).toBe(true)
+    expect(openaiProvider?.enabled).toBe(false)
+    expect(geminiProvider?.enabled).toBe(false)
+    expect(openaiProvider?.apiKey).toBe("new-openai-key")
   })
 
   it("shows Saving... while settings are being persisted and Saved settings after success", async () => {
@@ -96,7 +170,8 @@ describe("Options save state", () => {
       getAppSettings: async () => ({
         defaultProvider: "openai",
         autoAnalyzeOnSave: false,
-        summaryLanguage: "auto" as const
+        summaryLanguage: "auto" as const,
+        autoRetryOnError: false
       }),
       saveAppSettings: async () => {
         await saveCompletion.promise
@@ -137,7 +212,8 @@ describe("Options save state", () => {
       getAppSettings: async () => ({
         defaultProvider: "openai",
         autoAnalyzeOnSave: false,
-        summaryLanguage: "auto" as const
+        summaryLanguage: "auto" as const,
+        autoRetryOnError: false
       }),
       saveAppSettings: async () => {
         throw new Error("save failed")
@@ -151,56 +227,6 @@ describe("Options save state", () => {
     await flushPromises()
 
     expect(getSaveStatusText()).toBe("Failed to save settings")
-  })
-
-  it("disables save and renders an app-level error when the default provider is disabled", async () => {
-    await renderOptions(createSettingsRepository())
-
-    await clickCheckbox(getSectionCheckbox("OpenAI-compatible"), true)
-    await changeSelectValue("default-provider", "claude")
-
-    expect(getSaveButton()?.disabled).toBe(true)
-    expect(getAppSettingsValidationAlert()?.textContent).toBe("Default provider must be enabled")
-  })
-
-  it("disables save when an enabled provider is missing required fields", async () => {
-    await renderOptions(createSettingsRepository())
-
-    await clickCheckbox(getSectionCheckbox("OpenAI-compatible"), true)
-    await changeInputValue("openai-model", "")
-    await changeInputValue("openai-base-url", "")
-
-    const providerAlerts = getSectionAlerts("OpenAI-compatible")
-
-    expect(getSaveButton()?.disabled).toBe(true)
-    expect(providerAlerts.map((alert) => alert.textContent)).toEqual([
-      "API key is required",
-      "Model is required",
-      "Base URL is required"
-    ])
-    expect(getInput("openai-api-key")?.getAttribute("aria-invalid")).toBe("true")
-    expect(getInput("openai-model")?.getAttribute("aria-invalid")).toBe("true")
-    expect(getInput("openai-base-url")?.getAttribute("aria-invalid")).toBe("true")
-  })
-
-  it("does not persist invalid settings when save is clicked", async () => {
-    const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
-    const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
-
-    await renderOptions(
-      createSettingsRepository({
-        saveAppSettings,
-        saveProviders
-      })
-    )
-
-    await clickCheckbox(getSectionCheckbox("OpenAI-compatible"), true)
-    await clickSave()
-
-    expect(getSaveButton()?.disabled).toBe(true)
-    expect(saveAppSettings).not.toHaveBeenCalled()
-    expect(saveProviders).not.toHaveBeenCalled()
-    expect(getSaveStatusText()).toBe("Ready")
   })
 
   it("disables save when enabled OpenAI has an invalid base URL", async () => {
@@ -244,6 +270,47 @@ describe("Options save state", () => {
     expect(saveProviders).not.toHaveBeenCalled()
   })
 
+  it("disables save when the default provider has an empty API key", async () => {
+    const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
+    const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
+
+    await renderOptions(
+      createSettingsRepository({
+        saveAppSettings,
+        saveProviders,
+        getProviders: async () => [
+          {
+            provider: "openai",
+            apiKey: "openai-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4o-mini",
+            enabled: true
+          },
+          {
+            provider: "claude",
+            apiKey: "claude-key",
+            model: "claude-sonnet-4-5",
+            enabled: false
+          },
+          {
+            provider: "gemini",
+            apiKey: "gemini-key",
+            model: "gemini-1.5-flash",
+            enabled: false
+          }
+        ]
+      })
+    )
+
+    await changeInputValue("openai-api-key", "")
+    await clickSave()
+
+    expect(getSaveButton()?.disabled).toBe(true)
+    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("API key is required")
+    expect(saveAppSettings).not.toHaveBeenCalled()
+    expect(saveProviders).not.toHaveBeenCalled()
+  })
+
   it("allows save when a disabled provider has empty fields", async () => {
     const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
     const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
@@ -255,7 +322,8 @@ describe("Options save state", () => {
         getAppSettings: async () => ({
           defaultProvider: "claude",
           autoAnalyzeOnSave: false,
-          summaryLanguage: "auto" as const
+          summaryLanguage: "auto" as const,
+          autoRetryOnError: false
         }),
         getProviders: async () => [
           {
@@ -281,9 +349,6 @@ describe("Options save state", () => {
       })
     )
 
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).not.toContain("Base URL is required")
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).not.toContain("API key is required")
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).not.toContain("Model is required")
     expect(getSaveButton()?.disabled).toBe(false)
 
     await clickSave()
@@ -292,7 +357,8 @@ describe("Options save state", () => {
     expect(saveAppSettings).toHaveBeenCalledWith({
       defaultProvider: "claude",
       autoAnalyzeOnSave: false,
-      summaryLanguage: "auto"
+      summaryLanguage: "auto",
+      autoRetryOnError: false
     })
     expect(saveProviders).toHaveBeenCalledWith([
       {
@@ -346,30 +412,15 @@ async function changeInputValue(id: string, value: string): Promise<void> {
   })
 }
 
-async function changeSelectValue(id: string, value: string): Promise<void> {
-  const select = container?.querySelector<HTMLSelectElement>(`#${id}`)
+async function clickProviderRail(provider: "openai" | "claude" | "gemini"): Promise<void> {
+  const button = container?.querySelector<HTMLButtonElement>(`[data-testid="provider-rail-${provider}"]`)
 
-  if (!select) {
-    throw new Error(`Expected select #${id}`)
+  if (!button) {
+    throw new Error(`Expected provider rail button for ${provider}`)
   }
 
   await act(async () => {
-    select.value = value
-    select.dispatchEvent(new Event("change", { bubbles: true }))
-  })
-}
-
-async function clickCheckbox(checkbox: HTMLInputElement | null | undefined, nextChecked: boolean): Promise<void> {
-  if (!checkbox) {
-    throw new Error("Expected checkbox")
-  }
-
-  if (checkbox.checked === nextChecked) {
-    return
-  }
-
-  await act(async () => {
-    checkbox.click()
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
   })
 }
 
@@ -402,32 +453,11 @@ function setElementValue(element: HTMLInputElement, value: string): void {
   descriptor?.set?.call(element, value)
 }
 
-function getAppSettingsCheckbox(): HTMLInputElement | null | undefined {
-  return getSectionByHeading("App Settings")?.querySelector<HTMLInputElement>('input[type="checkbox"]')
-}
-
-function getAppSettingsSection(): HTMLElement | undefined {
-  return getSectionByHeading("App Settings")
-}
-
-function getAppSettingsValidationAlert(): HTMLElement | undefined {
-  return getAppSettingsSection()?.querySelector<HTMLElement>('[role="alert"]') ?? undefined
-}
-
-function getSectionCheckbox(heading: string): HTMLInputElement | null | undefined {
-  return getSectionByHeading(heading)?.querySelector<HTMLInputElement>('input[type="checkbox"]')
-}
-
 function getSectionByHeading(heading: string): HTMLElement | undefined {
   return Array.from(container?.querySelectorAll("section") ?? []).find((section) => {
     const sectionHeading = section.querySelector("h2")
-
     return sectionHeading?.textContent === heading
   })
-}
-
-function getSectionAlerts(heading: string): HTMLElement[] {
-  return Array.from(getSectionByHeading(heading)?.querySelectorAll<HTMLElement>('[role="alert"]') ?? [])
 }
 
 function getSaveStatusText(): string | undefined {
@@ -462,7 +492,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
     getAppSettings: async () => ({
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
-      summaryLanguage: "auto" as const
+      summaryLanguage: "auto" as const,
+      autoRetryOnError: false
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [],

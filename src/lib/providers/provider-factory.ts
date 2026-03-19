@@ -16,12 +16,14 @@ export function createProvider(config: ProviderConfig): AiProvider {
     case "claude":
       return new ClaudeProvider({
         apiKey: config.apiKey,
-        model: config.model
+        model: config.model,
+        baseUrl: config.baseUrl
       })
     case "gemini":
       return new GeminiProvider({
         apiKey: config.apiKey,
-        model: config.model
+        model: config.model,
+        baseUrl: config.baseUrl
       })
     default:
       return assertNever(config.provider)

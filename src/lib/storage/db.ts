@@ -28,9 +28,9 @@ export class IndexedDbBookmarkStorage implements BookmarkStorage {
     const database = await this.databaseFactory()
     const transaction = database.transaction(BOOKMARK_STORE_NAME, "readonly")
     const store = transaction.objectStore(BOOKMARK_STORE_NAME)
-    const bookmark = await runRequest<BookmarkRecord | undefined>(store.get(id))
+    const bookmark = await runRequest<Record<string, unknown> | undefined>(store.get(id))
 
-    return bookmark ?? null
+    return bookmark ? migrateRecord(bookmark) : null
   }
 
   async getAll(): Promise<BookmarkRecord[]> {
@@ -38,7 +38,8 @@ export class IndexedDbBookmarkStorage implements BookmarkStorage {
     const transaction = database.transaction(BOOKMARK_STORE_NAME, "readonly")
     const store = transaction.objectStore(BOOKMARK_STORE_NAME)
 
-    return runRequest<BookmarkRecord[]>(store.getAll())
+    const bookmarks = await runRequest<Record<string, unknown>[]>(store.getAll())
+    return bookmarks.map(migrateRecord)
   }
 
   async delete(id: string): Promise<void> {
@@ -82,4 +83,16 @@ function waitForTransaction(transaction: IDBTransaction): Promise<void> {
     transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed"))
     transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted"))
   })
+}
+
+function migrateRecord(raw: Record<string, unknown>): BookmarkRecord {
+  if ('aiTags' in raw) {
+    return raw as unknown as BookmarkRecord
+  }
+  const { tags, ...rest } = raw
+  return {
+    ...rest,
+    aiTags: Array.isArray(tags) ? (tags as string[]) : [],
+    userTags: []
+  } as BookmarkRecord
 }

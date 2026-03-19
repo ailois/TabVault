@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useState } from "react"
 
 import { ErrorBanner } from "./components/error-banner"
 import { BookmarkList } from "./components/bookmark-list"
+import { BookmarkDrawer } from "./components/bookmark-drawer"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { saveCurrentPage as defaultSaveCurrentPage } from "./features/bookmarks/save-current-page"
-import { searchBookmarks } from "./features/bookmarks/search-bookmarks"
+import { searchBookmarks, type SearchMode } from "./features/bookmarks/search-bookmarks"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
+import type { ThemeRepository } from "./lib/config/theme-repository"
+import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
@@ -14,7 +17,10 @@ import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-re
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
-import { colors, controls, GLOBAL_FOCUS_STYLES, radius, shadow, spacing } from "./ui/design-tokens"
+import { buildGlobalStyles, radius, spacing } from "./ui/design-tokens"
+import { useTheme } from "./ui/use-theme"
+import { useGlobalStyles } from "./ui/use-global-styles"
+import { ThemeProvider } from "./ui/theme-context"
 
 type PopupProps = {
   services?: Partial<PopupServices>
@@ -28,6 +34,7 @@ type PopupServices = {
   extractPage: typeof defaultExtractPage
   queryActiveTab: () => Promise<ChromeTab | undefined>
   createProvider: (config: ProviderConfig) => AiProvider
+  themeRepository: ThemeRepository
 }
 
 type ChromeTab = {
@@ -50,11 +57,14 @@ const DEFAULT_POPUP_SERVICES: PopupServices = {
 
     return activeTab
   },
-  createProvider: defaultCreateProvider
+  createProvider: defaultCreateProvider,
+  themeRepository: new ChromeThemeRepository()
 }
 
 function Popup({ services }: PopupProps) {
   const popupServices = useMemo(() => ({ ...DEFAULT_POPUP_SERVICES, ...services }), [services])
+  const theme = useTheme(popupServices.themeRepository)
+  useGlobalStyles(theme)
   const [statusMessage, setStatusMessage] = useState("Ready to save the current page.")
   const [statusTone, setStatusTone] = useState<"info" | "success">("info")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -63,29 +73,25 @@ function Popup({ services }: PopupProps) {
   const [isLoadingBookmarks, setIsLoadingBookmarks] = useState(true)
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchMode, setSearchMode] = useState<SearchMode>("all")
   const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
+  const [selectedBookmark, setSelectedBookmark] = useState<BookmarkRecord | null>(null)
 
   const filteredBookmarks = useMemo(
-    () => searchBookmarks(bookmarks, searchQuery),
-    [bookmarks, searchQuery]
+    () => searchBookmarks(bookmarks, searchQuery, searchMode),
+    [bookmarks, searchQuery, searchMode]
   )
 
   const hasPendingBookmarks = bookmarks.some(
     (b) => b.status === "saved" || b.status === "error"
   )
 
+  const hasClearableBookmarks = bookmarks.some(
+    (b) => b.status === "done" || b.status === "error" || b.status === "analyzing" || b.summary
+  )
+
   useEffect(() => {
     void loadBookmarks()
-  }, [])
-
-  useEffect(() => {
-    const style = document.createElement("style")
-    style.textContent = GLOBAL_FOCUS_STYLES
-    document.head.appendChild(style)
-
-    return () => {
-      style.remove()
-    }
   }, [])
 
   async function loadBookmarks(): Promise<void> {
@@ -184,6 +190,35 @@ function Popup({ services }: PopupProps) {
     globalThis.chrome?.runtime?.sendMessage({ type: "ANALYZE_ALL" }, () => {})
   }
 
+  async function handleUpdateTags(id: string, aiTags: string[], userTags: string[]): Promise<void> {
+    const bookmark = bookmarks.find((b) => b.id === id)
+    if (!bookmark) return
+    try {
+      await popupServices.bookmarkRepository.update({ ...bookmark, aiTags, userTags, updatedAt: new Date().toISOString() })
+      await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Failed to update tags"))
+    }
+  }
+
+  async function handleClearAnalysis(id: string): Promise<void> {
+    try {
+      await popupServices.bookmarkRepository.clearAnalysis(id)
+      await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Failed to clear analysis"))
+    }
+  }
+
+  async function handleClearAllAnalysis(): Promise<void> {
+    try {
+      await popupServices.bookmarkRepository.clearAllAnalysis()
+      await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Failed to clear all analysis"))
+    }
+  }
+
   async function handleSaveCurrentPage(): Promise<void> {
     setIsSaving(true)
     setIsAnalyzing(false)
@@ -252,24 +287,176 @@ function Popup({ services }: PopupProps) {
     }
   }
 
+  const pageStyle: React.CSSProperties = {
+    width: "380px",
+    height: "600px",
+    overflow: "hidden",
+    backgroundColor: theme.page,
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column"
+  }
+
+  const shellStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    backgroundColor: theme.surface
+  }
+
+  const secondaryActionButtonStyle: React.CSSProperties = {
+    padding: "4px 10px",
+    border: `1px solid ${theme.border}`,
+    borderRadius: radius.pill,
+    backgroundColor: theme.surface,
+    color: theme.textMuted,
+    fontSize: "0.8125rem",
+    fontWeight: 500,
+    cursor: "pointer"
+  }
+
+  const statusTextStyle: React.CSSProperties = {
+    margin: `0 ${spacing.md}`,
+    fontSize: "0.8125rem",
+    color: theme.textSuccess,
+    padding: `0 0 ${spacing.xs}`
+  }
+
+  const libraryHeadingStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: spacing.xs,
+    margin: 0,
+    padding: `${spacing.xs} ${spacing.md}`,
+    fontSize: "0.625rem",
+    fontWeight: 700,
+    color: theme.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em"
+  }
+
+  const bookmarkCountStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "1px 6px",
+    borderRadius: radius.pill,
+    backgroundColor: theme.surfaceElevated,
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    color: theme.textMuted
+  }
+
+  const stickyFooterStyle: React.CSSProperties = {
+    padding: spacing.md,
+    borderTop: `1px solid ${theme.border}`,
+    backgroundColor: theme.surface,
+    boxShadow: theme.shadow
+  }
+
+  const primaryActionButtonStyle: React.CSSProperties = {
+    width: "100%",
+    padding: `${spacing.sm} ${spacing.md}`,
+    border: "none",
+    borderRadius: "12px",
+    backgroundColor: theme.accent,
+    color: "#ffffff",
+    fontWeight: 600,
+    fontSize: "0.9375rem",
+    cursor: "pointer",
+    boxShadow: "0 10px 24px rgba(99,102,241,0.22)"
+  }
+
   return (
+    <ThemeProvider theme={theme}>
     <main aria-labelledby="popup-title" style={pageStyle}>
       <div data-testid="popup-shell" style={shellStyle}>
-        {/* Search bar — always at top */}
-        <div style={searchBarStyle}>
+        {/* Brand header */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: `${spacing.sm} ${spacing.md}`,
+          borderBottom: `1px solid ${theme.borderMuted}`,
+          backgroundColor: theme.surface
+        }}>
+          <h1 id="popup-title" style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary, display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ color: theme.accent }}>✦</span>
+            TabVault
+            <span style={{ fontSize: "0.625rem", fontWeight: 800, background: theme.accentSoft, color: theme.accent, padding: "1px 5px", borderRadius: "4px" }}>PRO</span>
+          </h1>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <button
+              aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
+              data-testid="theme-toggle-button"
+              onClick={() => theme.toggle()}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", color: theme.textMuted, padding: "4px", borderRadius: radius.small, lineHeight: 1, transition: "color 0.15s ease" }}
+              type="button"
+            >
+              {theme.isDark ? "☀️" : "🌙"}
+            </button>
+            <button
+              aria-label="Open settings"
+              onClick={() => (globalThis.chrome?.runtime as any)?.openOptionsPage?.()}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", color: theme.textMuted, padding: "4px", borderRadius: radius.small, lineHeight: 1, transition: "color 0.15s ease" }}
+              type="button"
+            >
+              ⚙️
+            </button>
+          </div>
+        </div>
+
+        {/* Search area */}
+        <div style={{ padding: spacing.sm, borderBottom: `1px solid ${theme.borderMuted}`, backgroundColor: theme.surfaceElevated }}>
           <label htmlFor="bookmark-search" style={visuallyHiddenStyle}>Search bookmarks</label>
           <input
             id="bookmark-search"
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search title, URL, summary, tags..."
-            style={searchInputStyle}
+            placeholder="Search title, URL, tags..."
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "9px 12px",
+              border: `1px solid ${theme.border}`,
+              borderRadius: radius.medium,
+              backgroundColor: theme.surface,
+              color: theme.textPrimary,
+              fontSize: "0.875rem",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+            }}
             type="search"
             value={searchQuery}
           />
+          {/* Filter chips — KEEP data-testid="search-chip" */}
+          <div style={{ display: "flex", gap: spacing.xs, marginTop: spacing.sm, overflowX: "auto" }}>
+            {(["all", "title", "tags", "url"] as const).map((mode) => (
+              <button
+                data-testid="search-chip"
+                key={mode}
+                onClick={() => setSearchMode(mode)}
+                style={{
+                  padding: "3px 12px",
+                  border: searchMode === mode ? "none" : `1px solid ${theme.border}`,
+                  borderRadius: radius.pill,
+                  fontSize: "0.6875rem",
+                  fontWeight: searchMode === mode ? 700 : 500,
+                  cursor: "pointer",
+                  backgroundColor: searchMode === mode ? theme.accent : theme.surface,
+                  color: searchMode === mode ? "#ffffff" : theme.textMuted,
+                  whiteSpace: "nowrap" as const,
+                  flexShrink: 0,
+                  boxShadow: searchMode === mode ? "0 1px 2px rgba(79,70,229,0.22)" : "none"
+                }}
+                type="button"
+              >
+                {mode === "all" ? "All" : mode === "tags" ? "Tags" : mode === "url" ? "URL" : "Title"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Secondary actions row */}
-        <section aria-labelledby="popup-actions-title" style={actionsRowStyle}>
+        <section aria-labelledby="popup-actions-title" style={{ display: "flex", gap: spacing.xs, padding: `${spacing.xs} ${spacing.md}` }}>
           <h2 id="popup-actions-title" style={visuallyHiddenStyle}>Actions</h2>
           <button
             data-testid="popup-secondary-action"
@@ -289,6 +476,14 @@ function Popup({ services }: PopupProps) {
               ? `Analyzing ${analyzeProgress.current}/${analyzeProgress.total}...`
               : "Analyze all"}
           </button>
+          <button
+            data-testid="popup-clear-all-action"
+            disabled={!hasClearableBookmarks}
+            onClick={() => void handleClearAllAnalysis()}
+            style={secondaryActionButtonStyle}
+            type="button">
+            Clear all
+          </button>
         </section>
 
         {/* Status/error feedback — inline text, not a card */}
@@ -298,12 +493,15 @@ function Popup({ services }: PopupProps) {
         ) : null}
 
         {/* Bookmark count label + list */}
-        <section aria-labelledby="popup-library-title" style={librarySectionStyle}>
+        <section aria-labelledby="popup-library-title" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <h2 id="popup-library-title" style={libraryHeadingStyle}>
             Library
             <span style={bookmarkCountStyle}>{filteredBookmarks.length}</span>
           </h2>
-          <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDeleteBookmark} onAnalyze={handleAnalyzeBookmark} />
+          <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDeleteBookmark} onAnalyze={handleAnalyzeBookmark} onClearAnalysis={handleClearAnalysis} onSelect={(id) => {
+              const bm = bookmarks.find((b) => b.id === id) ?? null
+              setSelectedBookmark(bm)
+            }} />
         </section>
 
         {/* Primary action — sticky footer */}
@@ -319,6 +517,20 @@ function Popup({ services }: PopupProps) {
         </footer>
       </div>
     </main>
+    <BookmarkDrawer
+      bookmark={selectedBookmark}
+      onClose={() => setSelectedBookmark(null)}
+      onAnalyze={async (id) => {
+        setSelectedBookmark(null)
+        await handleAnalyzeBookmark(id)
+      }}
+      onClearAnalysis={async (id) => {
+        await handleClearAnalysis(id)
+        setSelectedBookmark(null)
+      }}
+      onUpdateTags={handleUpdateTags}
+    />
+    </ThemeProvider>
   )
 }
 
@@ -337,113 +549,6 @@ function getSaveErrorMessage(error: unknown): string {
 }
 
 export default Popup
-
-const pageStyle: React.CSSProperties = {
-  width: "400px",
-  height: "560px",
-  overflow: "hidden",
-  backgroundColor: colors.page,
-  boxSizing: "border-box",
-  display: "flex",
-  flexDirection: "column"
-}
-
-const shellStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-  backgroundColor: colors.page
-}
-
-const searchBarStyle: React.CSSProperties = {
-  padding: `${spacing.md} ${spacing.md} ${spacing.sm}`
-}
-
-const searchInputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 12px",
-  border: "none",
-  borderBottom: `1px solid ${colors.borderMuted}`,
-  borderRadius: 0,
-  backgroundColor: "transparent",
-  color: colors.textPrimary,
-  fontSize: "0.9375rem"
-}
-
-const actionsRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: spacing.sm,
-  padding: `0 ${spacing.md} ${spacing.sm}`
-}
-
-const secondaryActionButtonStyle: React.CSSProperties = {
-  padding: "4px 10px",
-  border: "none",
-  borderRadius: radius.pill,
-  backgroundColor: controls.secondary.background,
-  color: colors.textMuted,
-  fontSize: "0.8125rem",
-  fontWeight: 500,
-  cursor: "pointer"
-}
-
-const statusTextStyle: React.CSSProperties = {
-  margin: `0 ${spacing.md}`,
-  fontSize: "0.8125rem",
-  color: colors.textSuccess,
-  padding: `0 0 ${spacing.xs}`
-}
-
-const librarySectionStyle: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  minHeight: 0
-}
-
-const libraryHeadingStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: spacing.xs,
-  margin: 0,
-  padding: `${spacing.xs} ${spacing.md}`,
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  color: colors.textMuted,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em"
-}
-
-const bookmarkCountStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "1px 6px",
-  borderRadius: radius.pill,
-  backgroundColor: colors.surfaceMuted,
-  fontSize: "0.7rem",
-  fontWeight: 600,
-  color: colors.textMuted
-}
-
-const stickyFooterStyle: React.CSSProperties = {
-  padding: spacing.md,
-  borderTop: `1px solid ${colors.borderMuted}`,
-  backgroundColor: colors.page,
-  boxShadow: shadow.soft
-}
-
-const primaryActionButtonStyle: React.CSSProperties = {
-  width: "100%",
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: "none",
-  borderRadius: radius.medium,
-  backgroundColor: controls.primary.background,
-  color: controls.primary.foreground,
-  fontWeight: 600,
-  fontSize: "0.9375rem",
-  cursor: "pointer"
-}
 
 const visuallyHiddenStyle: React.CSSProperties = {
   position: "absolute",

@@ -67,6 +67,38 @@ async function processAnalysisQueue() {
   chrome.runtime.sendMessage({ type: "ANALYSIS_COMPLETE" }).catch(() => {})
 }
 
+async function retryErrorQueue() {
+  const bookmarks = await repo.list()
+  const errorBookmarks = bookmarks.filter(b => b.status === "error")
+  if (errorBookmarks.length === 0) return
+
+  const settings = await settingsRepo.getAppSettings()
+  if (!settings.autoRetryOnError) return
+
+  const providers = await settingsRepo.getProviders()
+  const selectedProvider = providers.find(p => p.enabled && p.provider === settings.defaultProvider)
+  if (!selectedProvider?.apiKey.trim()) return
+
+  const provider = createProvider(selectedProvider)
+
+  for (const bookmark of errorBookmarks) {
+    try {
+      const response = await fetch(bookmark.url)
+      const html = await response.text()
+      const textContent = html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').slice(0, 10000)
+      await analyzeBookmark({
+        bookmark,
+        provider,
+        bookmarkRepository: repo,
+        contentOverride: textContent,
+        summaryLanguage: settings.summaryLanguage
+      })
+    } catch {
+      // leave as error, will retry next time
+    }
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "IMPORT_BOOKMARKS") {
     importChromeBookmarks({
@@ -106,7 +138,8 @@ if (globalThis.chrome?.bookmarks) {
         parentId: bookmark.parentId,
         url: bookmark.url,
         title: bookmark.title || "",
-        tags: [],
+        aiTags: [],
+        userTags: [],
         status: "saved" as const,
         createdAt: now,
         updatedAt: now
@@ -143,3 +176,11 @@ if (globalThis.chrome?.bookmarks) {
     chrome.runtime.sendMessage({ type: "BOOKMARKS_CHANGED" }).catch(() => {})
   })
 }
+
+chrome.runtime.onStartup.addListener(() => {
+  void retryErrorQueue()
+})
+
+chrome.runtime.onInstalled.addListener(() => {
+  void retryErrorQueue()
+})

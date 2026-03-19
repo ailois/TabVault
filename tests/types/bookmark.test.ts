@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { createEmptyBookmarkDraft } from "../../src/types/bookmark"
 
 describe("createEmptyBookmarkDraft", () => {
-  it("creates a bookmark draft with saved status and empty tags", () => {
+  it("creates a bookmark draft with saved status and empty tag arrays", () => {
     const draft = createEmptyBookmarkDraft({
       title: "Example",
       url: "https://example.com"
@@ -11,6 +11,7 @@ describe("createEmptyBookmarkDraft", () => {
     expect(draft.title).toBe("Example")
     expect(draft.url).toBe("https://example.com")
     expect(draft.status).toBe("saved")
-    expect(draft.tags).toEqual([])
+    expect(draft.aiTags).toEqual([])
+    expect(draft.userTags).toEqual([])
   })
 })

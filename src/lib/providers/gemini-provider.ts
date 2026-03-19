@@ -6,6 +6,7 @@ import type { AiProvider, AnalyzeInput, AnalyzeResult } from "./provider"
 type GeminiProviderConfig = {
   apiKey: string
   model: string
+  baseUrl?: string
   fetchImpl?: FetchLike
   timeoutMs?: number
 }
@@ -33,20 +34,24 @@ type FetchLike = (
   json(): Promise<unknown>
 }>
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+const DEFAULT_GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 export class GeminiProvider implements AiProvider {
   private readonly fetchImpl: FetchLike
   private readonly timeoutMs: number
+  private readonly baseApiUrl: string
 
   constructor(private readonly config: GeminiProviderConfig) {
     this.fetchImpl = config.fetchImpl ?? fetch
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    this.baseApiUrl = config.baseUrl
+      ? config.baseUrl.replace(/\/$/, "")
+      : DEFAULT_GEMINI_API_URL
   }
 
   async analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
     const controller = new AbortController()
-    const url = `${GEMINI_API_URL}/${this.config.model}:generateContent`
+    const url = `${this.baseApiUrl}/${this.config.model}:generateContent`
     const body = JSON.stringify({
       contents: [
         {

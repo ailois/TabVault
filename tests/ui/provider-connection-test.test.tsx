@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
@@ -9,24 +9,43 @@ import type { ProviderFormState } from "../../src/features/settings/provider-for
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
+globalThis.chrome = {
+  ...(globalThis.chrome ?? {}),
+  storage: {
+    ...((globalThis.chrome as any)?.storage ?? {}),
+    local: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {})
+    }
+  },
+  runtime: {
+    ...((globalThis.chrome as any)?.runtime ?? {}),
+    onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    sendMessage: vi.fn()
+  },
+  bookmarks: {
+    getTree: vi.fn().mockResolvedValue([
+      { id: "0", title: "", children: [{ id: "1", title: "Bookmarks Bar", children: [] }] }
+    ]),
+    remove: vi.fn().mockResolvedValue(undefined)
+  }
+} as any
+
 describe("ProviderSettingsForm connection testing", () => {
   afterEach(async () => {
     if (root && container) {
-      await act(async () => { root?.unmount() })
+      await act(async () => {
+        root?.unmount()
+      })
     }
     container?.remove()
     container = null
     root = null
   })
 
-  it("shows Test connection button when provider is enabled with apiKey and model filled", async () => {
+  it("shows Test connection button when required fields are filled", async () => {
     await render(enabledOpenAi())
     expect(getTestBtn()).not.toBeNull()
-  })
-
-  it("disables Test connection button when provider is not enabled", async () => {
-    await render({ ...enabledOpenAi(), enabled: false })
-    expect(getTestBtn()?.hasAttribute("disabled")).toBe(true)
   })
 
   it("disables Test connection button when apiKey is empty", async () => {
@@ -56,19 +75,23 @@ describe("ProviderSettingsForm connection testing", () => {
     expect(getTestBtn()?.hasAttribute("disabled")).toBe(true)
 
     deferred.resolve("ok")
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
   })
 
-  it("shows ✓ Connected after a successful test", async () => {
+  it("shows Connected after a successful test", async () => {
     await render(enabledOpenAi(), async () => "ok")
 
     await act(async () => {
       getTestBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     })
 
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
 
-    expect(container?.querySelector("[data-testid='connection-test-result']")?.textContent).toBe("✓ Connected")
+    expect(container?.querySelector("[data-testid='connection-test-result']")?.textContent).toBe("Connected")
   })
 
   it("shows error message after a failed test", async () => {
@@ -78,7 +101,9 @@ describe("ProviderSettingsForm connection testing", () => {
       getTestBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     })
 
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     expect(container?.querySelector("[data-testid='connection-test-result']")?.textContent).toBe("401 Unauthorized")
   })
@@ -90,9 +115,11 @@ describe("ProviderSettingsForm connection testing", () => {
     await act(async () => {
       getTestBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     })
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
 
-    expect(container?.querySelector("[data-testid='connection-test-result']")?.textContent).toBe("✓ Connected")
+    expect(container?.querySelector("[data-testid='connection-test-result']")?.textContent).toBe("Connected")
 
     currentValue = { ...currentValue, apiKey: "new-key" }
     await act(async () => {
@@ -115,13 +142,7 @@ async function render(
   root = createRoot(container)
 
   await act(async () => {
-    root.render(
-      <ProviderSettingsForm
-        value={value}
-        onChange={() => {}}
-        onTestConnection={onTestConnection}
-      />
-    )
+    root.render(<ProviderSettingsForm value={value} onChange={() => {}} onTestConnection={onTestConnection} />)
   })
 }
 
@@ -136,13 +157,7 @@ async function renderWithRerender(
   let currentValue = initialValue
 
   function TestWrapper({ value }: { value: ProviderFormState }) {
-    return (
-      <ProviderSettingsForm
-        value={value}
-        onChange={() => {}}
-        onTestConnection={onTestConnection}
-      />
-    )
+    return <ProviderSettingsForm value={value} onChange={() => {}} onTestConnection={onTestConnection} />
   }
 
   await act(async () => {
@@ -173,6 +188,8 @@ function enabledOpenAi(): ProviderFormState {
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((res) => { resolve = res })
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
   return { promise, resolve }
 }

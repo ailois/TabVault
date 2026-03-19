@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react"
+﻿import React, { useEffect, useState } from "react"
 
 import type { ProviderFormState } from "../features/settings/provider-form-state"
 import type { ProviderValidation } from "../features/settings/settings-validation"
-import { colors, controls, radius, spacing } from "../ui/design-tokens"
+import { radius, spacing } from "../ui/design-tokens"
+import { useThemeContext } from "../ui/theme-context"
 
 type ProviderSettingsFormProps = {
   value: ProviderFormState
@@ -29,7 +30,14 @@ const PROVIDER_COLORS: Record<ProviderFormState["provider"], string> = {
   gemini: "#4285f4"
 }
 
+const PROVIDER_BASE_URL_DEFAULTS: Partial<Record<ProviderFormState["provider"], string>> = {
+  openai: "https://api.openai.com/v1",
+  claude: "https://api.anthropic.com/v1",
+  gemini: "https://generativelanguage.googleapis.com/v1beta/models"
+}
+
 function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }: ProviderSettingsFormProps) {
+  const theme = useThemeContext()
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | string>("idle")
 
   useEffect(() => {
@@ -51,7 +59,6 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
   }
 
   const canTest =
-    value.enabled &&
     value.apiKey.trim().length > 0 &&
     value.model.trim().length > 0 &&
     (value.provider !== "openai" || (value.baseUrl ?? "").trim().length > 0)
@@ -66,32 +73,52 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
     }
   }
 
+  const fieldStyle: React.CSSProperties = {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: `${spacing.sm} ${spacing.md}`,
+    border: `1px solid ${theme.border}`,
+    borderRadius: radius.small,
+    backgroundColor: theme.surfaceElevated,
+    fontSize: "0.875rem",
+    color: theme.textPrimary,
+    transition: "background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease"
+  }
+
   return (
-    <section style={sectionStyle}>
-      <div style={headerStyle}>
-        <h2 style={headingStyle}>
-          <span style={{ ...colorDotStyle, backgroundColor: providerColor }} aria-hidden="true" />
+    <section style={{ display: "grid", gap: spacing.md }}>
+      <div style={{ display: "grid", gap: "4px" }}>
+        <h2
+          style={{
+            margin: 0,
+            fontSize: "1rem",
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: spacing.sm,
+            color: theme.textPrimary
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-block",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              flexShrink: 0,
+              backgroundColor: providerColor
+            }}
+          />
           {providerLabel}
         </h2>
-        <p data-testid="provider-description" style={descriptionStyle}>
+        <p data-testid="provider-description" style={{ margin: 0, color: theme.textMuted, fontSize: "0.8125rem", lineHeight: 1.5, maxWidth: "60ch" }}>
           {providerDescription}
         </p>
       </div>
 
-      <div data-testid="provider-enabled-row" style={enabledRowStyle}>
-        <label style={enabledLabelStyle}>
-          <span>Enabled</span>
-          <input
-            checked={value.enabled}
-            onChange={(event) => updateField("enabled", event.target.checked)}
-            style={checkboxStyle}
-            type="checkbox"
-          />
-        </label>
-      </div>
-
-      <div data-testid="provider-field-stack" style={fieldStackStyle}>
-        <label htmlFor={`${value.provider}-api-key`} style={fieldLabelStyle}>
+      <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
+        <label htmlFor={`${value.provider}-api-key`} style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
           API key
         </label>
         <input
@@ -99,19 +126,19 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
           aria-invalid={fieldErrors?.apiKey ? true : undefined}
           id={`${value.provider}-api-key`}
           onChange={(event) => updateField("apiKey", event.target.value)}
-          style={inputStyle}
+          style={fieldStyle}
           type="password"
           value={value.apiKey}
         />
         {fieldErrors?.apiKey ? (
-          <p aria-live="polite" id={apiKeyErrorId} role="alert" style={errorStyle}>
+          <p aria-live="polite" id={apiKeyErrorId} role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
             {fieldErrors.apiKey}
           </p>
         ) : null}
       </div>
 
-      <div data-testid="provider-field-stack" style={fieldStackStyle}>
-        <label htmlFor={`${value.provider}-model`} style={fieldLabelStyle}>
+      <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
+        <label htmlFor={`${value.provider}-model`} style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
           Model
         </label>
         <input
@@ -119,173 +146,63 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
           aria-invalid={fieldErrors?.model ? true : undefined}
           id={`${value.provider}-model`}
           onChange={(event) => updateField("model", event.target.value)}
-          style={inputStyle}
+          style={fieldStyle}
           type="text"
           value={value.model}
         />
         {fieldErrors?.model ? (
-          <p aria-live="polite" id={modelErrorId} role="alert" style={errorStyle}>
+          <p aria-live="polite" id={modelErrorId} role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
             {fieldErrors.model}
           </p>
         ) : null}
       </div>
 
-      {value.provider === "openai" ? (
-        <div data-testid="provider-field-stack" style={fieldStackStyle}>
-          <label htmlFor="openai-base-url" style={fieldLabelStyle}>
+      {(value.provider === "openai" || value.provider === "claude" || value.provider === "gemini") ? (
+        <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
+          <label htmlFor={`${value.provider}-base-url`} style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
             Base URL
+            {value.provider !== "openai" ? (
+              <span style={{ fontWeight: 400, color: theme.textMuted, marginLeft: "0.5em" }}>
+                (optional, defaults to {PROVIDER_BASE_URL_DEFAULTS[value.provider]})
+              </span>
+            ) : null}
           </label>
           <input
             aria-describedby={fieldErrors?.baseUrl ? baseUrlErrorId : undefined}
             aria-invalid={fieldErrors?.baseUrl ? true : undefined}
-            id="openai-base-url"
+            id={`${value.provider}-base-url`}
             onChange={(event) => updateField("baseUrl", event.target.value)}
-            style={inputStyle}
+            placeholder={PROVIDER_BASE_URL_DEFAULTS[value.provider]}
+            style={fieldStyle}
             type="url"
             value={value.baseUrl ?? ""}
           />
           {fieldErrors?.baseUrl ? (
-            <p aria-live="polite" id={baseUrlErrorId} role="alert" style={errorStyle}>
+            <p aria-live="polite" id={baseUrlErrorId} role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
               {fieldErrors.baseUrl}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      <div style={testRowStyle}>
+      <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
         <button
           data-testid="provider-test-button"
           disabled={!canTest || testStatus === "testing"}
           onClick={() => void handleTestConnection()}
-          style={testButtonStyle}
+          style={{ padding: `6px ${spacing.md}`, border: "none", borderRadius: radius.medium, backgroundColor: "transparent", color: theme.accent, fontSize: "0.875rem", fontWeight: 500, cursor: "pointer" }}
           type="button"
         >
           {testStatus === "testing" ? "Testing..." : "Test connection"}
         </button>
         {testStatus !== "idle" && testStatus !== "testing" ? (
-          <span
-            data-testid="connection-test-result"
-            style={testStatus === "ok" ? testSuccessStyle : testErrorStyle}
-          >
-            {testStatus === "ok" ? "✓ Connected" : testStatus}
+          <span data-testid="connection-test-result" style={{ fontSize: "0.8125rem", color: testStatus === "ok" ? theme.textSuccess : theme.textDanger }}>
+            {testStatus === "ok" ? "Connected" : testStatus}
           </span>
         ) : null}
       </div>
     </section>
   )
-}
-
-const sectionStyle: React.CSSProperties = {
-  display: "grid",
-  gap: spacing.md
-}
-
-const headerStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "4px"
-}
-
-const headingStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: "1rem",
-  fontWeight: 600,
-  display: "flex",
-  alignItems: "center",
-  gap: spacing.sm
-}
-
-const colorDotStyle: React.CSSProperties = {
-  display: "inline-block",
-  width: "8px",
-  height: "8px",
-  borderRadius: "50%",
-  flexShrink: 0
-}
-
-const descriptionStyle: React.CSSProperties = {
-  margin: 0,
-  color: colors.textMuted,
-  fontSize: "0.8125rem",
-  lineHeight: 1.5,
-  maxWidth: "60ch"
-}
-
-const enabledRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingBottom: spacing.sm
-}
-
-const enabledLabelStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: spacing.md,
-  fontWeight: 500,
-  fontSize: "0.875rem"
-}
-
-const checkboxStyle: React.CSSProperties = {
-  width: "18px",
-  height: "18px",
-  accentColor: controls.primary.background
-}
-
-const fieldStackStyle: React.CSSProperties = {
-  display: "grid",
-  gap: spacing.xs
-}
-
-const fieldLabelStyle: React.CSSProperties = {
-  fontWeight: 500,
-  fontSize: "0.875rem",
-  color: colors.textSecondary
-}
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: `${spacing.sm} ${spacing.md}`,
-  border: "none",
-  borderRadius: radius.medium,
-  backgroundColor: controls.input.background,
-  fontSize: "0.875rem",
-  color: colors.textPrimary,
-  transition: "background-color 0.15s ease"
-}
-
-const errorStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: "0.8125rem",
-  color: colors.textDanger
-}
-
-const testRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: spacing.sm
-}
-
-const testButtonStyle: React.CSSProperties = {
-  padding: `6px ${spacing.md}`,
-  border: "none",
-  borderRadius: radius.medium,
-  backgroundColor: controls.secondary.background,
-  color: colors.textSecondary,
-  fontSize: "0.875rem",
-  fontWeight: 500,
-  cursor: "pointer"
-}
-
-const testSuccessStyle: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: colors.textSuccess
-}
-
-const testErrorStyle: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: colors.textDanger
 }
 
 export default ProviderSettingsForm

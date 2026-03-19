@@ -39,7 +39,8 @@ export async function importChromeBookmarks({ getTree, bookmarkRepository }: Imp
         title: node.title,
         url: node.url,
         status: "saved",
-        tags: [],
+        aiTags: [],
+        userTags: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }

@@ -16,7 +16,16 @@ describe("importChromeBookmarks", () => {
 
     const save = vi.fn<BookmarkRepository["save"]>(async () => {})
     const list = vi.fn<BookmarkRepository["list"]>(async () => [])
-    const repo: BookmarkRepository = { save, list, getById: vi.fn(), update: vi.fn(), delete: vi.fn() }
+    const repo: BookmarkRepository = {
+      save,
+      list,
+      getById: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      clearAnalysis: vi.fn(),
+      clearAllAnalysis: vi.fn(),
+      clearErrorAnalysis: vi.fn()
+    }
 
     await importChromeBookmarks({
       getTree: async () => mockTree as any,

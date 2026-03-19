@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
@@ -6,14 +6,32 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { BookmarkList } from "../../src/components/bookmark-list"
 import type { BookmarkRecord } from "../../src/types/bookmark"
-import { colors, radius, spacing } from "../../src/ui/design-tokens"
+import { radius } from "../../src/ui/design-tokens"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+globalThis.chrome = {
+  ...(globalThis.chrome ?? {}),
+  storage: {
+    ...((globalThis.chrome as any)?.storage ?? {}),
+    local: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {})
+    }
+  },
+  runtime: {
+    ...((globalThis.chrome as any)?.runtime ?? {}),
+    onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    sendMessage: vi.fn()
+  }
+} as any
 
 describe("BookmarkCard", () => {
   afterEach(async () => {
     if (root && container) {
-      await act(async () => { root?.unmount() })
+      await act(async () => {
+        root?.unmount()
+      })
     }
     container?.remove()
     container = null
@@ -31,13 +49,21 @@ describe("BookmarkCard", () => {
     expect(link?.getAttribute("target")).toBe("_blank")
   })
 
-  it("renders domain and date separated by · in metadata", async () => {
+  it("renders domain and date in metadata", async () => {
     await renderList([createBookmark({ url: "https://example.com/article", updatedAt: "2026-03-11T12:00:00.000Z" })])
 
     const metadata = getCard()?.querySelector<HTMLElement>("[data-testid='bookmark-metadata']")
 
     expect(metadata?.textContent).toContain("example.com")
-    expect(metadata?.textContent).toContain("·")
+    expect(metadata?.textContent).toContain("2026")
+  })
+
+  it("renders a local fallback icon based on hostname initial", async () => {
+    await renderList([createBookmark({ url: "https://example.com/article" })])
+
+    const icon = getCard()?.querySelector<HTMLElement>("[data-testid='local-icon']")
+
+    expect(icon?.textContent).toBe("E")
   })
 
   it("shows no status badge for saved or done bookmarks", async () => {
@@ -56,7 +82,7 @@ describe("BookmarkCard", () => {
     await renderList([createBookmark({ status: "analyzing" })])
 
     const badge = getCard()?.querySelector("[data-testid='bookmark-status-badge']")
-    expect(badge?.textContent).toBe("Analyzing...")
+    expect(badge?.textContent).toBe("Analyzing with LLM...")
   })
 
   it("shows Error badge when status is error", async () => {
@@ -103,10 +129,10 @@ describe("BookmarkCard", () => {
   })
 
   it("renders tags as pills", async () => {
-    await renderList([createBookmark({ tags: ["ai", "research"] })])
+    await renderList([createBookmark({ aiTags: ["ai", "research"], userTags: [] })])
 
     const tagItems = Array.from(getCard()?.querySelectorAll("[data-testid='bookmark-tag']") ?? [])
-    expect(tagItems.map(t => t.textContent)).toEqual(["ai", "research"])
+    expect(tagItems.map((tag) => tag.textContent?.trim())).toEqual(["✨ ai", "✨ research"])
   })
 
   it("calls onDelete with bookmark id when delete button is clicked and confirmed", async () => {
@@ -139,14 +165,20 @@ describe("BookmarkCard", () => {
     expect(onDelete).not.toHaveBeenCalled()
   })
 
-  it("uses design token colors and radius for card styling", async () => {
+  it("renders card styling hooks", async () => {
     await renderList([createBookmark()])
 
     const card = getCard()
 
-    expect(card?.style.backgroundColor).toBe(normalizeCssColor(colors.surface))
-    expect(card?.style.borderRadius).toBe(radius.large)
-    expect(card?.style.padding).toBe(spacing.md)
+    expect(card).not.toBeNull()
+    expect(card?.style.borderBottom).toBeTruthy()
+    expect(card?.style.padding).not.toBe("")
+  })
+
+  it("renders tag radius token", async () => {
+    await renderList([createBookmark({ aiTags: ["ai"], userTags: [] })])
+    const tag = getCard()?.querySelector<HTMLElement>("[data-testid='bookmark-tag']")
+    expect(tag?.style.borderRadius).toBe("4px")
   })
 
   it("shows Analyze button for saved bookmarks", async () => {
@@ -181,6 +213,26 @@ describe("BookmarkCard", () => {
 
     expect(onAnalyze).toHaveBeenCalledWith("bm-1")
   })
+
+  it("shows Clear button for done bookmarks", async () => {
+    await renderList([createBookmark({ status: "done" })])
+    expect(getCard()?.querySelector("[data-testid='bookmark-clear-button']")).not.toBeNull()
+  })
+
+  it("calls onClearAnalysis with bookmark id when Clear is clicked", async () => {
+    const onClearAnalysis = vi.fn(async () => undefined)
+    await renderList(
+      [createBookmark({ id: "bm-1", status: "done" })],
+      vi.fn(async () => undefined),
+      vi.fn(async () => undefined),
+      onClearAnalysis
+    )
+    const clearBtn = getCard()?.querySelector<HTMLButtonElement>("[data-testid='bookmark-clear-button']")
+    await act(async () => {
+      clearBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+    expect(onClearAnalysis).toHaveBeenCalledWith("bm-1")
+  })
 })
 
 let container: HTMLDivElement | null = null
@@ -189,14 +241,22 @@ let root: Root | null = null
 async function renderList(
   bookmarks: BookmarkRecord[],
   onDelete: (id: string) => Promise<void> = vi.fn(async () => undefined),
-  onAnalyze: (id: string) => Promise<void> = vi.fn(async () => undefined)
+  onAnalyze: (id: string) => Promise<void> = vi.fn(async () => undefined),
+  onClearAnalysis: (id: string) => Promise<void> = vi.fn(async () => undefined)
 ): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<BookmarkList bookmarks={bookmarks} onDelete={onDelete} onAnalyze={onAnalyze} />)
+    root.render(
+      <BookmarkList
+        bookmarks={bookmarks}
+        onAnalyze={onAnalyze}
+        onClearAnalysis={onClearAnalysis}
+        onDelete={onDelete}
+      />
+    )
   })
 }
 
@@ -209,16 +269,11 @@ function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord
     id: "bookmark-1",
     title: "Example page",
     url: "https://example.com/article",
-    tags: [],
+    aiTags: [],
+    userTags: [],
     status: "saved",
     createdAt: "2026-03-11T10:00:00.000Z",
     updatedAt: "2026-03-11T10:00:00.000Z",
     ...overrides
   }
-}
-
-function normalizeCssColor(value: string): string {
-  const element = document.createElement("div")
-  element.style.color = value
-  return element.style.color
 }

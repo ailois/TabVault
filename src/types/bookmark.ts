@@ -6,7 +6,8 @@ export type BookmarkRecord = {
   selectedText?: string
   extractedText?: string
   summary?: string
-  tags: string[]
+  aiTags: string[]
+  userTags: string[]
   provider?: "openai" | "claude" | "gemini"
   model?: string
   status: "saved" | "analyzing" | "done" | "error"
@@ -25,7 +26,8 @@ export function createEmptyBookmarkDraft(input: {
     id: crypto.randomUUID(),
     title: input.title,
     url: input.url,
-    tags: [],
+    aiTags: [],
+    userTags: [],
     status: "saved",
     createdAt: now,
     updatedAt: now

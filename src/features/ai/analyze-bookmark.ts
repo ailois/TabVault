@@ -30,7 +30,7 @@ export async function analyzeBookmark(input: {
     const analyzedBookmark: BookmarkRecord = {
       ...analyzingBookmark,
       summary: analysis.summary,
-      tags: analysis.tags,
+      aiTags: analysis.tags,
       status: "done",
       updatedAt: new Date().toISOString()
     }

@@ -33,7 +33,8 @@ describe("ChromeSettingsRepository", () => {
     await expect(repository.getAppSettings()).resolves.toEqual({
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
-      summaryLanguage: "auto"
+      summaryLanguage: "auto",
+      autoRetryOnError: false
     })
   })
 
@@ -41,7 +42,8 @@ describe("ChromeSettingsRepository", () => {
     const settings: AppSettings = {
       defaultProvider: "claude",
       autoAnalyzeOnSave: true,
-      summaryLanguage: "auto"
+      summaryLanguage: "auto",
+      autoRetryOnError: false
     }
 
     await repository.saveAppSettings(settings)

@@ -6,11 +6,28 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import SidePanel from "../../src/sidepanel"
 import type { BookmarkRepository } from "../../src/lib/storage/bookmark-repository"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import type { ThemeRepository } from "../../src/lib/config/theme-repository"
 import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 import type { AiProvider } from "../../src/lib/providers/provider"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+globalThis.chrome = {
+  ...(globalThis.chrome ?? {}),
+  storage: {
+    ...((globalThis.chrome as any)?.storage ?? {}),
+    local: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {})
+    }
+  },
+  runtime: {
+    ...((globalThis.chrome as any)?.runtime ?? {}),
+    onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    sendMessage: vi.fn()
+  }
+} as any
 
 describe("SidePanel", () => {
   let container: HTMLDivElement | null = null
@@ -49,10 +66,35 @@ describe("SidePanel", () => {
     expect(container?.textContent).toContain("Library")
   })
 
-  it("renders a list of bookmarks", async () => {
+  it("renders a theme toggle button in the header", async () => {
+    await renderSidePanel()
+    const btn = container?.querySelector<HTMLButtonElement>("[data-testid='theme-toggle-button']")
+    expect(btn).not.toBeNull()
+    expect(btn?.getAttribute("aria-label")).toMatch(/switch to (dark|light) mode/i)
+  })
+
+  it("calls themeRepository.setTheme when toggle is clicked", async () => {
+    const setTheme = vi.fn(async () => {})
+    const services = createServices({
+      themeRepository: { getTheme: vi.fn(async () => undefined), setTheme }
+    })
+    await renderSidePanel(services)
+
+    const btn = container?.querySelector<HTMLButtonElement>("[data-testid='theme-toggle-button']")
+    await act(async () => {
+      btn?.click()
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(setTheme).toHaveBeenCalledWith(expect.stringMatching(/dark|light/))
+  })
+
+  it("renders a list of bookmarks in search mode", async () => {
     const bookmarks = [
-      createBookmark({ id: "1", title: "Bookmark 1" }),
-      createBookmark({ id: "2", title: "Bookmark 2" })
+      createBookmark({ id: "1", title: "Bookmark Alpha" }),
+      createBookmark({ id: "2", title: "Bookmark Beta" })
     ]
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
@@ -62,8 +104,17 @@ describe("SidePanel", () => {
 
     await renderSidePanel(services)
 
-    expect(container?.textContent).toContain("Bookmark 1")
-    expect(container?.textContent).toContain("Bookmark 2")
+    // Trigger search mode with a query that matches both
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "Bookmark")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("Bookmark Alpha")
+    expect(container?.textContent).toContain("Bookmark Beta")
     expect(container?.textContent).toContain("2") // Count
   })
 
@@ -72,7 +123,9 @@ describe("SidePanel", () => {
       if (cb) cb({ success: true, count: 5 })
     })
     globalThis.chrome = {
+      ...(globalThis.chrome ?? {}),
       runtime: {
+        ...((globalThis.chrome as any)?.runtime ?? {}),
         sendMessage: sendMessageMock,
         onMessage: { addListener: vi.fn(), removeListener: vi.fn() }
       }
@@ -110,26 +163,16 @@ describe("SidePanel", () => {
     const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
 
     await act(async () => {
-      searchInput.value = "React"
-      searchInput.dispatchEvent(new Event("change", { bubbles: true }))
-      // searchBookmarks is used in useMemo, so we need to trigger an input event
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "React")
       searchInput.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
-    // Need to use fireEvent or similar if we were using RTL, but here we just manually update state if needed
-    // or rely on the onChange handler. Since we're using React state:
     await act(async () => {
-      const changeEvent = { target: { value: "React" } } as React.ChangeEvent<HTMLInputElement>
-      // We can't easily call the internal onChange, so we simulate the DOM event better
-      searchInput.value = "React"
-      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+      await Promise.resolve()
     })
-
-    // Actually, in our SidePanel: onChange={(event) => setSearchQuery(event.target.value)}
-    // Let's just re-render with the input change if needed, but standard DOM events should work in jsdom.
 
     expect(container?.textContent).toContain("React Docs")
-    // expect(container?.textContent).not.toContain("Vitest Guide") // This might fail if search isn't triggered correctly in this test setup
   })
 
   it("renders bookmark list in compact mode with no summary or tags visible", async () => {
@@ -138,7 +181,8 @@ describe("SidePanel", () => {
       title: "My Article",
       status: "done",
       summary: "A long summary text",
-      tags: ["research"]
+      aiTags: ["research"],
+      userTags: []
     })
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
@@ -148,12 +192,48 @@ describe("SidePanel", () => {
 
     await renderSidePanel(services)
 
+    // Trigger search mode to show compact BookmarkList
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "My")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
     // Summary should NOT appear in compact mode
     expect(container?.textContent).not.toContain("A long summary text")
     // Tags should NOT appear in compact mode
     expect(container?.textContent).not.toContain("research")
     // Title should appear
     expect(container?.textContent).toContain("My Article")
+  })
+
+  it("opens the drawer when a search result is selected", async () => {
+    const bookmark = createBookmark({ id: "1", title: "Drawer article", status: "done" })
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [bookmark])
+      })
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "Drawer")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const resultLink = Array.from(container?.querySelectorAll("a") ?? []).find((link) => link.textContent?.includes("Drawer article"))
+    await act(async () => {
+      resultLink?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.querySelector("[data-testid='bookmark-drawer']")?.textContent).toContain("Drawer article")
   })
 })
 
@@ -162,7 +242,8 @@ function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord
     id: "bookmark-1",
     title: "Example page",
     url: "https://example.com/article",
-    tags: [],
+    aiTags: [],
+    userTags: [],
     status: "saved",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -174,8 +255,17 @@ function createServices(overrides: any = {}): any {
   return {
     bookmarkRepository: createBookmarkRepository(),
     settingsRepository: createSettingsRepository(),
+    themeRepository: createThemeRepository(),
     analyzeBookmark: vi.fn(async ({ bookmark }) => ({ ...bookmark, status: "done" })),
     createProvider: vi.fn(() => ({ analyze: vi.fn() })),
+    ...overrides
+  }
+}
+
+function createThemeRepository(overrides: Partial<ThemeRepository> = {}): ThemeRepository {
+  return {
+    getTheme: vi.fn(async () => undefined),
+    setTheme: vi.fn(async () => undefined),
     ...overrides
   }
 }
@@ -187,6 +277,9 @@ function createBookmarkRepository(overrides: Partial<BookmarkRepository> = {}): 
     getById: vi.fn(async () => null),
     update: vi.fn(async () => undefined),
     delete: vi.fn(async () => undefined),
+    clearAnalysis: vi.fn(async () => undefined),
+    clearAllAnalysis: vi.fn(async () => undefined),
+    clearErrorAnalysis: vi.fn(async () => undefined),
     ...overrides
   }
 }
@@ -196,7 +289,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
     getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
-      summaryLanguage: "auto"
+      summaryLanguage: "auto",
+      autoRetryOnError: false
     })),
     saveAppSettings: vi.fn(async () => undefined),
     getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),
