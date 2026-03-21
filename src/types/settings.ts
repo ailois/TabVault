@@ -1,4 +1,4 @@
-export type ProviderType = "openai" | "claude" | "gemini"
+export type ProviderType = "openai" | "claude" | "gemini" | "responses"
 
 export type ProviderConfig = {
   provider: ProviderType

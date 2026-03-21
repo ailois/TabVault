@@ -3,6 +3,7 @@ import type { ProviderConfig } from "../../types/settings"
 import { ClaudeProvider } from "./claude-provider"
 import { GeminiProvider } from "./gemini-provider"
 import { OpenAiCompatibleProvider } from "./openai-compatible-provider"
+import { ResponsesApiProvider } from "./responses-api-provider"
 import type { AiProvider } from "./provider"
 
 export function createProvider(config: ProviderConfig): AiProvider {
@@ -24,6 +25,12 @@ export function createProvider(config: ProviderConfig): AiProvider {
         apiKey: config.apiKey,
         model: config.model,
         baseUrl: config.baseUrl
+      })
+    case "responses":
+      return new ResponsesApiProvider({
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
+        model: config.model
       })
     default:
       return assertNever(config.provider)

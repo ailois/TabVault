@@ -29,10 +29,17 @@ const DEFAULT_PROVIDER_FORM_STATE: Record<ProviderType, ProviderFormState> = {
     apiKey: "",
     model: "gemini-1.5-flash",
     enabled: false
+  },
+  responses: {
+    provider: "responses",
+    apiKey: "",
+    baseUrl: OPENAI_BASE_URL,
+    model: "gpt-5.4-mini",
+    enabled: false
   }
 }
 
-const PROVIDER_ORDER: ProviderType[] = ["openai", "claude", "gemini"]
+const PROVIDER_ORDER: ProviderType[] = ["openai", "claude", "gemini", "responses"]
 
 export function buildProviderFormState(storedProviders: ProviderConfig[]): ProviderFormState[] {
   const storedByProvider = new Map(storedProviders.map((provider) => [provider.provider, provider]))
@@ -45,7 +52,7 @@ export function buildProviderFormState(storedProviders: ProviderConfig[]): Provi
       return { ...defaults }
     }
 
-    if (provider === "openai") {
+    if (provider === "openai" || provider === "responses") {
       return {
         ...defaults,
         ...stored,
