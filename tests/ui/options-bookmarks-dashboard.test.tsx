@@ -178,6 +178,13 @@ describe("Options bookmarks dashboard", () => {
     expect(getBookmarkDetailsColumn()?.textContent).toContain("Select a bookmark to view details")
   })
 
+  it("does not cap the details column height", async () => {
+    await renderBookmarksTab([makeBookmarkRecord()])
+
+    expect(getBookmarkDetailsColumn()).not.toBeNull()
+    expect(getBookmarkDetailsColumn()?.style.maxHeight).toBe("")
+  })
+
   it("updates middle column when a different folder is selected in left column", async () => {
     await renderBookmarksTab([makeBookmarkRecord()])
 

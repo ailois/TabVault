@@ -1471,7 +1471,6 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
             width: `${widths.details}px`,
             flexShrink: 0,
             overflowY: "auto",
-            maxHeight: "680px",
             display: "flex",
             flexDirection: "column",
             backgroundColor: theme.surface
@@ -1587,7 +1586,7 @@ function BookmarkDetailPanel({ record, url, onAnalyze, onClearAnalysis, onUpdate
   const showClearButton = record && (record.status === "done" || record.status === "error" || record.status === "analyzing")
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ padding: spacing.lg, borderBottom: `1px solid ${theme.borderMuted}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", color: theme.textMuted, marginBottom: spacing.sm }}>
           <span>{getBookmarkHost(url)}</span>
@@ -1604,7 +1603,7 @@ function BookmarkDetailPanel({ record, url, onAnalyze, onClearAnalysis, onUpdate
           </h3>
         ) : null}
       </div>
-      <div style={{ flex: 1, padding: spacing.lg, display: "grid", gap: spacing.lg, alignContent: "start" }}>
+      <div style={{ padding: spacing.lg, display: "grid", gap: spacing.lg }}>
         <div>
           <p style={{ margin: "0 0 4px", fontSize: "0.75rem", fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>URL</p>
           <a
@@ -1750,7 +1749,7 @@ function BookmarkDetailPanel({ record, url, onAnalyze, onClearAnalysis, onUpdate
           </p>
         )}
       </div>
-      <div style={{ padding: spacing.lg, borderTop: `1px solid ${theme.borderMuted}`, display: "flex", gap: spacing.sm }}>
+      <div style={{ padding: spacing.lg, borderTop: `1px solid ${theme.borderMuted}`, display: "flex", gap: spacing.sm, marginTop: spacing.lg }}>
         {showAnalyzeButton && !record?.summary ? (
           <button
             onClick={() => void onAnalyze(url)}

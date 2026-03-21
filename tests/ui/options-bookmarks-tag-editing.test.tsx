@@ -179,7 +179,28 @@ function getDetailTagInput(): HTMLInputElement | null {
   return container?.querySelector<HTMLInputElement>('[data-testid="detail-tag-input"]') ?? null
 }
 
+function getSelectedDetailPanelRoot(): HTMLElement | null {
+  const detailsColumn = container?.querySelector('[data-testid="bookmark-details-column"]') as HTMLElement | null
+  return (detailsColumn?.lastElementChild?.firstElementChild as HTMLElement | null) ?? null
+}
+
+function getSelectedDetailPanelBody(): HTMLElement | null {
+  const root = getSelectedDetailPanelRoot()
+  return (root?.children[1] as HTMLElement | null) ?? null
+}
+
 describe("BookmarkDetailPanel tag editing", () => {
+  it("keeps detail content naturally sized instead of stretching body space", async () => {
+    const record = makeBookmarkRecord({ aiTags: ["frontend"], userTags: [] })
+    const repo = makeBookmarkRepository(record)
+    await renderAndSelectBookmark(repo)
+
+    expect(getSelectedDetailPanelRoot()).not.toBeNull()
+    expect(getSelectedDetailPanelBody()).not.toBeNull()
+    expect(getSelectedDetailPanelRoot()?.style.height).toBe("")
+    expect(getSelectedDetailPanelBody()?.style.flex).toBe("")
+  })
+
   it("shows edit button in the tag section after selecting a bookmark", async () => {
     const record = makeBookmarkRecord()
     const repo = makeBookmarkRepository(record)
