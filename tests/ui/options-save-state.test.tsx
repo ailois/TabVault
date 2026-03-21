@@ -105,13 +105,6 @@ describe("Options save state", () => {
         apiKey: "gemini-key",
         model: "gemini-1.5-flash",
         enabled: false
-      },
-      {
-        provider: "responses",
-        apiKey: "",
-        baseUrl: "https://api.openai.com/v1",
-        model: "gpt-5.4-mini",
-        enabled: false
       }
     ])
   })
@@ -385,13 +378,6 @@ describe("Options save state", () => {
         provider: "gemini",
         apiKey: "",
         model: "",
-        enabled: false
-      },
-      {
-        provider: "responses",
-        apiKey: "",
-        baseUrl: "https://api.openai.com/v1",
-        model: "gpt-5.4-mini",
         enabled: false
       }
     ])

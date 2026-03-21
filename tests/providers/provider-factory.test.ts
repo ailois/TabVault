@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { ClaudeProvider } from "../../src/lib/providers/claude-provider"
 import { GeminiProvider } from "../../src/lib/providers/gemini-provider"
+import { OpenAiCompatibleProvider } from "../../src/lib/providers/openai-compatible-provider"
 import { createProvider } from "../../src/lib/providers/provider-factory"
 
 describe("createProvider", () => {
@@ -14,7 +15,7 @@ describe("createProvider", () => {
       enabled: true
     })
 
-    expect(provider).toBeTruthy()
+    expect(provider).toBeInstanceOf(OpenAiCompatibleProvider)
   })
 
   it("creates a Claude provider for claude configs", () => {

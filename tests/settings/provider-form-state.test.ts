@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { buildProviderFormState } from "../../src/features/settings/provider-form-state"
 
 describe("buildProviderFormState", () => {
-  it("returns fixed rows for openai, claude, gemini, and responses in order", () => {
+  it("returns fixed rows for openai, claude, and gemini in order", () => {
     const state = buildProviderFormState([])
 
     expect(state).toEqual([
@@ -24,13 +24,6 @@ describe("buildProviderFormState", () => {
         provider: "gemini",
         apiKey: "",
         model: "gemini-1.5-flash",
-        enabled: false
-      },
-      {
-        provider: "responses",
-        apiKey: "",
-        baseUrl: "https://api.openai.com/v1",
-        model: "gpt-5.4-mini",
         enabled: false
       }
     ])
@@ -72,13 +65,6 @@ describe("buildProviderFormState", () => {
         apiKey: "gemini-key",
         model: "gemini-2.0-flash",
         enabled: true
-      },
-      {
-        provider: "responses",
-        apiKey: "",
-        baseUrl: "https://api.openai.com/v1",
-        model: "gpt-5.4-mini",
-        enabled: false
       }
     ])
   })

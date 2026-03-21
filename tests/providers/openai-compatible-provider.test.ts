@@ -84,6 +84,170 @@ describe("OpenAiCompatibleProvider", () => {
     )
   })
 
+  it("routes regular models to /chat/completions", async () => {
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: '{"summary":"Short","tags":["one","two"]}'
+            }
+          }
+        ]
+      })
+    )
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      fetchImpl: fetchMock
+    })
+
+    await provider.analyze({
+      title: "Example",
+      url: "https://example.com",
+      content: "Example content"
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/chat/completions",
+      expect.any(Object)
+    )
+  })
+
+  it("prefers /responses for gpt-5.4-mini", async () => {
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
+        output: [
+          {
+            type: "reasoning",
+            content: [{ type: "reasoning", text: "internal" }]
+          },
+          {
+            type: "message",
+            content: [{ type: "output_text", text: '{"summary":"Short","tags":["one"]}' }]
+          }
+        ]
+      })
+    )
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-5.4-mini",
+      fetchImpl: fetchMock
+    })
+
+    const result = await provider.analyze({
+      title: "Example",
+      url: "https://example.com",
+      content: "Example content"
+    })
+
+    expect(result.summary).toBe("Short")
+    expect(result.tags).toEqual(["one"])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/responses",
+      expect.any(Object)
+    )
+  })
+
+  it("falls back to /responses when chat returns bad_model_output", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => makeJsonResponse({ choices: [{ message: {} }] }))
+      .mockImplementationOnce(async () =>
+        makeJsonResponse({
+          output: [
+            {
+              type: "message",
+              content: [{ type: "output_text", text: '{"summary":"Fallback","tags":["resp"]}' }]
+            }
+          ]
+        })
+      )
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      fetchImpl: fetchMock
+    })
+
+    const result = await provider.analyze({
+      title: "Example",
+      url: "https://example.com",
+      content: "Example content"
+    })
+
+    expect(result.summary).toBe("Fallback")
+    expect(result.tags).toEqual(["resp"])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.openai.com/v1/chat/completions")
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.openai.com/v1/responses")
+  })
+
+  it("does not fall back to /responses on auth_error", async () => {
+    const fetchMock = vi.fn(async () => makeJsonResponse({}, 401))
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      fetchImpl: fetchMock
+    })
+
+    await expect(
+      provider.analyze({
+        title: "Example",
+        url: "https://example.com",
+        content: "Example content"
+      })
+    ).rejects.toMatchObject({
+      name: "ProviderError",
+      code: "auth_error",
+      message: "OpenAI-compatible authentication failed"
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/chat/completions",
+      expect.any(Object)
+    )
+  })
+
+  it("does not fall back to /responses on invalid_request_error", async () => {
+    const fetchMock = vi.fn(async () => makeJsonResponse({}, 400))
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      fetchImpl: fetchMock
+    })
+
+    await expect(
+      provider.analyze({
+        title: "Example",
+        url: "https://example.com",
+        content: "Example content"
+      })
+    ).rejects.toMatchObject({
+      name: "ProviderError",
+      code: "invalid_request_error",
+      message: "OpenAI-compatible rejected the request"
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/chat/completions",
+      expect.any(Object)
+    )
+  })
+
   it.each([
     {
       status: 401,
