@@ -969,6 +969,97 @@ function SettingsTabContent({
   )
 }
 
+type ColumnWidths = {
+  folders: number
+  details: number
+}
+
+function useColumnResize(initial: ColumnWidths) {
+  const [widths, setWidths] = React.useState<ColumnWidths>(initial)
+  const draggingRef = React.useRef<"folders-list" | "list-details" | null>(null)
+  const startXRef = React.useRef(0)
+  const startWidthRef = React.useRef(0)
+
+  const handleMouseDown = React.useCallback(
+    (divider: "folders-list" | "list-details") =>
+      (e: React.MouseEvent) => {
+        e.preventDefault()
+        draggingRef.current = divider
+        startXRef.current = e.clientX
+        startWidthRef.current = divider === "folders-list" ? widths.folders : widths.details
+      },
+    [widths]
+  )
+
+  React.useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!draggingRef.current) return
+      const delta = e.clientX - startXRef.current
+      if (draggingRef.current === "folders-list") {
+        setWidths((w) => ({
+          ...w,
+          folders: Math.max(180, Math.min(400, startWidthRef.current + delta))
+        }))
+      } else {
+        setWidths((w) => ({
+          ...w,
+          details: Math.max(240, Math.min(600, startWidthRef.current - delta))
+        }))
+      }
+    }
+    function onMouseUp() {
+      draggingRef.current = null
+    }
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+  }, [])
+
+  return { widths, handleMouseDown }
+}
+
+function ResizeDivider({
+  onMouseDown,
+  isDragging
+}: {
+  onMouseDown: (e: React.MouseEvent) => void
+  isDragging: boolean
+}) {
+  const [isHovered, setIsHovered] = React.useState(false)
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        width: "5px",
+        flexShrink: 0,
+        cursor: "col-resize",
+        position: "relative",
+        userSelect: "none",
+        zIndex: 1
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "1px",
+          left: "2px",
+          backgroundColor:
+            isHovered || isDragging
+              ? "rgba(99,102,241,0.5)"
+              : "transparent",
+          transition: "background-color 0.15s ease"
+        }}
+      />
+    </div>
+  )
+}
+
 function BookmarksTab({ services }: { services: OptionsServices }) {
   const theme = useThemeContext()
   const [chromeTree, setChromeTree] = React.useState<chrome.bookmarks.BookmarkTreeNode[]>([])
@@ -980,6 +1071,8 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
   const [selectedFolderId, setSelectedFolderId] = React.useState<string | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
   const [autoRetryEnabled, setAutoRetryEnabled] = React.useState(false)
+  const { widths, handleMouseDown } = useColumnResize({ folders: 280, details: 360 })
+  const [activeDivider, setActiveDivider] = React.useState<"folders-list" | "list-details" | null>(null)
 
   const metadataMap = React.useMemo<Record<string, BookmarkRecord>>(() => {
     const map: Record<string, BookmarkRecord> = {}
@@ -1046,6 +1139,14 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
       setSelectedUrl(null)
     }
   }, [allBookmarks, selectedUrl])
+
+  React.useEffect(() => {
+    function onMouseUp() {
+      setActiveDivider(null)
+    }
+    window.addEventListener("mouseup", onMouseUp)
+    return () => window.removeEventListener("mouseup", onMouseUp)
+  }, [])
 
   async function handleAnalyze(url: string) {
     const settings = await services.settingsRepository.getAppSettings()
@@ -1240,21 +1341,21 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
         <p style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>{errorMessage}</p>
       ) : null}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "280px minmax(0, 1fr) 360px",
+        display: "flex",
         border: `1px solid ${theme.border}`,
         borderRadius: "20px",
         overflow: "hidden",
         backgroundColor: theme.surface,
         minHeight: "560px",
         minWidth: 0,
-        boxShadow: theme.isDark ? "0 10px 28px rgba(0,0,0,0.24)" : "0 8px 24px rgba(15,23,42,0.06)"
+        boxShadow: theme.isDark ? "0 10px 28px rgba(0,0,0,0.24)" : "0 8px 24px rgba(15,23,42,0.06)",
+        userSelect: activeDivider ? "none" : undefined
       }}>
         <div style={{
-          minWidth: 0,
+          width: `${widths.folders}px`,
+          flexShrink: 0,
           display: "flex",
           flexDirection: "column",
-          borderRight: `1px solid ${theme.borderMuted}`,
           backgroundColor: theme.surfaceSubtle
         }}>
           <div style={{ padding: spacing.md, borderBottom: `1px solid ${theme.borderMuted}` }}>
@@ -1281,13 +1382,20 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
             )}
           </div>
         </div>
+        <ResizeDivider
+          onMouseDown={(e) => {
+            setActiveDivider("folders-list")
+            handleMouseDown("folders-list")(e)
+          }}
+          isDragging={activeDivider === "folders-list"}
+        />
         <div
           data-testid="bookmark-list-column"
           style={{
-            minWidth: 0,
+            flex: 1,
+            minWidth: 200,
             display: "flex",
             flexDirection: "column",
-            borderRight: `1px solid ${theme.borderMuted}`,
             backgroundColor: theme.surface
           }}
         >
@@ -1350,10 +1458,18 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
             )}
           </div>
         </div>
+        <ResizeDivider
+          onMouseDown={(e) => {
+            setActiveDivider("list-details")
+            handleMouseDown("list-details")(e)
+          }}
+          isDragging={activeDivider === "list-details"}
+        />
         <div
           data-testid="bookmark-details-column"
           style={{
-            minWidth: 0,
+            width: `${widths.details}px`,
+            flexShrink: 0,
             overflowY: "auto",
             maxHeight: "680px",
             display: "flex",
