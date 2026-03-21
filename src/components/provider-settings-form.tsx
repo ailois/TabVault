@@ -15,25 +15,29 @@ type ProviderSettingsFormProps = {
 const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
   openai: "OpenAI-compatible",
   claude: "Claude",
-  gemini: "Gemini"
+  gemini: "Gemini",
+  responses: "Responses API"
 }
 
 const PROVIDER_DESCRIPTIONS: Record<ProviderFormState["provider"], string> = {
   openai: "Use any OpenAI-compatible endpoint by providing an API key, model, and base URL.",
   claude: "Use your Anthropic API key and preferred Claude model for analysis.",
-  gemini: "Use your Google AI Studio API key and Gemini model for analysis."
+  gemini: "Use your Google AI Studio API key and Gemini model for analysis.",
+  responses: "Use any OpenAI Responses API endpoint (/v1/responses) with reasoning model support."
 }
 
 const PROVIDER_COLORS: Record<ProviderFormState["provider"], string> = {
   openai: "#10a37f",
   claude: "#d97706",
-  gemini: "#4285f4"
+  gemini: "#4285f4",
+  responses: "#7c3aed"
 }
 
 const PROVIDER_BASE_URL_DEFAULTS: Partial<Record<ProviderFormState["provider"], string>> = {
   openai: "https://api.openai.com/v1",
   claude: "https://api.anthropic.com/v1",
-  gemini: "https://generativelanguage.googleapis.com/v1beta/models"
+  gemini: "https://generativelanguage.googleapis.com/v1beta/models",
+  responses: "https://api.openai.com/v1"
 }
 
 function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }: ProviderSettingsFormProps) {
@@ -157,11 +161,11 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
         ) : null}
       </div>
 
-      {(value.provider === "openai" || value.provider === "claude" || value.provider === "gemini") ? (
+      {(value.provider === "openai" || value.provider === "claude" || value.provider === "gemini" || value.provider === "responses") ? (
         <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
           <label htmlFor={`${value.provider}-base-url`} style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
             Base URL
-            {value.provider !== "openai" ? (
+            {value.provider !== "openai" && value.provider !== "responses" ? (
               <span style={{ fontWeight: 400, color: theme.textMuted, marginLeft: "0.5em" }}>
                 (optional, defaults to {PROVIDER_BASE_URL_DEFAULTS[value.provider]})
               </span>
