@@ -17,6 +17,8 @@ type FetchLike = (
 ) => Promise<{
   ok: boolean
   status: number
+  headers: { get(name: string): string | null }
+  text(): Promise<string>
   json(): Promise<unknown>
 }>
 
@@ -82,16 +84,32 @@ export class OpenAiCompatibleProvider implements AiProvider {
       })
     }
 
-    let data: OpenAiCompatibleResponse
-    try {
-      data = (await response.json()) as OpenAiCompatibleResponse
-    } catch (jsonError) {
-      throw normalizeProviderError(jsonError, {
-        code: "invalid_response",
-        message: "OpenAI-compatible returned invalid JSON (possible CORS or network error)"
-      })
+    const contentType = response.headers.get("content-type") ?? ""
+    let text: string
+
+    if (contentType.includes("text/event-stream")) {
+      let rawText: string
+      try {
+        rawText = await response.text()
+      } catch (textError) {
+        throw normalizeProviderError(textError, {
+          code: "invalid_response",
+          message: "OpenAI-compatible returned invalid SSE stream"
+        })
+      }
+      text = parseSseText(rawText)
+    } else {
+      let data: OpenAiCompatibleResponse
+      try {
+        data = (await response.json()) as OpenAiCompatibleResponse
+      } catch (jsonError) {
+        throw normalizeProviderError(jsonError, {
+          code: "invalid_response",
+          message: "OpenAI-compatible returned invalid JSON (possible CORS or network error)"
+        })
+      }
+      text = extractTextContent(data)
     }
-    const text = extractTextContent(data)
 
     return parseAnalyzeResult(text)
   }
@@ -164,4 +182,45 @@ function getErrorMessage(status: number): string {
   }
 
   return "OpenAI-compatible request failed"
+}
+
+type SseChunk = {
+  choices?: Array<{
+    delta?: {
+      content?: string
+    }
+  }>
+}
+
+function parseSseText(text: string): string {
+  const lines = text.split("\n")
+  let content = ""
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith("data:")) continue
+    const payload = trimmed.slice("data:".length).trim()
+    if (payload === "[DONE]") continue
+
+    let chunk: SseChunk
+    try {
+      chunk = JSON.parse(payload) as SseChunk
+    } catch {
+      continue
+    }
+
+    const delta = chunk.choices?.[0]?.delta?.content
+    if (delta) {
+      content += delta
+    }
+  }
+
+  if (!content) {
+    throw normalizeProviderError(new Error("SSE stream contained no content"), {
+      code: "bad_model_output",
+      message: "OpenAI-compatible returned no text output"
+    })
+  }
+
+  return content
 }

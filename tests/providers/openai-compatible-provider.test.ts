@@ -7,6 +7,7 @@ describe("OpenAiCompatibleProvider", () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,
+      headers: { get: () => "application/json" },
       json: async () => ({
         choices: [
           {
@@ -48,6 +49,7 @@ describe("OpenAiCompatibleProvider", () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,
+      headers: { get: () => "application/json" },
       json: async () => ({
         choices: [
           {
@@ -108,6 +110,7 @@ describe("OpenAiCompatibleProvider", () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       status,
+      headers: { get: () => "application/json" },
       json: async () => ({})
     }))
 
@@ -235,6 +238,7 @@ describe("OpenAiCompatibleProvider", () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,
+      headers: { get: () => "application/json" },
       json: async () => ({
         choices: [
           {
@@ -268,6 +272,7 @@ describe("OpenAiCompatibleProvider", () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,
+      headers: { get: () => "application/json" },
       json: async () => ({
         choices: [
           {
@@ -296,5 +301,38 @@ describe("OpenAiCompatibleProvider", () => {
       name: "ProviderError",
       code: "bad_model_output"
     })
+  })
+
+  it("parses summary and tags from an SSE streaming response", async () => {
+    const sseBody = [
+      'data: {"id":"1","object":"chat.completion.chunk","choices":[{"delta":{"content":"{\\"summary\\":\\"SSE summary\\",\\"tags\\":[\\"sse\\",\\"stream\\"]}"}}]}',
+      "",
+      "data: [DONE]",
+      ""
+    ].join("\n")
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => (name === "content-type" ? "text/event-stream" : null) },
+      text: async () => sseBody,
+      json: async () => { throw new Error("should not call json()") }
+    }))
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      fetchImpl: fetchMock as any
+    })
+
+    const result = await provider.analyze({
+      title: "Example",
+      url: "https://example.com",
+      content: "Example content"
+    })
+
+    expect(result.summary).toBe("SSE summary")
+    expect(result.tags).toEqual(["sse", "stream"])
   })
 })
