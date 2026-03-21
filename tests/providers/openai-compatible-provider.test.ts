@@ -310,4 +310,68 @@ describe("OpenAiCompatibleProvider", () => {
     expect(result.summary).toBe("SSE summary")
     expect(result.tags).toEqual(["sse", "stream"])
   })
+
+  it("throws bad_model_output when SSE stream has no content", async () => {
+    const sseBody = "data: [DONE]\n"
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => (name === "content-type" ? "text/event-stream" : null) },
+      text: async () => sseBody,
+      json: async () => { throw new Error("should not call json()") }
+    }))
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      fetchImpl: fetchMock as any
+    })
+
+    await expect(
+      provider.analyze({ title: "Example", url: "https://example.com", content: "Example content" })
+    ).rejects.toMatchObject({
+      name: "ProviderError",
+      code: "bad_model_output",
+      message: "OpenAI-compatible returned no text output"
+    })
+  })
+
+  it("concatenates multiple SSE chunks into a single result", async () => {
+    const part1 = '{"summary":'
+    const part2 = '"hello",'
+    const part3 = '"tags":["a"]}'
+    const sseBody = [
+      `data: {"choices":[{"delta":{"content":${JSON.stringify(part1)}}}]}`,
+      `data: {"choices":[{"delta":{"content":${JSON.stringify(part2)}}}]}`,
+      `data: {"choices":[{"delta":{"content":${JSON.stringify(part3)}}}]}`,
+      "data: [DONE]",
+      ""
+    ].join("\n")
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => (name === "content-type" ? "text/event-stream" : null) },
+      text: async () => sseBody,
+      json: async () => { throw new Error("should not call json()") }
+    }))
+
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      fetchImpl: fetchMock as any
+    })
+
+    const result = await provider.analyze({
+      title: "Example",
+      url: "https://example.com",
+      content: "Example content"
+    })
+
+    expect(result.summary).toBe("hello")
+    expect(result.tags).toEqual(["a"])
+  })
 })
