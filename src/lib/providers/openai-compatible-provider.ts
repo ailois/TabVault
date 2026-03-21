@@ -200,16 +200,16 @@ function parseSseText(text: string): string {
     const trimmed = line.trim()
     if (!trimmed.startsWith("data:")) continue
     const payload = trimmed.slice("data:".length).trim()
-    if (payload === "[DONE]") continue
+    if (payload === "[DONE]") break
 
-    let chunk: SseChunk
+    let chunk: unknown
     try {
-      chunk = JSON.parse(payload) as SseChunk
+      chunk = JSON.parse(payload)
     } catch {
       continue
     }
 
-    const delta = chunk.choices?.[0]?.delta?.content
+    const delta = (chunk as SseChunk)?.choices?.[0]?.delta?.content
     if (delta) {
       content += delta
     }
