@@ -3,6 +3,9 @@ import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-re
 import { analyzeBookmark } from "./features/ai/analyze-bookmark"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import { createProvider } from "./lib/providers/provider-factory"
+import { TrialRepository } from "./lib/trial/trial-repository"
+import { getTrialStatus } from "./lib/trial/get-trial-status"
+import { getBuiltInKeyConfig } from "./lib/trial/built-in-key"
 
 const repo = new IndexedDbBookmarkRepository()
 const settingsRepo = new ChromeSettingsRepository()
@@ -119,6 +122,44 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     processAnalysisQueue()
       .then(() => sendResponse({ success: true }))
       .catch(err => sendResponse({ success: false, error: String(err) }))
+    return true
+  }
+
+  if (message.type === "TRIAL_ANALYZE") {
+    const { bookmark } = message
+    const trialRepo = new TrialRepository()
+
+    void (async () => {
+      const trialState = await trialRepo.get()
+
+      if (!trialState) {
+        sendResponse({ success: false, error: "Trial not initialized" })
+        return
+      }
+
+      const status = getTrialStatus(trialState)
+      if (status === "expired") {
+        sendResponse({ success: false, error: "Trial expired" })
+        return
+      }
+
+      const builtInConfig = getBuiltInKeyConfig()
+      if (!builtInConfig.enabled) {
+        sendResponse({ success: false, error: "Built-in key not configured" })
+        return
+      }
+
+      try {
+        const provider = createProvider(builtInConfig)
+        const bookmarkRepo = new IndexedDbBookmarkRepository()
+        await analyzeBookmark({ bookmark, provider, bookmarkRepository: bookmarkRepo })
+        await trialRepo.incrementAnalysisUsed()
+        sendResponse({ success: true })
+      } catch (error) {
+        sendResponse({ success: false, error: error instanceof Error ? error.message : "Analysis failed" })
+      }
+    })()
+
     return true
   }
 

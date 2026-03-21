@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { BookmarkList } from "./components/bookmark-list"
 import { BookmarkTree } from "./components/bookmark-tree"
 import { BookmarkDrawer } from "./components/bookmark-drawer"
 import { ErrorBanner } from "./components/error-banner"
+import { LicenseActivation } from "./components/license-activation"
+import { TrialBanner } from "./components/trial-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
-import { searchBookmarks, type SearchMode } from "./features/bookmarks/search-bookmarks"
+import { searchBookmarks, searchBookmarksWithReasons, type SearchMode } from "./features/bookmarks/search-bookmarks"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
@@ -14,6 +16,9 @@ import type { AiProvider } from "./lib/providers/provider"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
 import { getBrowserName } from "./lib/utils/browser"
+import { validateLicenseKey } from "./lib/trial/license-service"
+import { TrialRepository } from "./lib/trial/trial-repository"
+import { useTrialStatus } from "./lib/trial/use-trial-status"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
 import { buildGlobalStyles, radius, spacing } from "./ui/design-tokens"
@@ -45,6 +50,12 @@ export default function SidePanel({ services }: SidePanelProps) {
   const sidePanelServices = useMemo(() => ({ ...DEFAULT_SIDEPANEL_SERVICES, ...services }), [services])
   const theme = useTheme(sidePanelServices.themeRepository)
   useGlobalStyles(theme)
+  const trial = useTrialStatus()
+  const trialRepository = useMemo(() => new TrialRepository(), [])
+  const [isActivationExpanded, setIsActivationExpanded] = useState(false)
+  const [licenseKeyInput, setLicenseKeyInput] = useState("")
+  const [licenseError, setLicenseError] = useState<string | null>(null)
+  const [isSubmittingLicense, setIsSubmittingLicense] = useState(false)
   const [status, setStatus] = useState<string>("")
   const [isImporting, setIsImporting] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([])
@@ -59,6 +70,16 @@ export default function SidePanel({ services }: SidePanelProps) {
   const filteredBookmarks = useMemo(
     () => searchBookmarks(bookmarks, searchQuery, searchMode),
     [bookmarks, searchQuery, searchMode]
+  )
+
+  const searchResultsWithReasons = useMemo(
+    () => searchQuery.trim() ? searchBookmarksWithReasons(bookmarks, searchQuery) : [],
+    [bookmarks, searchQuery]
+  )
+
+  const matchReasonMap = useMemo(
+    () => Object.fromEntries(searchResultsWithReasons.map((r) => [r.bookmark.id, r.matchReason])),
+    [searchResultsWithReasons]
   )
 
   const metadataMap = useMemo(
@@ -107,6 +128,44 @@ export default function SidePanel({ services }: SidePanelProps) {
 
     return () => globalThis.chrome?.runtime?.onMessage.removeListener(listener)
   }, [])
+
+  const handleLicenseSubmit = useCallback(async () => {
+    setLicenseError(null)
+    setIsSubmittingLicense(true)
+
+    try {
+      const result = await validateLicenseKey(licenseKeyInput)
+
+      if (result === "invalid") {
+        setLicenseError("This license key is invalid.")
+        return
+      }
+
+      if (result === "unvalidated") {
+        setLicenseError("Could not validate right now. Try again shortly.")
+        return
+      }
+
+      const existingState = (await trialRepository.get()) ?? {
+        installedAt: new Date().toISOString(),
+        analysisUsed: 0
+      }
+
+      await trialRepository.save({
+        ...existingState,
+        licenseKey: licenseKeyInput,
+        licenseStatus: "valid",
+        licenseValidatedAt: new Date().toISOString()
+      })
+
+      await trial.reload()
+      setIsActivationExpanded(false)
+    } catch {
+      setLicenseError("Failed to save license state.")
+    } finally {
+      setIsSubmittingLicense(false)
+    }
+  }, [licenseKeyInput, trial, trialRepository])
 
   async function loadBookmarks(): Promise<void> {
     setIsLoadingBookmarks(true)
@@ -396,6 +455,33 @@ export default function SidePanel({ services }: SidePanelProps) {
           ))}
         </div>
 
+        {(trial.status === "trial" || trial.status === "expired") ? (
+          <div style={{ padding: `0 ${spacing.lg} ${spacing.sm}` }}>
+            <TrialBanner
+              ctaLabel={trial.status === "trial" ? "Activate now" : "Unlock TabVault"}
+              message={
+                trial.status === "trial"
+                  ? "Try TabVault free for 3 days."
+                  : "New AI analysis is locked until you activate TabVault."
+              }
+              onCtaClick={() => setIsActivationExpanded(true)}
+              status={trial.status}
+            />
+            {isActivationExpanded ? (
+              <div style={{ marginTop: spacing.sm }}>
+                <LicenseActivation
+                  errorMessage={licenseError}
+                  isLicensed={false}
+                  isSubmitting={isSubmittingLicense}
+                  licenseKey={licenseKeyInput}
+                  onLicenseKeyChange={setLicenseKeyInput}
+                  onSubmit={handleLicenseSubmit}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div style={{ display: "flex", gap: spacing.sm, padding: `0 ${spacing.lg} ${spacing.sm}` }}>
           <button
             disabled={!hasPendingBookmarks || analyzeProgress !== null}
@@ -429,6 +515,7 @@ export default function SidePanel({ services }: SidePanelProps) {
             <BookmarkList
               bookmarks={filteredBookmarks}
               compact={true}
+              matchReasons={matchReasonMap}
               onDelete={handleDeleteBookmark}
               onAnalyze={handleAnalyzeBookmark}
               onClearAnalysis={handleClearAnalysis}

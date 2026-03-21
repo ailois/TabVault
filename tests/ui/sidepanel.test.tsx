@@ -10,6 +10,9 @@ import type { ThemeRepository } from "../../src/lib/config/theme-repository"
 import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 import type { AiProvider } from "../../src/lib/providers/provider"
+import * as licenseService from "../../src/lib/trial/license-service"
+import { TrialRepository } from "../../src/lib/trial/trial-repository"
+import * as trialHooks from "../../src/lib/trial/use-trial-status"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -56,6 +59,155 @@ describe("SidePanel", () => {
       await Promise.resolve()
     })
   }
+
+  it("renders a trial banner below the search bar when trial is active", async () => {
+    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
+      status: "trial",
+      state: {
+        installedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        analysisUsed: 3
+      },
+      reload: vi.fn(async () => {})
+    })
+
+    await renderSidePanel()
+
+    expect(container?.querySelector("[data-testid='trial-banner']")).toBeTruthy()
+    expect(container?.textContent).toContain("Trial active")
+    expect(container?.querySelector("#sidepanel-search")).toBeTruthy()
+  })
+
+  it("renders an expired banner when the trial has expired", async () => {
+    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
+      status: "expired",
+      state: {
+        installedAt: "2026-03-01T00:00:00.000Z",
+        analysisUsed: 50
+      },
+      reload: vi.fn(async () => {})
+    })
+
+    await renderSidePanel()
+
+    expect(container?.querySelector("[data-testid='trial-banner']")).toBeTruthy()
+    expect(container?.textContent).toContain("Trial expired")
+  })
+
+  it("expands the license activation form when clicking the trial banner CTA", async () => {
+    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
+      status: "trial",
+      state: {
+        installedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        analysisUsed: 3
+      },
+      reload: vi.fn(async () => {})
+    })
+
+    await renderSidePanel()
+
+    const cta = container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")
+    await act(async () => { cta?.click() })
+
+    expect(container?.querySelector("[data-testid='license-activation-card']")).toBeTruthy()
+    expect(container?.textContent).toContain("Activate TabVault")
+  })
+
+  it("does not render any trial region when the user is licensed", async () => {
+    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
+      status: "licensed",
+      state: {
+        installedAt: "2026-03-01T00:00:00.000Z",
+        analysisUsed: 50,
+        licenseKey: "LSKEY-ABCD-1234",
+        licenseStatus: "valid",
+        licenseValidatedAt: "2026-03-20T12:00:00.000Z"
+      },
+      reload: vi.fn(async () => {})
+    })
+
+    await renderSidePanel()
+
+    expect(container?.querySelector("[data-testid='trial-banner']")).toBeNull()
+    expect(container?.querySelector("[data-testid='license-activation-card']")).toBeNull()
+  })
+
+  it("validates and saves the license key when submitting from the sidepanel", async () => {
+    const reload = vi.fn(async () => {})
+    const save = vi.fn(async () => {})
+    const get = vi.fn(async () => ({
+      installedAt: "2026-03-20T00:00:00.000Z",
+      analysisUsed: 3
+    }))
+
+    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
+      status: "trial",
+      state: { installedAt: "2026-03-20T00:00:00.000Z", analysisUsed: 3 },
+      reload
+    })
+    vi.spyOn(licenseService, "validateLicenseKey").mockResolvedValue("valid")
+    vi.spyOn(TrialRepository.prototype, "get").mockImplementation(get)
+    vi.spyOn(TrialRepository.prototype, "save").mockImplementation(save)
+
+    await renderSidePanel()
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")?.click()
+    })
+
+    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
+      valueSetter?.call(input, "LSKEY-VALID")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    const activateButton = Array.from(
+      container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []
+    ).find((btn): btn is HTMLButtonElement => btn.textContent === "Activate")
+
+    await act(async () => { activateButton?.click() })
+
+    expect(licenseService.validateLicenseKey).toHaveBeenCalledWith("LSKEY-VALID")
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        licenseKey: "LSKEY-VALID",
+        licenseStatus: "valid",
+        licenseValidatedAt: expect.any(String)
+      })
+    )
+    expect(reload).toHaveBeenCalled()
+  })
+
+  it("shows an error when the license key is invalid", async () => {
+    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
+      status: "trial",
+      state: { installedAt: "2026-03-20T00:00:00.000Z", analysisUsed: 3 },
+      reload: vi.fn(async () => {})
+    })
+    vi.spyOn(licenseService, "validateLicenseKey").mockResolvedValue("invalid")
+
+    await renderSidePanel()
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")?.click()
+    })
+
+    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
+      valueSetter?.call(input, "LSKEY-BAD")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    const activateButton = Array.from(
+      container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []
+    ).find((btn): btn is HTMLButtonElement => btn.textContent === "Activate")
+
+    await act(async () => { activateButton?.click() })
+
+    expect(container?.textContent).toContain("This license key is invalid.")
+    expect(input?.value).toBe("LSKEY-BAD")
+  })
 
   it("renders the Side Panel header and library", async () => {
     await renderSidePanel()

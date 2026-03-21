@@ -12,6 +12,7 @@ type BookmarkListProps = {
   onClearAnalysis: (id: string) => Promise<void>
   onSelect?: (id: string) => void
   compact?: boolean
+  matchReasons?: Record<string, string>
 }
 
 type BookmarkCardProps = {
@@ -21,6 +22,7 @@ type BookmarkCardProps = {
   onClearAnalysis: (id: string) => Promise<void>
   onSelect?: (id: string) => void
   compact?: boolean
+  matchReason?: string
 }
 
 export function BookmarkList({
@@ -29,7 +31,8 @@ export function BookmarkList({
   onAnalyze,
   onClearAnalysis,
   onSelect,
-  compact = false
+  compact = false,
+  matchReasons = {}
 }: BookmarkListProps) {
   if (bookmarks.length === 0) {
     return (
@@ -46,6 +49,7 @@ export function BookmarkList({
           <BookmarkCard
             bookmark={bookmark}
             compact={compact}
+            matchReason={matchReasons[bookmark.id]}
             onAnalyze={onAnalyze}
             onClearAnalysis={onClearAnalysis}
             onDelete={onDelete}
@@ -63,7 +67,8 @@ function BookmarkCard({
   onAnalyze,
   onClearAnalysis,
   onSelect,
-  compact = false
+  compact = false,
+  matchReason
 }: BookmarkCardProps) {
   const theme = useThemeContext()
   const [expanded, setExpanded] = useState(false)
@@ -155,6 +160,23 @@ function BookmarkCard({
             </button>
           </div>
         </div>
+        {matchReason ? (
+          <div style={{ paddingLeft: "8px", paddingBottom: "2px" }}>
+            <span
+              data-testid="match-reason-badge"
+              style={{
+                fontSize: "0.6875rem",
+                padding: "1px 6px",
+                borderRadius: radius.pill,
+                backgroundColor: theme.accentSoft,
+                color: theme.accent,
+                display: "inline-block"
+              }}
+            >
+              matched {matchReason}
+            </span>
+          </div>
+        ) : null}
       </article>
     )
   }

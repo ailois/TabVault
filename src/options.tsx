@@ -3,12 +3,18 @@
 import ProviderSettingsForm from "./components/provider-settings-form"
 import { ToggleSwitch } from "./components/toggle-switch"
 import { BookmarkTree } from "./components/bookmark-tree"
+import { LicenseActivation } from "./components/license-activation"
+import { TrialBanner } from "./components/trial-banner"
 import { DEFAULT_APP_SETTINGS } from "./features/settings/default-settings"
 import { buildProviderFormState } from "./features/settings/provider-form-state"
 import { validateSettingsForm } from "./features/settings/settings-validation"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
+import { validateLicenseKey } from "./lib/trial/license-service"
+import { TrialRepository } from "./lib/trial/trial-repository"
+import { TRIAL_ANALYSIS_LIMIT, TRIAL_DAYS } from "./lib/trial/trial-constants"
+import { useTrialStatus } from "./lib/trial/use-trial-status"
 import { createProvider } from "./lib/providers/provider-factory"
 import type { AiProvider } from "./lib/providers/provider"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
@@ -48,6 +54,21 @@ type BookmarkListItem = {
   url: string
   folderId: string | null
   folderTitle: string
+}
+
+type LicenseEntryStateProps = {
+  status: "trial" | "expired" | "licensed"
+  installedAt?: string
+  analysisUsed?: number
+  storedLicenseKey?: string
+  licenseInput: string
+  isActivationExpanded: boolean
+  isSubmittingLicense: boolean
+  licenseError: string | null
+  onExpandActivation: () => void
+  onLicenseInputChange: (value: string) => void
+  onLicenseSubmit: () => Promise<void>
+  onLicenseEdit: () => void
 }
 
 function collectBookmarksWithFolderContext(
@@ -160,6 +181,8 @@ function Options({ services }: OptionsProps) {
   const optionsServices = React.useMemo(() => ({ ...DEFAULT_OPTIONS_SERVICES, ...services }), [services])
   const theme = useTheme(optionsServices.themeRepository)
   useGlobalStyles(theme)
+  const trial = useTrialStatus()
+  const trialRepository = React.useMemo(() => new TrialRepository(), [])
   const [activeTab, setActiveTab] = React.useState<OptionsTab>("settings")
   const [appSettings, setAppSettings] = React.useState(DEFAULT_APP_SETTINGS)
   const [providers, setProviders] = React.useState(() => buildProviderFormState([]))
@@ -167,6 +190,11 @@ function Options({ services }: OptionsProps) {
   const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle")
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasLoadError, setHasLoadError] = React.useState(false)
+  const [isActivationExpanded, setIsActivationExpanded] = React.useState(false)
+  const [licenseInput, setLicenseInput] = React.useState("")
+  const [licenseError, setLicenseError] = React.useState<string | null>(null)
+  const [isSubmittingLicense, setIsSubmittingLicense] = React.useState(false)
+  const [optimisticLicensedKey, setOptimisticLicensedKey] = React.useState<string | null>(null)
   const isSavingRef = React.useRef(false)
   const validation = React.useMemo(() => validateSettingsForm(appSettings, providers), [appSettings, providers])
 
@@ -239,6 +267,59 @@ function Options({ services }: OptionsProps) {
       isMounted = false
     }
   }, [optionsServices])
+
+  React.useEffect(() => {
+    if (trial.status === "licensed") {
+      setIsActivationExpanded(false)
+      setLicenseError(null)
+      setOptimisticLicensedKey(null)
+    }
+  }, [trial.status])
+
+  React.useEffect(() => {
+    if (trial.status === "licensed" && trial.state?.licenseKey) {
+      setLicenseInput(trial.state.licenseKey)
+    }
+  }, [trial.state?.licenseKey, trial.status])
+
+  const handleLicenseSubmit = React.useCallback(async () => {
+    setLicenseError(null)
+    setIsSubmittingLicense(true)
+
+    try {
+      const result = await validateLicenseKey(licenseInput)
+
+      if (result === "invalid") {
+        setLicenseError("This license key is invalid.")
+        return
+      }
+
+      if (result === "unvalidated") {
+        setLicenseError("Could not validate right now. Try again shortly.")
+        return
+      }
+
+      const existingState = (await trialRepository.get()) ?? {
+        installedAt: new Date().toISOString(),
+        analysisUsed: 0
+      }
+
+      await trialRepository.save({
+        ...existingState,
+        licenseKey: licenseInput,
+        licenseStatus: "valid",
+        licenseValidatedAt: new Date().toISOString()
+      })
+
+      setOptimisticLicensedKey(licenseInput)
+      await trial.reload()
+      setIsActivationExpanded(false)
+    } catch {
+      setLicenseError("Failed to save license state.")
+    } finally {
+      setIsSubmittingLicense(false)
+    }
+  }, [licenseInput, trial, trialRepository])
 
   return (
     <ThemeProvider theme={theme}>
@@ -386,6 +467,28 @@ function Options({ services }: OptionsProps) {
                 </p>
               </header>
 
+              {trial.status ? (
+                <OptionsLicenseEntry
+                  analysisUsed={trial.state?.analysisUsed}
+                  installedAt={trial.state?.installedAt}
+                  isActivationExpanded={isActivationExpanded}
+                  isSubmittingLicense={isSubmittingLicense}
+                  licenseError={licenseError}
+                  licenseInput={licenseInput}
+                  onExpandActivation={() => setIsActivationExpanded(true)}
+                  onLicenseEdit={() => {
+                    setLicenseError(null)
+                    setIsActivationExpanded(true)
+                    setOptimisticLicensedKey(null)
+                    setLicenseInput(trial.state?.licenseKey ?? licenseInput)
+                  }}
+                  onLicenseInputChange={setLicenseInput}
+                  onLicenseSubmit={handleLicenseSubmit}
+                  storedLicenseKey={optimisticLicensedKey ?? trial.state?.licenseKey}
+                  status={optimisticLicensedKey ? "licensed" : trial.status}
+                />
+              ) : null}
+
               <SettingsTabContent
                 appSettings={appSettings}
                 handleSave={handleSave}
@@ -407,6 +510,87 @@ function Options({ services }: OptionsProps) {
         </div>
       </main>
     </ThemeProvider>
+  )
+}
+
+function getTrialBannerDetail(installedAt: string | undefined, analysisUsed: number | undefined): string | undefined {
+  if (!installedAt || typeof analysisUsed !== "number") {
+    return undefined
+  }
+
+  const installedAtTime = new Date(installedAt).getTime()
+
+  if (Number.isNaN(installedAtTime)) {
+    return undefined
+  }
+
+  const daysLeft = Math.max(0, Math.ceil((TRIAL_DAYS - (Date.now() - installedAtTime)) / (24 * 60 * 60 * 1000)))
+  const analysesLeft = Math.max(0, TRIAL_ANALYSIS_LIMIT - analysisUsed)
+
+  return `${daysLeft} days left · ${analysesLeft} analyses remaining`
+}
+
+function OptionsLicenseEntry({
+  status,
+  installedAt,
+  analysisUsed,
+  storedLicenseKey,
+  licenseInput,
+  isActivationExpanded,
+  isSubmittingLicense,
+  licenseError,
+  onExpandActivation,
+  onLicenseInputChange,
+  onLicenseSubmit,
+  onLicenseEdit
+}: LicenseEntryStateProps) {
+  const detail = getTrialBannerDetail(installedAt, analysisUsed)
+  const shouldShowActivationForm = status !== "licensed" && isActivationExpanded
+
+  return (
+    <div data-testid="settings-license-state" style={{ display: "grid", gap: spacing.md }}>
+      {status === "trial" ? (
+        <TrialBanner
+          ctaLabel="Activate now"
+          detail={detail}
+          message="Try TabVault free for 3 days."
+          onCtaClick={onExpandActivation}
+          status="trial"
+        />
+      ) : null}
+
+      {status === "expired" ? (
+        <TrialBanner
+          ctaLabel="Unlock TabVault"
+          detail="Your saved analysis stays available."
+          message="New AI analysis is locked until you activate TabVault."
+          onCtaClick={onExpandActivation}
+          status="expired"
+        />
+      ) : null}
+
+      {shouldShowActivationForm ? (
+        <LicenseActivation
+          errorMessage={licenseError}
+          isLicensed={false}
+          isSubmitting={isSubmittingLicense}
+          licenseKey={licenseInput}
+          onLicenseKeyChange={onLicenseInputChange}
+          onSubmit={onLicenseSubmit}
+        />
+      ) : null}
+
+      {status === "licensed" ? (
+        <LicenseActivation
+          errorMessage={null}
+          isLicensed={true}
+          licenseKey={storedLicenseKey ?? ""}
+          onEdit={onLicenseEdit}
+          onLicenseKeyChange={onLicenseInputChange}
+          onSubmit={onLicenseSubmit}
+        />
+      ) : null}
+    </div>
   )
 }
 

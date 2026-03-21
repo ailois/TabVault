@@ -32,3 +32,35 @@ function createSearchText(bookmark: BookmarkRecord, mode: SearchMode): string {
         .toLocaleLowerCase()
   }
 }
+
+export type SearchResultWithReason = {
+  bookmark: BookmarkRecord
+  matchReason: string
+}
+
+export function searchBookmarksWithReasons(
+  bookmarks: BookmarkRecord[],
+  query: string
+): SearchResultWithReason[] {
+  const q = query.trim().toLowerCase()
+
+  if (!q) {
+    return []
+  }
+
+  const results: SearchResultWithReason[] = []
+
+  for (const bookmark of bookmarks) {
+    if (bookmark.title.toLowerCase().includes(q)) {
+      results.push({ bookmark, matchReason: "title" })
+    } else if (bookmark.summary?.toLowerCase().includes(q)) {
+      results.push({ bookmark, matchReason: "AI summary" })
+    } else if ([...bookmark.aiTags, ...bookmark.userTags].some((t) => t.toLowerCase().includes(q))) {
+      results.push({ bookmark, matchReason: "tag" })
+    } else if (bookmark.url.toLowerCase().includes(q)) {
+      results.push({ bookmark, matchReason: "URL" })
+    }
+  }
+
+  return results
+}
