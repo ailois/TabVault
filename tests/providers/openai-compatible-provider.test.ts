@@ -2,13 +2,20 @@ import { describe, expect, it, vi } from "vitest"
 
 import { OpenAiCompatibleProvider } from "../../src/lib/providers/openai-compatible-provider"
 
+function makeJsonResponse(body: unknown, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (_name: string) => "application/json" },
+    text: async () => JSON.stringify(body),
+    json: async () => body
+  }
+}
+
 describe("OpenAiCompatibleProvider", () => {
   it("parses summary and tags from a chat completions response", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      headers: { get: () => "application/json" },
-      json: async () => ({
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
         choices: [
           {
             message: {
@@ -17,7 +24,7 @@ describe("OpenAiCompatibleProvider", () => {
           }
         ]
       })
-    }))
+    )
 
     const provider = new OpenAiCompatibleProvider({
       apiKey: "test-key",
@@ -46,11 +53,8 @@ describe("OpenAiCompatibleProvider", () => {
   })
 
   it("normalizes a trailing slash in baseUrl", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      headers: { get: () => "application/json" },
-      json: async () => ({
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
         choices: [
           {
             message: {
@@ -59,7 +63,7 @@ describe("OpenAiCompatibleProvider", () => {
           }
         ]
       })
-    }))
+    )
 
     const provider = new OpenAiCompatibleProvider({
       apiKey: "test-key",
@@ -107,12 +111,7 @@ describe("OpenAiCompatibleProvider", () => {
       message: "OpenAI-compatible rejected the request"
     }
   ])("normalizes HTTP $status responses", async ({ status, code, message }) => {
-    const fetchMock = vi.fn(async () => ({
-      ok: false,
-      status,
-      headers: { get: () => "application/json" },
-      json: async () => ({})
-    }))
+    const fetchMock = vi.fn(async () => makeJsonResponse({}, status))
 
     const provider = new OpenAiCompatibleProvider({
       apiKey: "test-key",
@@ -235,18 +234,7 @@ describe("OpenAiCompatibleProvider", () => {
   })
 
   it("normalizes missing message content as bad model output", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      headers: { get: () => "application/json" },
-      json: async () => ({
-        choices: [
-          {
-            message: {}
-          }
-        ]
-      })
-    }))
+    const fetchMock = vi.fn(async () => makeJsonResponse({ choices: [{ message: {} }] }))
 
     const provider = new OpenAiCompatibleProvider({
       apiKey: "test-key",
@@ -269,20 +257,7 @@ describe("OpenAiCompatibleProvider", () => {
   })
 
   it("normalizes invalid JSON model content as bad model output", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      headers: { get: () => "application/json" },
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: "not json"
-            }
-          }
-        ]
-      })
-    }))
+    const fetchMock = vi.fn(async () => makeJsonResponse({ choices: [{ message: { content: "not json" } }] }))
 
     const provider = new OpenAiCompatibleProvider({
       apiKey: "test-key",
