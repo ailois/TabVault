@@ -857,9 +857,11 @@ function SettingsTabContent({
                   <span style={{ fontSize: "0.875rem", fontWeight: isActive ? 700 : 600, color: theme.textPrimary }}>
                     {providerLabels[provider.provider]}
                   </span>
-                  <span style={{ fontSize: "0.75rem", color: isActive ? theme.accent : theme.textMuted }}>
-                    {isDefault ? "Default provider" : "Edit configuration"}
-                  </span>
+                  {isDefault ? (
+                    <span style={{ fontSize: "0.75rem", color: isActive ? theme.accent : theme.textMuted }}>
+                      Default provider
+                    </span>
+                  ) : null}
                 </button>
               )
             })}

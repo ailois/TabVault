@@ -84,10 +84,16 @@ describe("Options", () => {
     const workspace = container?.querySelector('[data-testid="settings-workspace"]')
     const providerRail = container?.querySelector('[data-testid="provider-rail"]')
 
+    const providerRailButtons = Array.from(container?.querySelectorAll('[data-testid^="provider-rail-"]') ?? [])
+
     expect(appSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
     expect(maintenanceSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
     expect(workspace).toBeTruthy()
     expect(providerRail).toBeTruthy()
+    expect(providerRailButtons).toHaveLength(3)
+    expect(container?.querySelector('[data-testid="provider-rail-responses"]')).toBeNull()
+    expect(container?.textContent).not.toContain("Responses API")
+    expect(container?.textContent).not.toContain("Edit configuration")
     // defaultProvider is openai, so only openai provider form is visible
     expect(openAiSection?.closest('[data-testid="settings-section-card"]') ?? openAiSection).toBeTruthy()
     // provider editor selector should be removed
@@ -445,7 +451,7 @@ describe("Options", () => {
     expect(input?.value).toBe("LSKEY-VALID")
   })
 
-  it("renders provider form with toggle and styled fields", async () => {
+  it("renders provider form fields with expected styling", async () => {
     await renderProviderSettingsForm(
       {
         provider: "openai",
