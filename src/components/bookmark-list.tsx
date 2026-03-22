@@ -106,7 +106,21 @@ function BookmarkCard({
       >
         <div style={compactMainRowStyle}>
           <div style={compactStatusDotContainerStyle}>
-            {bookmark.status === "analyzing" ? <span style={dotAmberStyle} title="Analyzing" /> : null}
+            {bookmark.status === "analyzing" ? (
+              <span
+                data-testid="bookmark-analyzing-spinner"
+                title="Analyzing"
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  border: "2px solid #fde68a",
+                  borderTopColor: "#d97706",
+                  borderRadius: "50%",
+                  display: "inline-block",
+                  animation: "tabvault-spin 0.7s linear infinite"
+                }}
+              />
+            ) : null}
             {bookmark.status === "error" ? (
               <span style={{ ...dotBaseStyle, backgroundColor: theme.textDanger }} title="Error" />
             ) : null}
@@ -221,8 +235,19 @@ function BookmarkCard({
             data-testid="bookmark-status-badge"
             style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.6875rem", color: "#d97706", fontWeight: 500 }}
           >
-            <span style={{ width: "8px", height: "8px", backgroundColor: "#fbbf24", borderRadius: "50%", display: "inline-block", animation: "pulse 1.5s ease-in-out infinite" }} />
-            Analyzing with LLM...
+            <span
+              data-testid="bookmark-analyzing-spinner"
+              style={{
+                width: "10px",
+                height: "10px",
+                border: "2px solid #fde68a",
+                borderTopColor: "#d97706",
+                borderRadius: "50%",
+                display: "inline-block",
+                animation: "tabvault-spin 0.7s linear infinite"
+              }}
+            />
+            Analyzing...
           </div>
         ) : null}
         {bookmark.status === "error" ? (

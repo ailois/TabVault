@@ -82,7 +82,24 @@ describe("BookmarkCard", () => {
     await renderList([createBookmark({ status: "analyzing" })])
 
     const badge = getCard()?.querySelector("[data-testid='bookmark-status-badge']")
-    expect(badge?.textContent).toBe("Analyzing with LLM...")
+    expect(badge?.textContent).toBe("Analyzing...")
+  })
+
+  it("shows a spinner element next to the analyzing badge when status is analyzing", async () => {
+    await renderList([createBookmark({ status: "analyzing" })])
+
+    const badge = getCard()?.querySelector("[data-testid='bookmark-status-badge']")
+    const spinner = getCard()?.querySelector("[data-testid='bookmark-analyzing-spinner']")
+
+    expect(badge?.textContent).toContain("Analyzing")
+    expect(spinner).not.toBeNull()
+  })
+
+  it("shows analyzing indicator in compact card when status is analyzing", async () => {
+    await renderCompactList([createBookmark({ status: "analyzing" })])
+
+    const spinner = getCard()?.querySelector("[data-testid='bookmark-analyzing-spinner']")
+    expect(spinner).not.toBeNull()
   })
 
   it("shows Error badge when status is error", async () => {
@@ -252,6 +269,29 @@ async function renderList(
     root.render(
       <BookmarkList
         bookmarks={bookmarks}
+        onAnalyze={onAnalyze}
+        onClearAnalysis={onClearAnalysis}
+        onDelete={onDelete}
+      />
+    )
+  })
+}
+
+async function renderCompactList(
+  bookmarks: BookmarkRecord[],
+  onDelete: (id: string) => Promise<void> = vi.fn(async () => undefined),
+  onAnalyze: (id: string) => Promise<void> = vi.fn(async () => undefined),
+  onClearAnalysis: (id: string) => Promise<void> = vi.fn(async () => undefined)
+): Promise<void> {
+  container = document.createElement("div")
+  document.body.appendChild(container)
+  root = createRoot(container)
+
+  await act(async () => {
+    root.render(
+      <BookmarkList
+        bookmarks={bookmarks}
+        compact={true}
         onAnalyze={onAnalyze}
         onClearAnalysis={onClearAnalysis}
         onDelete={onDelete}
