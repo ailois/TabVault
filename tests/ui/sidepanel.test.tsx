@@ -272,7 +272,7 @@ describe("SidePanel", () => {
 
   it("sends IMPORT_BOOKMARKS message when import button is clicked", async () => {
     const sendMessageMock = vi.fn((msg, cb) => {
-      if (cb) cb({ success: true, count: 5 })
+      if (msg.type === "IMPORT_BOOKMARKS" && cb) cb({ success: true, count: 5 })
     })
     globalThis.chrome = {
       ...(globalThis.chrome ?? {}),
@@ -286,7 +286,7 @@ describe("SidePanel", () => {
     await renderSidePanel()
 
     const importBtn = Array.from(container?.querySelectorAll("button") ?? [])
-      .find(b => b.textContent?.includes("Import"))
+      .find(b => b.textContent?.includes("Sync Bookmarks"))
 
     await act(async () => {
       importBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
