@@ -66,6 +66,7 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
   const [bookmarkTree, setBookmarkTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>([])
   const [selectedBookmark, setSelectedBookmark] = useState<BookmarkRecord | null>(null)
+  const [localAnalyzingIds, setLocalAnalyzingIds] = useState<Set<string>>(new Set())
 
   const filteredBookmarks = useMemo(
     () => searchBookmarks(bookmarks, searchQuery, searchMode),
@@ -82,10 +83,30 @@ export default function SidePanel({ services }: SidePanelProps) {
     [searchResultsWithReasons]
   )
 
+  const displayedBookmarks = useMemo(
+    () => filteredBookmarks.map((bm) =>
+      localAnalyzingIds.has(bm.id) && bm.status !== "analyzing"
+        ? { ...bm, status: "analyzing" as const }
+        : bm
+    ),
+    [filteredBookmarks, localAnalyzingIds]
+  )
+
   const metadataMap = useMemo(
     () => bookmarks.reduce((acc, b) => ({ ...acc, [b.id]: b }), {} as Record<string, BookmarkRecord>),
     [bookmarks]
   )
+
+  const displayedMetadataMap = useMemo(() => {
+    const map: Record<string, BookmarkRecord> = { ...metadataMap }
+    for (const id of localAnalyzingIds) {
+      const bm = bookmarks.find((b) => b.id === id)
+      if (bm && map[bm.url] && map[bm.url].status !== "analyzing") {
+        map[bm.url] = { ...map[bm.url], status: "analyzing" }
+      }
+    }
+    return map
+  }, [metadataMap, localAnalyzingIds, bookmarks])
 
   const hasPendingBookmarks = bookmarks.some(
     (b) => b.status === "saved" || b.status === "error"
@@ -207,14 +228,21 @@ export default function SidePanel({ services }: SidePanelProps) {
     const bookmark = bookmarks.find((b) => b.id === id)
     if (!bookmark) return
 
+    setLocalAnalyzingIds((prev) => new Set([...prev, id]))
+    setErrorMessage(null)
+
     try {
       await sidePanelServices.analyzeBookmark({
         bookmark,
         provider: sidePanelServices.createProvider(selectedProvider),
         bookmarkRepository: sidePanelServices.bookmarkRepository
       })
-      await loadBookmarks()
-    } catch {
+    } finally {
+      setLocalAnalyzingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
       await loadBookmarks()
     }
   }
@@ -513,7 +541,7 @@ export default function SidePanel({ services }: SidePanelProps) {
             <p style={loadingTextStyle}>Loading bookmarks...</p>
           ) : searchQuery ? (
             <BookmarkList
-              bookmarks={filteredBookmarks}
+              bookmarks={displayedBookmarks}
               compact={true}
               matchReasons={matchReasonMap}
               onDelete={handleDeleteBookmark}
@@ -531,7 +559,7 @@ export default function SidePanel({ services }: SidePanelProps) {
               </div>
               <BookmarkTree
                 treeNodes={bookmarkTree}
-                metadataMap={metadataMap}
+                metadataMap={displayedMetadataMap}
                 onAnalyze={handleAnalyzeBookmark}
                 onDelete={handleDeleteBookmark}
                 onClearAnalysis={handleClearAnalysis}

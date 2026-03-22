@@ -387,6 +387,47 @@ describe("SidePanel", () => {
 
     expect(container?.querySelector("[data-testid='bookmark-drawer']")?.textContent).toContain("Drawer article")
   })
+
+  it("shows analyzing spinner on a bookmark card immediately after clicking Analyze", async () => {
+    let resolveAnalyze!: () => void
+    const analyzeBookmark = vi.fn(
+      () => new Promise<BookmarkRecord>((resolve) => { resolveAnalyze = () => resolve(createBookmark({ id: "bm-sp", status: "done" })) })
+    )
+
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [createBookmark({ id: "bm-sp", status: "saved" })])
+      }),
+      settingsRepository: createSettingsRepository({
+        getProviders: vi.fn(async () => [
+          { provider: "openai" as const, apiKey: "sk-test", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", enabled: true }
+        ])
+      }),
+      analyzeBookmark
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "Example page")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
+    expect(analyzeBtn).not.toBeNull()
+
+    await act(async () => {
+      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    const spinner = container?.querySelector("[data-testid='bookmark-analyzing-spinner']")
+    expect(spinner).not.toBeNull()
+
+    await act(async () => { resolveAnalyze() })
+  })
 })
 
 function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {
