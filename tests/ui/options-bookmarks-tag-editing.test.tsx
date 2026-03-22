@@ -190,6 +190,85 @@ function getSelectedDetailPanelBody(): HTMLElement | null {
 }
 
 describe("BookmarkDetailPanel tag editing", () => {
+  it("refreshes AI tags in the detail panel after analysis completes without reselecting the bookmark", async () => {
+    const initialRecord = makeBookmarkRecord({
+      status: "saved",
+      summary: undefined,
+      aiTags: [],
+      userTags: [],
+      updatedAt: "2026-01-01T00:00:00.000Z"
+    })
+    const analyzedRecord = makeBookmarkRecord({
+      status: "done",
+      summary: "Learn React",
+      aiTags: ["frontend", "library"],
+      userTags: [],
+      updatedAt: "2026-01-02T00:00:00.000Z"
+    })
+
+    let currentRecord = initialRecord
+    const analyzeBookmark = vi.fn(async () => {
+      currentRecord = analyzedRecord
+      return analyzedRecord
+    })
+    const repo: BookmarkRepository = {
+      save: vi.fn(async () => {}),
+      list: vi.fn(async () => [currentRecord]),
+      getById: vi.fn(async () => currentRecord),
+      update: vi.fn(async () => {}),
+      delete: vi.fn(async () => {}),
+      clearAnalysis: vi.fn(async () => {}),
+      clearAllAnalysis: vi.fn(async () => {}),
+      clearErrorAnalysis: vi.fn(async () => {})
+    }
+
+    ;(globalThis.chrome as any).bookmarks.getTree = vi.fn(async () => chromeBookmarkTree)
+    localStorage.setItem("tabvault_folder_0", "true")
+    localStorage.setItem("tabvault_folder_1", "true")
+
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root!.render(
+        <Options
+          services={{
+            settingsRepository: makeSettingsRepository(),
+            bookmarkRepository: repo,
+            analyzeBookmark,
+            testConnection: async () => {}
+          }}
+        />
+      )
+    })
+
+    const bookmarksTabBtn = Array.from(container!.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "Bookmarks"
+    )
+    await act(async () => { bookmarksTabBtn?.click() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)) })
+
+    const listColumn = container!.querySelector('[data-testid="bookmark-list-column"]') as HTMLElement | null
+    const bookmarkButton = listColumn?.querySelector('[data-testid="bookmark-result-button"]') as HTMLElement | null
+
+    await act(async () => {
+      bookmarkButton?.click()
+    })
+
+    expect(getSelectedDetailPanelRoot()?.textContent).not.toContain("frontend")
+
+    const analyzeButton = container?.querySelector<HTMLButtonElement>('[data-testid="detail-analyze-button"]')
+
+    await act(async () => {
+      analyzeButton?.click()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    expect(getSelectedDetailPanelRoot()?.textContent).toContain("frontend")
+    expect(getSelectedDetailPanelRoot()?.textContent).toContain("library")
+  })
+
   it("keeps detail content naturally sized instead of stretching body space", async () => {
     const record = makeBookmarkRecord({ aiTags: ["frontend"], userTags: [] })
     const repo = makeBookmarkRepository(record)

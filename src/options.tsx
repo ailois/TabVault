@@ -1563,7 +1563,7 @@ function BookmarkDetailPanel({ record, url, onAnalyze, onClearAnalysis, onUpdate
     }
     setIsEditingTags(false)
     setTagInput("")
-  }, [record?.id])
+  }, [record?.id, record?.aiTags, record?.userTags])
 
   function handleTagInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" || e.key === ",") {
