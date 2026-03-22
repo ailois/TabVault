@@ -552,7 +552,7 @@ export default function SidePanel({ services }: SidePanelProps) {
           onClick={() => void handleImport()}
           style={importButtonStyle}
           type="button">
-          {isImporting ? "Importing..." : `Import ${browserName} Bookmarks`}
+          {isImporting ? "Syncing..." : "Sync Bookmarks"}
         </button>
       </footer>
     </main>
