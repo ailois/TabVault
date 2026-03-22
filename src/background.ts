@@ -224,4 +224,14 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onInstalled.addListener(() => {
   void retryErrorQueue()
+  if (globalThis.chrome?.bookmarks) {
+    importChromeBookmarks({
+      getTree: async () => chrome.bookmarks.getTree(),
+      bookmarkRepository: repo
+    })
+      .then(count => {
+        chrome.runtime.sendMessage({ type: "IMPORT_COMPLETE", count }).catch(() => {})
+      })
+      .catch(() => {})
+  }
 })
