@@ -110,15 +110,7 @@ function BookmarkCard({
               <span
                 data-testid="bookmark-analyzing-spinner"
                 title="Analyzing"
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  border: "2px solid #fde68a",
-                  borderTopColor: "#d97706",
-                  borderRadius: "50%",
-                  display: "inline-block",
-                  animation: "tabvault-spin 0.7s linear infinite"
-                }}
+                style={{ ...spinnerBaseStyle, width: "8px", height: "8px" }}
               />
             ) : null}
             {bookmark.status === "error" ? (
@@ -233,19 +225,11 @@ function BookmarkCard({
         {bookmark.status === "analyzing" ? (
           <div
             data-testid="bookmark-status-badge"
-            style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.6875rem", color: "#d97706", fontWeight: 500 }}
+            style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.6875rem", color: ANALYZING_COLOR, fontWeight: 500 }}
           >
             <span
               data-testid="bookmark-analyzing-spinner"
-              style={{
-                width: "10px",
-                height: "10px",
-                border: "2px solid #fde68a",
-                borderTopColor: "#d97706",
-                borderRadius: "50%",
-                display: "inline-block",
-                animation: "tabvault-spin 0.7s linear infinite"
-              }}
+              style={{ ...spinnerBaseStyle, width: "10px", height: "10px" }}
             />
             Analyzing...
           </div>
@@ -387,6 +371,9 @@ function getBookmarkHost(url: string): string {
     return ""
   }
 }
+
+const ANALYZING_COLOR = "#d97706"
+const ANALYZING_TRACK_COLOR = "#fde68a"
 
 const listStyle: React.CSSProperties = {
   listStyle: "none",
@@ -559,4 +546,12 @@ const tagListStyle: React.CSSProperties = {
   listStyle: "none",
   margin: 0,
   padding: 0
+}
+
+const spinnerBaseStyle: React.CSSProperties = {
+  border: `2px solid ${ANALYZING_TRACK_COLOR}`,
+  borderTopColor: ANALYZING_COLOR,
+  borderRadius: "50%",
+  display: "inline-block",
+  animation: "tabvault-spin 0.7s linear infinite"
 }

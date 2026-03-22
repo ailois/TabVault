@@ -96,7 +96,7 @@ describe("BookmarkCard", () => {
   })
 
   it("shows analyzing indicator in compact card when status is analyzing", async () => {
-    await renderCompactList([createBookmark({ status: "analyzing" })])
+    await renderList([createBookmark({ status: "analyzing" })], undefined, undefined, undefined, true)
 
     const spinner = getCard()?.querySelector("[data-testid='bookmark-analyzing-spinner']")
     expect(spinner).not.toBeNull()
@@ -259,7 +259,8 @@ async function renderList(
   bookmarks: BookmarkRecord[],
   onDelete: (id: string) => Promise<void> = vi.fn(async () => undefined),
   onAnalyze: (id: string) => Promise<void> = vi.fn(async () => undefined),
-  onClearAnalysis: (id: string) => Promise<void> = vi.fn(async () => undefined)
+  onClearAnalysis: (id: string) => Promise<void> = vi.fn(async () => undefined),
+  compact: boolean = false
 ): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
@@ -269,29 +270,7 @@ async function renderList(
     root.render(
       <BookmarkList
         bookmarks={bookmarks}
-        onAnalyze={onAnalyze}
-        onClearAnalysis={onClearAnalysis}
-        onDelete={onDelete}
-      />
-    )
-  })
-}
-
-async function renderCompactList(
-  bookmarks: BookmarkRecord[],
-  onDelete: (id: string) => Promise<void> = vi.fn(async () => undefined),
-  onAnalyze: (id: string) => Promise<void> = vi.fn(async () => undefined),
-  onClearAnalysis: (id: string) => Promise<void> = vi.fn(async () => undefined)
-): Promise<void> {
-  container = document.createElement("div")
-  document.body.appendChild(container)
-  root = createRoot(container)
-
-  await act(async () => {
-    root.render(
-      <BookmarkList
-        bookmarks={bookmarks}
-        compact={true}
+        compact={compact}
         onAnalyze={onAnalyze}
         onClearAnalysis={onClearAnalysis}
         onDelete={onDelete}
