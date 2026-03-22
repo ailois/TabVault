@@ -76,10 +76,20 @@ function Popup({ services }: PopupProps) {
   const [searchMode, setSearchMode] = useState<SearchMode>("all")
   const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
   const [selectedBookmark, setSelectedBookmark] = useState<BookmarkRecord | null>(null)
+  const [localAnalyzingIds, setLocalAnalyzingIds] = useState<Set<string>>(new Set())
 
   const filteredBookmarks = useMemo(
     () => searchBookmarks(bookmarks, searchQuery, searchMode),
     [bookmarks, searchQuery, searchMode]
+  )
+
+  const displayedBookmarks = useMemo(
+    () => filteredBookmarks.map((bm) =>
+      localAnalyzingIds.has(bm.id) && bm.status !== "analyzing"
+        ? { ...bm, status: "analyzing" as const }
+        : bm
+    ),
+    [filteredBookmarks, localAnalyzingIds]
   )
 
   const hasPendingBookmarks = bookmarks.some(
@@ -130,10 +140,10 @@ function Popup({ services }: PopupProps) {
     }
 
     const bookmark = bookmarks.find((b) => b.id === id)
+    if (!bookmark) return
 
-    if (!bookmark) {
-      return
-    }
+    setLocalAnalyzingIds((prev) => new Set([...prev, id]))
+    setErrorMessage(null)
 
     try {
       await popupServices.analyzeBookmark({
@@ -141,9 +151,12 @@ function Popup({ services }: PopupProps) {
         provider: popupServices.createProvider(selectedProvider),
         bookmarkRepository: popupServices.bookmarkRepository
       })
-      await loadBookmarks()
-    } catch {
-      // Error is written to bookmark record by analyzeBookmark; reload to show updated status
+    } finally {
+      setLocalAnalyzingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
       await loadBookmarks()
     }
   }
@@ -498,7 +511,7 @@ function Popup({ services }: PopupProps) {
             Library
             <span style={bookmarkCountStyle}>{filteredBookmarks.length}</span>
           </h2>
-          <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDeleteBookmark} onAnalyze={handleAnalyzeBookmark} onClearAnalysis={handleClearAnalysis} onSelect={(id) => {
+          <BookmarkList bookmarks={displayedBookmarks} onDelete={handleDeleteBookmark} onAnalyze={handleAnalyzeBookmark} onClearAnalysis={handleClearAnalysis} onSelect={(id) => {
               const bm = bookmarks.find((b) => b.id === id) ?? null
               setSelectedBookmark(bm)
             }} />

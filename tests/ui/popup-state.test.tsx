@@ -362,6 +362,41 @@ describe("Popup state", () => {
     expect(analyzeBookmark.mock.calls[0]![0]!.bookmark.id).toBe("bm-to-analyze")
   })
 
+  it("shows analyzing spinner on a bookmark card immediately after clicking Analyze", async () => {
+    let resolveAnalyze!: () => void
+    const analyzeBookmark = vi.fn(
+      () => new Promise<BookmarkRecord>((resolve) => { resolveAnalyze = () => resolve(createBookmark({ status: "done" })) })
+    )
+
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [createBookmark({ id: "bm-test", status: "saved" })])
+      }),
+      settingsRepository: createSettingsRepository({
+        getProviders: vi.fn(async () => [
+          { provider: "openai" as const, apiKey: "sk-test", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", enabled: true }
+        ])
+      }),
+      analyzeBookmark
+    })
+
+    await renderPopup(services)
+
+    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
+    expect(analyzeBtn).not.toBeNull()
+
+    await act(async () => {
+      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    // Before the analysis promise settles, spinner must be visible
+    const spinner = container?.querySelector("[data-testid='bookmark-analyzing-spinner']")
+    expect(spinner).not.toBeNull()
+
+    // Cleanup: resolve to avoid dangling promises
+    await act(async () => { resolveAnalyze() })
+  })
+
   it("shows error banner when Analyze is clicked but no provider is configured", async () => {
     const bookmark = createBookmark({ id: "bm-1", status: "saved" })
     const services = createServices({
