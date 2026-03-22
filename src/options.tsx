@@ -15,7 +15,7 @@ import { validateLicenseKey } from "./lib/trial/license-service"
 import { TrialRepository } from "./lib/trial/trial-repository"
 import { TRIAL_ANALYSIS_LIMIT, TRIAL_DAYS } from "./lib/trial/trial-constants"
 import { useTrialStatus } from "./lib/trial/use-trial-status"
-import { createProvider } from "./lib/providers/provider-factory"
+import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import type { AiProvider } from "./lib/providers/provider"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
@@ -38,8 +38,8 @@ type OptionsServices = {
   bookmarkRepository: BookmarkRepository
   testConnection: (config: ProviderConfig) => Promise<void>
   themeRepository: ThemeRepository
-  analyzeBookmark: typeof defaultAnalyzeBookmark
-  createProvider: (config: ProviderConfig) => AiProvider
+  analyzeBookmark?: typeof defaultAnalyzeBookmark
+  createProvider?: (config: ProviderConfig) => AiProvider
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
@@ -156,7 +156,7 @@ const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
   settingsRepository: new ChromeSettingsRepository(),
   bookmarkRepository: new IndexedDbBookmarkRepository(),
   testConnection: async (config: ProviderConfig) => {
-    await createProvider(config).analyze({
+    await defaultCreateProvider(config).analyze({
       title: "test",
       url: "https://test",
       content: "Say OK"
@@ -164,7 +164,7 @@ const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
   },
   themeRepository: new ChromeThemeRepository(),
   analyzeBookmark: defaultAnalyzeBookmark,
-  createProvider
+  createProvider: defaultCreateProvider
 }
 
 export function applySingleProviderEnabledState(
@@ -1064,6 +1064,8 @@ function ResizeDivider({
 
 function BookmarksTab({ services }: { services: OptionsServices }) {
   const theme = useThemeContext()
+  const analyzeBookmark = services.analyzeBookmark ?? defaultAnalyzeBookmark
+  const createProvider = services.createProvider ?? defaultCreateProvider
   const [chromeTree, setChromeTree] = React.useState<chrome.bookmarks.BookmarkTreeNode[]>([])
   const [tabvaultRecords, setTabvaultRecords] = React.useState<BookmarkRecord[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
@@ -1076,6 +1078,8 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
   const { widths, handleMouseDown } = useColumnResize({ folders: 280, details: 360 })
   const [activeDivider, setActiveDivider] = React.useState<"folders-list" | "list-details" | null>(null)
 
+  const [localAnalyzingUrls, setLocalAnalyzingUrls] = React.useState<Set<string>>(new Set())
+
   const metadataMap = React.useMemo<Record<string, BookmarkRecord>>(() => {
     const map: Record<string, BookmarkRecord> = {}
     for (const record of tabvaultRecords) {
@@ -1084,7 +1088,17 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
     return map
   }, [tabvaultRecords])
 
-  const selectedRecord = selectedUrl ? (metadataMap[selectedUrl] ?? null) : null
+  const displayedMetadataMap = React.useMemo<Record<string, BookmarkRecord>>(() => {
+    const map: Record<string, BookmarkRecord> = { ...metadataMap }
+    for (const url of localAnalyzingUrls) {
+      if (map[url] && map[url].status !== "analyzing") {
+        map[url] = { ...map[url], status: "analyzing" }
+      }
+    }
+    return map
+  }, [metadataMap, localAnalyzingUrls])
+
+  const selectedRecord = selectedUrl ? (displayedMetadataMap[selectedUrl] ?? null) : null
 
   async function loadData() {
     setIsLoading(true)
@@ -1125,9 +1139,9 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
       : allBookmarks.filter((bookmark) => bookmark.folderId === selectedFolderId)
 
     return pool
-      .filter((bookmark) => matchesFilterMode(bookmark.url, filterMode, metadataMap))
-      .filter((bookmark) => !hasSearch || matchesSearch(bookmark, searchQuery, metadataMap))
-  }, [allBookmarks, filterMode, hasSearch, metadataMap, searchQuery, selectedFolderId])
+      .filter((bookmark) => matchesFilterMode(bookmark.url, filterMode, displayedMetadataMap))
+      .filter((bookmark) => !hasSearch || matchesSearch(bookmark, searchQuery, displayedMetadataMap))
+  }, [allBookmarks, filterMode, hasSearch, displayedMetadataMap, searchQuery, selectedFolderId])
 
   const selectedFolderTitle = React.useMemo(() => {
     if (!selectedFolderId) return null
@@ -1165,16 +1179,24 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
       setErrorMessage("This bookmark has not been saved to TabVault yet.")
       return
     }
+
+    setLocalAnalyzingUrls((prev) => new Set([...prev, url]))
+    setErrorMessage(null)
+
     try {
-      await services.analyzeBookmark({
+      await analyzeBookmark({
         bookmark: record,
-        provider: services.createProvider(selectedProvider),
+        provider: createProvider(selectedProvider),
         bookmarkRepository: services.bookmarkRepository
       })
-    } catch {
-      // ignore — loadData will show updated status
+    } finally {
+      setLocalAnalyzingUrls((prev) => {
+        const next = new Set(prev)
+        next.delete(url)
+        return next
+      })
+      await loadData()
     }
-    await loadData()
   }
 
   async function handleDelete(nodeId: string, url: string) {
@@ -1226,11 +1248,11 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
       setErrorMessage("Add an API key in Settings to enable analysis.")
       return
     }
-    const provider = services.createProvider(selectedProvider)
+    const provider = createProvider(selectedProvider)
 
     for (const record of errorRecords) {
       try {
-        await services.analyzeBookmark({
+        await analyzeBookmark({
           bookmark: record,
           provider,
           bookmarkRepository: services.bookmarkRepository
@@ -1370,7 +1392,7 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
               </p>
             ) : (
               <BookmarkTree
-                metadataMap={metadataMap}
+                metadataMap={displayedMetadataMap}
                 onAnalyze={handleAnalyze}
                 onDelete={handleDelete}
                 onClearAnalysis={handleClearAnalysis}
@@ -1419,7 +1441,7 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
             ) : (
               visibleBookmarks.map((item) => {
                 const isSelected = item.url === selectedUrl
-                const status = metadataMap[item.url]?.status
+                const status = displayedMetadataMap[item.url]?.status
                 const host = getBookmarkHost(item.url)
 
                 return (
@@ -1446,7 +1468,10 @@ function BookmarksTab({ services }: { services: OptionsServices }) {
                         {item.title || item.url}
                       </span>
                       {status ? (
-                        <span style={{ fontSize: "0.6875rem", padding: "2px 8px", borderRadius: radius.pill, backgroundColor: theme.surfaceElevated, color: theme.textMuted, flexShrink: 0 }}>
+                        <span
+                          data-testid="bookmark-result-status"
+                          style={{ fontSize: "0.6875rem", padding: "2px 8px", borderRadius: radius.pill, backgroundColor: theme.surfaceElevated, color: theme.textMuted, flexShrink: 0 }}
+                        >
                           {status}
                         </span>
                       ) : null}
@@ -1754,6 +1779,7 @@ function BookmarkDetailPanel({ record, url, onAnalyze, onClearAnalysis, onUpdate
       <div style={{ padding: spacing.lg, borderTop: `1px solid ${theme.borderMuted}`, display: "flex", gap: spacing.sm, marginTop: spacing.lg }}>
         {showAnalyzeButton && !record?.summary ? (
           <button
+            data-testid="detail-analyze-button"
             onClick={() => void onAnalyze(url)}
             style={{ flex: 1, padding: `${spacing.sm} ${spacing.md}`, border: "none", borderRadius: radius.medium, backgroundColor: theme.accent, color: "#fff", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
             type="button"

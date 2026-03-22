@@ -221,4 +221,61 @@ describe("Options bookmarks dashboard", () => {
     expect(getBookmarkListColumn()?.textContent).toContain("Svelte Docs")
     expect(getBookmarkListColumn()?.textContent).not.toContain("React Docs")
   })
+
+  it("shows analyzing status badge in the bookmark list immediately after clicking Analyze in the detail panel", async () => {
+    let resolveAnalyze!: () => void
+    const analyzeBookmark = vi.fn(
+      () => new Promise<BookmarkRecord>((resolve) => {
+        resolveAnalyze = () => resolve(makeBookmarkRecord({ status: "done" }))
+      })
+    )
+
+    ;(globalThis.chrome as any).bookmarks.getTree = vi.fn(async () => chromeBookmarkTree)
+    localStorage.setItem("tabvault_folder_0", "true")
+    localStorage.setItem("tabvault_folder_1", "true")
+
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    const record = makeBookmarkRecord({ status: "saved", summary: undefined, aiTags: [], userTags: [] })
+    const repo = makeBookmarkRepository([record])
+
+    await act(async () => {
+      root!.render(
+        <Options
+          services={{
+            settingsRepository: makeSettingsRepository(),
+            bookmarkRepository: repo,
+            analyzeBookmark,
+            testConnection: async () => {}
+          }}
+        />
+      )
+    })
+
+    const bookmarksTabBtn = Array.from(container!.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "Bookmarks"
+    )
+    await act(async () => { bookmarksTabBtn?.click() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)) })
+
+    // Select the bookmark in the middle column
+    const bookmarkBtn = container?.querySelector<HTMLElement>('[data-testid="bookmark-result-button"]')
+    await act(async () => { bookmarkBtn?.click() })
+
+    // Click Analyze in the detail panel
+    const analyzeBtn = container?.querySelector<HTMLButtonElement>('[data-testid="detail-analyze-button"]')
+    expect(analyzeBtn).not.toBeNull()
+
+    await act(async () => {
+      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+
+    // Status badge in middle column should immediately show "analyzing"
+    const statusBadge = bookmarkBtn?.querySelector('[data-testid="bookmark-result-status"]')
+    expect(statusBadge?.textContent).toBe("analyzing")
+
+    await act(async () => { resolveAnalyze() })
+  })
 })
