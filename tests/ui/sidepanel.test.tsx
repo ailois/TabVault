@@ -213,7 +213,7 @@ describe("SidePanel", () => {
     await renderSidePanel()
 
     expect(container?.textContent).toContain("TabVault Pro")
-    expect(container?.textContent).toContain("Manage and search your library")
+    expect(container?.textContent).toContain("Search the current page and your saved library.")
     expect(container?.querySelector("#sidepanel-search")).not.toBeNull()
     expect(container?.textContent).toContain("Library")
   })
@@ -366,7 +366,9 @@ describe("SidePanel", () => {
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
         list: vi.fn(async () => [bookmark])
-      })
+      }),
+      queryActiveTab: vi.fn(async () => undefined),
+      extractPage: vi.fn(async () => "")
     })
 
     await renderSidePanel(services)
@@ -379,7 +381,7 @@ describe("SidePanel", () => {
     })
     await act(async () => { await Promise.resolve() })
 
-    const resultLink = Array.from(container?.querySelectorAll("a") ?? []).find((link) => link.textContent?.includes("Drawer article"))
+    const resultLink = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Drawer article"))
     await act(async () => {
       resultLink?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     })
@@ -394,9 +396,24 @@ describe("SidePanel", () => {
       () => new Promise<BookmarkRecord>((resolve) => { resolveAnalyze = () => resolve(createBookmark({ id: "bm-sp", status: "done" })) })
     )
 
+    globalThis.chrome = {
+      ...(globalThis.chrome ?? {}),
+      bookmarks: {
+        getTree: vi.fn(async () => [{
+          id: "root",
+          title: "Bookmarks",
+          children: [{
+            id: "bm-node",
+            title: "Example page",
+            url: "https://example.com/article"
+          }]
+        }])
+      }
+    } as any
+
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [createBookmark({ id: "bm-sp", status: "saved" })])
+        list: vi.fn(async () => [createBookmark({ id: "bm-sp", status: "saved", title: "Example page" })])
       }),
       settingsRepository: createSettingsRepository({
         getProviders: vi.fn(async () => [
@@ -407,14 +424,6 @@ describe("SidePanel", () => {
     })
 
     await renderSidePanel(services)
-
-    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
-      setter?.call(searchInput, "Example page")
-      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
-    })
-    await act(async () => { await Promise.resolve() })
 
     const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
     expect(analyzeBtn).not.toBeNull()
@@ -427,6 +436,65 @@ describe("SidePanel", () => {
     expect(spinner).not.toBeNull()
 
     await act(async () => { resolveAnalyze() })
+  })
+
+  it("renders the hybrid context bar when current page context is available", async () => {
+    const services = createServices({
+      queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+      extractPage: vi.fn(async () => "React compiler removes useMemo boilerplate")
+    })
+
+    await renderSidePanel(services)
+
+    expect(container?.textContent).toContain("Current page")
+    expect(container?.textContent).toContain("Current React Page")
+  })
+
+  it("renders hybrid retrieval cards for a keyword query", async () => {
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [createBookmark({ id: "1", title: "React Compiler Notes", extractedText: "memoization details" })])
+      }),
+      queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+      extractPage: vi.fn(async () => "react compiler and useMemo")
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "react compiler")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("Current page match")
+    expect(container?.textContent).toContain("Saved bookmarks")
+    expect(container?.textContent).toContain("React Compiler Notes")
+  })
+
+  it("renders an answer block with citations for question queries", async () => {
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [createBookmark({ id: "1", title: "React Compiler Notes", extractedText: "Compiler removes useMemo boilerplate" })])
+      }),
+      queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+      extractPage: vi.fn(async () => "Compiler removes useMemo boilerplate")
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "这篇文章对 useMemo 的结论是什么？")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("Based on")
+    expect(container?.textContent).toContain("Current React Page")
   })
 })
 
@@ -451,6 +519,8 @@ function createServices(overrides: any = {}): any {
     themeRepository: createThemeRepository(),
     analyzeBookmark: vi.fn(async ({ bookmark }) => ({ ...bookmark, status: "done" })),
     createProvider: vi.fn(() => ({ analyze: vi.fn() })),
+    queryActiveTab: vi.fn(async () => undefined),
+    extractPage: vi.fn(async () => ""),
     ...overrides
   }
 }

@@ -25,6 +25,16 @@ import { buildGlobalStyles, radius, spacing } from "./ui/design-tokens"
 import { useTheme } from "./ui/use-theme"
 import { useGlobalStyles } from "./ui/use-global-styles"
 import { ThemeProvider } from "./ui/theme-context"
+import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
+import { buildActionCards } from "./features/hybrid-retrieval/build-action-cards"
+import { buildAnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
+import { detectQueryIntent } from "./features/hybrid-retrieval/query-intent"
+import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
+import type { ActionCard } from "./features/hybrid-retrieval/build-action-cards"
+import type { AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
+import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
+import { HybridContextBar } from "./components/hybrid-context-bar"
+import { HybridQueryStream } from "./components/hybrid-query-stream"
 
 type SidePanelProps = {
   services?: Partial<SidePanelServices>
@@ -36,6 +46,8 @@ type SidePanelServices = {
   themeRepository: ThemeRepository
   analyzeBookmark: typeof defaultAnalyzeBookmark
   createProvider: (config: ProviderConfig) => AiProvider
+  extractPage: typeof defaultExtractPage
+  queryActiveTab: () => Promise<{ id?: number; title?: string | null; url?: string | null } | undefined>
 }
 
 const DEFAULT_SIDEPANEL_SERVICES: SidePanelServices = {
@@ -43,7 +55,12 @@ const DEFAULT_SIDEPANEL_SERVICES: SidePanelServices = {
   settingsRepository: new ChromeSettingsRepository(),
   themeRepository: new ChromeThemeRepository(),
   analyzeBookmark: defaultAnalyzeBookmark,
-  createProvider: defaultCreateProvider
+  createProvider: defaultCreateProvider,
+  extractPage: defaultExtractPage,
+  queryActiveTab: async () => {
+    const [activeTab] = await (globalThis.chrome?.tabs?.query({ active: true, currentWindow: true }) ?? Promise.resolve([]))
+    return activeTab
+  }
 }
 
 export default function SidePanel({ services }: SidePanelProps) {
@@ -67,6 +84,10 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [bookmarkTree, setBookmarkTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>([])
   const [selectedBookmark, setSelectedBookmark] = useState<BookmarkRecord | null>(null)
   const [localAnalyzingIds, setLocalAnalyzingIds] = useState<Set<string>>(new Set())
+  const [currentPageContext, setCurrentPageContext] = useState<{ title?: string; url?: string; extractedText?: string } | null>(null)
+  const [rankedResults, setRankedResults] = useState<RankedHybridResult[]>([])
+  const [actionCards, setActionCards] = useState<ActionCard[]>([])
+  const [answerBlock, setAnswerBlock] = useState<AnswerBlock | null>(null)
 
   const filteredBookmarks = useMemo(
     () => searchBookmarks(bookmarks, searchQuery, searchMode),
@@ -93,7 +114,7 @@ export default function SidePanel({ services }: SidePanelProps) {
   )
 
   const metadataMap = useMemo(
-    () => bookmarks.reduce((acc, b) => ({ ...acc, [b.id]: b }), {} as Record<string, BookmarkRecord>),
+    () => bookmarks.reduce((acc, b) => ({ ...acc, [b.url]: b }), {} as Record<string, BookmarkRecord>),
     [bookmarks]
   )
 
@@ -149,6 +170,46 @@ export default function SidePanel({ services }: SidePanelProps) {
 
     return () => globalThis.chrome?.runtime?.onMessage.removeListener(listener)
   }, [])
+
+  useEffect(() => {
+    async function loadCurrentPage() {
+      const tab = await sidePanelServices.queryActiveTab()
+      if (!tab?.id) return
+      const extractedText = await sidePanelServices.extractPage(tab.id)
+      setCurrentPageContext({ title: tab.title ?? undefined, url: tab.url ?? undefined, extractedText })
+    }
+    void loadCurrentPage()
+  }, [])
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setRankedResults([])
+      setActionCards([])
+      setAnswerBlock(null)
+      return
+    }
+
+    async function runHybridRetrieval() {
+      const results = await retrieveHybridResults({
+        query: searchQuery,
+        currentPage: currentPageContext ?? {},
+        listBookmarks: () => sidePanelServices.bookmarkRepository.list()
+      })
+      setRankedResults(results)
+
+      const hasCurrentPage = results.some((r) => r.document.sourceType === "current-page")
+      const hasSavedMatches = results.some((r) => r.document.sourceType === "saved-bookmark")
+      setActionCards(buildActionCards({ hasCurrentPage, hasSavedMatches }))
+
+      const intent = detectQueryIntent(searchQuery)
+      if (intent === "answer" || intent === "mixed") {
+        setAnswerBlock(buildAnswerBlock({ query: searchQuery, rankedResults: results }))
+      } else {
+        setAnswerBlock(null)
+      }
+    }
+    void runHybridRetrieval()
+  }, [searchQuery, currentPageContext])
 
   const handleLicenseSubmit = useCallback(async () => {
     setLicenseError(null)
@@ -213,7 +274,7 @@ export default function SidePanel({ services }: SidePanelProps) {
     }
   }
 
-  async function handleAnalyzeBookmark(id: string): Promise<void> {
+  async function handleAnalyzeBookmark(idOrUrl: string): Promise<void> {
     const settings = await sidePanelServices.settingsRepository.getAppSettings()
     const providers = await sidePanelServices.settingsRepository.getProviders()
     const selectedProvider = providers.find(
@@ -225,10 +286,10 @@ export default function SidePanel({ services }: SidePanelProps) {
       return
     }
 
-    const bookmark = bookmarks.find((b) => b.id === id)
+    const bookmark = bookmarks.find((b) => b.id === idOrUrl || b.url === idOrUrl)
     if (!bookmark) return
 
-    setLocalAnalyzingIds((prev) => new Set([...prev, id]))
+    setLocalAnalyzingIds((prev) => new Set([...prev, bookmark.id]))
     setErrorMessage(null)
 
     try {
@@ -240,7 +301,7 @@ export default function SidePanel({ services }: SidePanelProps) {
     } finally {
       setLocalAnalyzingIds((prev) => {
         const next = new Set(prev)
-        next.delete(id)
+        next.delete(bookmark.id)
         return next
       })
       await loadBookmarks()
@@ -422,7 +483,7 @@ export default function SidePanel({ services }: SidePanelProps) {
           <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
           <div>
             <span style={{ fontWeight: 700, fontSize: "1rem", color: theme.textPrimary }}>TabVault Pro</span>
-            <p style={subtitleStyle}>Manage and search your library.</p>
+            <p style={subtitleStyle}>Search the current page and your saved library.</p>
           </div>
         </div>
         <button
@@ -532,6 +593,11 @@ export default function SidePanel({ services }: SidePanelProps) {
         {errorMessage && <div style={{ padding: `0 ${spacing.lg}` }}><ErrorBanner message={errorMessage} /></div>}
         {status && <p style={statusStyle}>{status}</p>}
 
+        <HybridContextBar
+          currentPageTitle={currentPageContext?.title}
+          indexedBookmarkCount={bookmarks.length}
+        />
+
         <section aria-labelledby="sidepanel-library-title" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <h2 id="sidepanel-library-title" style={libraryHeadingStyle}>
             Library
@@ -540,15 +606,13 @@ export default function SidePanel({ services }: SidePanelProps) {
           {isLoadingBookmarks ? (
             <p style={loadingTextStyle}>Loading bookmarks...</p>
           ) : searchQuery ? (
-            <BookmarkList
-              bookmarks={displayedBookmarks}
-              compact={true}
-              matchReasons={matchReasonMap}
-              onDelete={handleDeleteBookmark}
-              onAnalyze={handleAnalyzeBookmark}
-              onClearAnalysis={handleClearAnalysis}
-              onSelect={(id) => {
-                const bookmark = bookmarks.find((b) => b.id === id) ?? null
+            <HybridQueryStream
+              query={searchQuery}
+              rankedResults={rankedResults}
+              actions={actionCards}
+              answer={answerBlock}
+              onOpenBookmark={(bookmarkId) => {
+                const bookmark = bookmarks.find((b) => b.id === bookmarkId) ?? null
                 setSelectedBookmark(bookmark)
               }}
             />

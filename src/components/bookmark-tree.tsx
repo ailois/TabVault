@@ -356,7 +356,7 @@ function BookmarkTreeNodeItem({
         />
       ) : null}
       <div style={{ flexShrink: 0, width: "10px", display: "flex", alignItems: showHost ? "flex-start" : "center", paddingTop: showHost ? "4px" : 0 }}>
-        {status === "analyzing" ? <span style={dotAmberStyle} title="Analyzing" /> : null}
+        {status === "analyzing" ? <span data-testid="bookmark-analyzing-spinner" style={dotAmberStyle} title="Analyzing" /> : null}
         {status === "error" ? <span style={{ ...dotBaseStyle, backgroundColor: theme.textDanger }} title="Error" /> : null}
         {status === "done" ? <span style={dotGreenStyle} title="Done" /> : null}
       </div>
@@ -420,6 +420,7 @@ function BookmarkTreeNodeItem({
         {showAnalyzeButton ? (
           <button
             aria-label={`Analyze ${node.title}`}
+            data-testid="bookmark-analyze-button"
             onClick={() => void onAnalyze(node.url!)}
             style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: radius.small }}
             type="button"
