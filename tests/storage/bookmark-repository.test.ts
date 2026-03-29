@@ -97,6 +97,28 @@ describe("IndexedDbBookmarkRepository", () => {
     await expect(repository.list()).resolves.toEqual([])
     await expect(repository.getById("bookmark-1")).resolves.toBeNull()
   })
+
+  it("returns bookmarks sorted by createdAt descending", async () => {
+    const older = createBookmark({
+      id: "old",
+      title: "Old",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z"
+    })
+    const newer = createBookmark({
+      id: "new",
+      title: "New",
+      createdAt: "2026-03-01T00:00:00.000Z",
+      updatedAt: "2026-03-01T00:00:00.000Z"
+    })
+
+    await repository.save(older)
+    await repository.save(newer)
+
+    const results = await repository.list()
+    expect(results[0].id).toBe("new")
+    expect(results[1].id).toBe("old")
+  })
 })
 
 describe("backward-compat migration", () => {
