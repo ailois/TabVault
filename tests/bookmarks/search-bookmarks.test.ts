@@ -58,6 +58,11 @@ describe("searchBookmarks", () => {
     expect(searchBookmarks([bm], "my-custom-tag")).toEqual([bm])
     expect(searchBookmarks([bm], "ai-generated")).toEqual([bm])
   })
+
+  it("returns bookmarks matching extractedText", () => {
+    const bookmark = createBookmark({ extractedText: "Rust async cancellation details" })
+    expect(searchBookmarks([bookmark], "cancellation")).toEqual([bookmark])
+  })
 })
 
 function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {

@@ -91,4 +91,12 @@ describe("searchBookmarksWithReasons", () => {
     expect(results).toHaveLength(1)
     expect(results[0].matchReason).toContain("title")
   })
+
+  it("matches extracted text and returns reason containing 'extracted text'", () => {
+    const bookmark = makeBookmark({ extractedText: "Rust cancellation explained" })
+    const results = searchBookmarksWithReasons([bookmark], "cancellation")
+
+    expect(results).toHaveLength(1)
+    expect(results[0].matchReason).toContain("extracted text")
+  })
 })

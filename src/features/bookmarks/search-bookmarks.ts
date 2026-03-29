@@ -26,7 +26,7 @@ function createSearchText(bookmark: BookmarkRecord, mode: SearchMode): string {
     case "url":
       return bookmark.url.toLocaleLowerCase()
     default:
-      return [bookmark.title, bookmark.url, bookmark.summary, allTags]
+      return [bookmark.title, bookmark.url, bookmark.summary, allTags, bookmark.extractedText]
         .filter((v): v is string => Boolean(v))
         .join(" ")
         .toLocaleLowerCase()
@@ -57,6 +57,8 @@ export function searchBookmarksWithReasons(
       results.push({ bookmark, matchReason: "AI summary" })
     } else if ([...bookmark.aiTags, ...bookmark.userTags].some((t) => t.toLowerCase().includes(q))) {
       results.push({ bookmark, matchReason: "tag" })
+    } else if (bookmark.extractedText?.toLowerCase().includes(q)) {
+      results.push({ bookmark, matchReason: "extracted text" })
     } else if (bookmark.url.toLowerCase().includes(q)) {
       results.push({ bookmark, matchReason: "URL" })
     }
