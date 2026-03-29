@@ -33,7 +33,9 @@ export function HybridQueryStream(input: {
       {input.answer ? (
         <article>
           <p>{input.answer.text}</p>
-          {input.answer.citations.map((citation) => <div key={citation.url}>{citation.title}</div>)}
+          {input.answer.citations.map((citation, index) => (
+            <div key={`${citation.sourceType}:${citation.url}:${citation.title}:${index}`}>{citation.title}</div>
+          ))}
         </article>
       ) : null}
     </section>

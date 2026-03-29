@@ -474,13 +474,12 @@ describe("SidePanel", () => {
     expect(container?.textContent).toContain("React Compiler Notes")
   })
 
-  it("renders an answer block with citations for question queries", async () => {
+  it("opens the drawer when a saved-bookmark hybrid result is selected", async () => {
+    const bookmark = createBookmark({ id: "1", title: "Drawer article", extractedText: "React compiler details" })
     const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [createBookmark({ id: "1", title: "React Compiler Notes", extractedText: "Compiler removes useMemo boilerplate" })])
-      }),
+      bookmarkRepository: createBookmarkRepository({ list: vi.fn(async () => [bookmark]) }),
       queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
-      extractPage: vi.fn(async () => "Compiler removes useMemo boilerplate")
+      extractPage: vi.fn(async () => "react compiler")
     })
 
     await renderSidePanel(services)
@@ -488,13 +487,76 @@ describe("SidePanel", () => {
     const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
-      setter?.call(searchInput, "这篇文章对 useMemo 的结论是什么？")
+      setter?.call(searchInput, "react compiler")
       searchInput.dispatchEvent(new Event("input", { bubbles: true }))
     })
     await act(async () => { await Promise.resolve() })
 
-    expect(container?.textContent).toContain("Based on")
-    expect(container?.textContent).toContain("Current React Page")
+    const resultButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Drawer article"))
+    await act(async () => { resultButton?.click() })
+
+    expect(container?.querySelector("[data-testid='bookmark-drawer']")?.textContent).toContain("Drawer article")
+  })
+
+  it("refreshes the answer block when clicking Ask current page", async () => {
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [createBookmark({ id: "1", title: "Saved React Note", extractedText: "saved note on compiler" })])
+      }),
+      queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+      extractPage: vi.fn(async () => "current page useMemo explanation")
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "compare current page with my saved react notes")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const actionButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Ask current page"))
+    expect(actionButton).not.toBeNull()
+
+    await act(async () => { actionButton?.click() })
+
+    const streamText = container?.textContent ?? ""
+    expect(streamText).toContain("Based on Current React Page")
+    expect(streamText).not.toContain("Saved React Note, Current React Page")
+  })
+
+  it("refreshes the answer block when clicking Ask top matches", async () => {
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [
+          createBookmark({ id: "1", title: "Saved React Note", extractedText: "saved note on compiler" }),
+          createBookmark({ id: "2", title: "Saved React Guide", extractedText: "guide for useMemo" })
+        ])
+      }),
+      queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+      extractPage: vi.fn(async () => "current page useMemo explanation")
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "compare current page with my saved react notes")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const actionButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Ask top matches"))
+    expect(actionButton).not.toBeNull()
+
+    await act(async () => { actionButton?.click() })
+
+    const streamText = container?.textContent ?? ""
+    expect(streamText).toContain("Based on")
+    expect(streamText).toContain("Saved React Note")
   })
 })
 

@@ -372,6 +372,23 @@ export default function SidePanel({ services }: SidePanelProps) {
     })
   }
 
+  async function handleHybridAction(actionId: ActionCard["id"]): Promise<void> {
+    if (actionId === "open-dashboard") {
+      globalThis.chrome?.runtime?.openOptionsPage?.()
+      return
+    }
+
+    if (actionId === "ask-current-page") {
+      const currentPageResults = rankedResults.filter((result) => result.document.sourceType === "current-page")
+      setAnswerBlock(buildAnswerBlock({ query: searchQuery, rankedResults: currentPageResults }))
+      return
+    }
+
+    if (actionId === "ask-top-matches") {
+      setAnswerBlock(buildAnswerBlock({ query: searchQuery, rankedResults: rankedResults.slice(0, 3) }))
+    }
+  }
+
   const pageStyle: React.CSSProperties = {
     backgroundColor: theme.surface,
     minHeight: "100vh",
@@ -614,6 +631,9 @@ export default function SidePanel({ services }: SidePanelProps) {
               onOpenBookmark={(bookmarkId) => {
                 const bookmark = bookmarks.find((b) => b.id === bookmarkId) ?? null
                 setSelectedBookmark(bookmark)
+              }}
+              onAction={(actionId) => {
+                void handleHybridAction(actionId)
               }}
             />
           ) : (
