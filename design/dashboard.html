@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TabVault - Dashboard (Editable)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: { colors: { bg: 'var(--bg-color)', surface: 'var(--surface-color)', border: 'var(--border-color)', primary: 'var(--primary-text)', secondary: 'var(--secondary-text)', accent: 'var(--accent-color)', accentHover: 'var(--accent-hover)' } } } }
+  </script>
+  <style>
+    :root { --bg-color: #F4F6F9; --surface-color: #FFFFFF; --border-color: #DEE2E6; --primary-text: #212529; --secondary-text: #6C757D; --accent-color: #5E6AD2; --accent-hover: #4A55A2; }
+  .dark { --bg-color: #1C1E23; --surface-color: #25282E; --border-color: #383C42; --primary-text: #E1E1E1; --secondary-text: #8A8F98; --accent-color: #7986CB; --accent-hover: #5C6BC0; }
+    body,.theme-transition { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 4px; }
+  </style>
+  <script>
+    // 主题切换逻辑
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    // --- 摘要编辑逻辑 (Summary Editing) ---
+    function toggleEditSummary() {
+      const display = document.getElementById('summary-display');
+      const edit = document.getElementById('summary-edit');
+      const textarea = document.getElementById('summary-textarea');
+      
+      if (edit.classList.contains('hidden')) {
+        // 进入编辑模式
+        textarea.value = display.innerText.trim();
+        display.classList.add('hidden');
+        edit.classList.remove('hidden');
+        textarea.focus();
+      } else {
+        // 取消编辑
+        display.classList.remove('hidden');
+        edit.classList.add('hidden');
+      }
+    }
+
+    function saveSummary() {
+      const display = document.getElementById('summary-display');
+      const edit = document.getElementById('summary-edit');
+      const textarea = document.getElementById('summary-textarea');
+      
+      display.innerText = textarea.value.trim();
+      display.classList.remove('hidden');
+      edit.classList.add('hidden');
+    }
+
+    // --- 标签编辑逻辑 (Tags Editing) ---
+    let currentTags = ['搜索引擎', '微软', 'AI Copilot'];
+    let isEditingTags = false;
+
+    function renderTags() {
+      const container = document.getElementById('tags-container');
+      container.innerHTML = '';
+      currentTags.forEach((tag, index) => {
+        const tagEl = document.createElement('span');
+        tagEl.className = 'text-[11px] text-primary bg-bg border border-border px-2.5 py-1 rounded-full theme-transition flex items-center';
+        // 如果处于编辑模式，渲染删除按钮 'x'
+        tagEl.innerHTML = `# ${tag} ` + (isEditingTags? `<button onclick="removeTag(${index})" class="ml-1.5 text-secondary hover:text-red-500 focus:outline-none transition-colors">&times;</button>` : '');
+        container.appendChild(tagEl);
+      });
+      // 控制添加标签输入框的显示与隐藏
+      document.getElementById('add-tag-container').style.display = isEditingTags? 'flex' : 'none';
+      document.getElementById('edit-tags-icon').style.color = isEditingTags? 'var(--accent-color)' : '';
+    }
+
+    function toggleEditTags() {
+      isEditingTags =!isEditingTags;
+      renderTags();
+      if(isEditingTags) document.getElementById('new-tag-input').focus();
+    }
+
+    function removeTag(index) {
+      currentTags.splice(index, 1);
+      renderTags();
+    }
+
+    function addTag() {
+      const input = document.getElementById('new-tag-input');
+      const val = input.value.trim();
+      if(val &&!currentTags.includes(val)) {
+        currentTags.push(val);
+        input.value = '';
+        renderTags();
+        input.focus();
+      }
+    }
+
+    // 监听回车键添加标签
+    function handleTagInput(e) {
+      if (e.key === 'Enter') addTag();
+    }
+
+    // 页面加载完成后初始化标签
+    document.addEventListener('DOMContentLoaded', () => {
+      renderTags();
+    });
+  </script>
+</head>
+<body class="bg-bg text-primary font-sans h-screen flex overflow-hidden theme-transition">
+  
+  <div class="w-64 border-r border-border bg-surface flex flex-col shadow-sm z-10 shrink-0 theme-transition">
+    <div class="p-6 font-bold text-lg tracking-wider border-b border-border flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-3 h-3 bg-accent rounded-sm rotate-45"></div>
+        <span>TabVault</span>
+      </div>
+      <button onclick="toggleTheme()" class="text-secondary hover:text-accent transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+      </button>
+    </div>
+    <div class="p-4 flex-1 overflow-y-auto custom-scrollbar">
+      <div class="text-[10px] font-bold text-secondary tracking-wider uppercase mb-3 px-2 mt-4">语义空间 (Spaces)</div>
+      <ul class="space-y-1 text-sm">
+        <li class="px-2 py-1.5 bg-accent/10 text-accent font-medium rounded-md flex justify-between items-center cursor-pointer">
+          <span>AI & 开发资料</span> <span class="text-xs">124</span>
+        </li>
+        <li class="px-2 py-1.5 text-secondary hover:bg-bg rounded-md flex justify-between items-center cursor-pointer transition theme-transition">
+          <span>Rust 后端架构</span> <span class="text-xs">45</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="flex-1 p-8 flex flex-col h-full overflow-hidden">
+    <div class="flex justify-between items-center mb-6">
+      <div class="relative w-96">
+        <svg class="absolute left-3 top-2.5 w-4 h-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <input type="text" placeholder="输入概念或描述进行语义搜索..." class="w-full bg-surface border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-accent text-primary placeholder-secondary shadow-sm theme-transition" />
+      </div>
+      <div class="flex space-x-3">
+        <button class="px-3 py-1.5 text-sm bg-surface border border-border rounded-md hover:border-accent transition shadow-sm theme-transition">导出库</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-12 grid-rows-3 gap-5 flex-1 min-h-[500px]">
+      
+      <div class="col-span-8 row-span-3 bg-surface border border-border rounded-2xl p-8 overflow-y-auto custom-scrollbar shadow-sm relative group theme-transition">
+        <h1 class="text-3xl font-bold mb-3 leading-tight text-primary">微软必应 (Bing) 首页：深度整合 Copilot 的搜索进化史</h1>
+        <div class="flex items-center space-x-4 mb-8 text-xs text-secondary border-b border-border pb-4 theme-transition">
+          <span class="flex items-center"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg> bing.com</span>
+          <span>存档时间：2026年3月22日</span>
+          <span class="bg-bg px-2 py-0.5 rounded border border-border theme-transition">DOM 快照提取</span>
+        </div>
+        
+        <div class="text-sm text-secondary leading-relaxed space-y-4">
+          <p>必应（Bing）是一款由微软公司推出的网络搜索引擎。它不仅提供常规的网页、图片、视频和新闻搜索服务，其首页还以每日更新的高清优质壁纸著称。</p>
+          <p>随着 AI 时代的到来，必应已深度集成了 Copilot (原 Bing Chat) 功能，用户可以直接在搜索框中进行自然语言的 AI 问答对话，大幅提升了检索的智能化程度和信息获取效率...</p>
+        </div>
+        <div class="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-surface to-transparent rounded-b-2xl pointer-events-none theme-transition"></div>
+      </div>
+
+      <div class="col-span-4 row-span-1 bg-gradient-to-br from-accent/10 to-transparent border border-accent/20 rounded-2xl p-5 flex flex-col bg-surface shadow-sm theme-transition">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-[10px] font-bold text-accent tracking-wider uppercase flex items-center">
+            <span class="w-1.5 h-1.5 rounded-full bg-accent mr-2 animate-pulse"></span> AI Summary
+          </h3>
+          <button onclick="toggleEditSummary()" class="text-secondary hover:text-accent transition" title="编辑摘要">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+          </button>
+        </div>
+        
+        <div id="summary-display" class="text-sm leading-relaxed flex-1 text-primary custom-scrollbar overflow-y-auto">
+          本文详述了微软必应搜索引擎如何集成 Copilot 聊天功能，核心技术栈演进，以及每日高清壁纸背后的技术逻辑。
+        </div>
+
+        <div id="summary-edit" class="hidden flex-1 flex flex-col">
+          <textarea id="summary-textarea" class="w-full flex-1 bg-bg border border-border rounded-lg p-2 text-sm focus:outline-none focus:border-accent text-primary custom-scrollbar resize-none theme-transition"></textarea>
+          <div class="flex justify-end mt-2 space-x-2">
+            <button onclick="toggleEditSummary()" class="text-[11px] px-2 py-1 text-secondary hover:text-primary transition">取消</button>
+            <button onclick="saveSummary()" class="text-[11px] bg-accent text-white px-3 py-1 rounded hover:bg-accentHover transition shadow-sm">保存修改</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-span-4 row-span-1 bg-surface border border-border rounded-2xl p-5 shadow-sm overflow-y-auto custom-scrollbar theme-transition flex flex-col">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-[10px] font-bold text-secondary tracking-wider uppercase">Smart Tags</h3>
+          <button onclick="toggleEditTags()" class="text-secondary hover:text-accent transition" title="编辑标签">
+            <svg id="edit-tags-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          </button>
+        </div>
+
+        <div id="tags-container" class="flex flex-wrap gap-2">
+          </div>
+
+        <div id="add-tag-container" class="hidden mt-3 flex items-center">
+          <input type="text" id="new-tag-input" onkeydown="handleTagInput(event)" placeholder="输入标签名回车..." class="bg-bg border border-border rounded-l-md px-2.5 py-1.5 text-xs focus:outline-none focus:border-accent text-primary w-full theme-transition">
+          <button onclick="addTag()" class="bg-surface border border-l-0 border-border rounded-r-md px-3 py-1.5 text-xs hover:text-accent font-bold transition theme-transition">+</button>
+        </div>
+        
+        <div class="text-xs text-secondary border-t border-border pt-3 mt-auto theme-transition">
+          <div class="font-medium mb-1">语义相似内容：</div>
+          <ul class="space-y-1">
+            <li class="truncate hover:text-accent cursor-pointer">↳ ChatGPT 与 Bing 的架构差异对比 (94%)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col-span-4 row-span-1 bg-bg border border-border rounded-2xl p-5 flex flex-col relative shadow-inner theme-transition">
+        <h3 class="text-[10px] font-bold text-secondary tracking-wider uppercase mb-2">Ask Ghostreader</h3>
+        <p class="text-[11px] text-secondary mb-3">基于当前文档内容向 AI 提问...</p>
+        <div class="mt-auto relative">
+          <input type="text" placeholder="必应最新的 AI 功能是什么？" class="w-full bg-surface border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:border-accent text-primary placeholder-secondary shadow-sm theme-transition" />
+          <button class="absolute right-2 top-2 w-7 h-7 bg-accent text-white rounded flex items-center justify-center hover:opacity-90 transition">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"></path></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
