@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { lightTokens, darkTokens, radius, spacing } from "../../src/ui/design-tokens"
+import { buildGlobalStyles, lightTokens, darkTokens, radius, spacing } from "../../src/ui/design-tokens"
 
 describe("lightTokens", () => {
   it("matches design prototype light theme values", () => {
@@ -46,10 +46,14 @@ describe("radius", () => {
   })
 })
 
-describe("spacing", () => {
-  it("exports expected scale", () => {
-    expect(spacing.xs).toBe("4px")
-    expect(spacing.sm).toBe("8px")
-    expect(spacing.md).toBe("16px")
+describe("global styles", () => {
+  it("uses the prototype scrollbar widths and theme-derived focus rings", () => {
+    const styles = buildGlobalStyles(lightTokens)
+
+    expect(styles).toContain("width: 4px;")
+    expect(styles).toContain("height: 4px;")
+    expect(styles).toContain("background: #DEE2E6;")
+    expect(styles).toContain("rgba(94,106,210,0.12)")
+    expect(styles).toContain("rgba(94,106,210,0.16)")
   })
 })

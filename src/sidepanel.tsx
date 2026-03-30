@@ -283,22 +283,25 @@ export default function SidePanel({ services }: SidePanelProps) {
     minHeight: "100vh",
     boxSizing: "border-box",
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
+    width: "100%",
+    borderLeft: `1px solid ${theme.border}`
   }
 
   const headerStyle: React.CSSProperties = {
-    padding: `${spacing.md}`,
+    padding: spacing.md,
     borderBottom: `1px solid ${theme.border}`,
     backgroundColor: theme.surface,
     display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between"
+    flexDirection: "column",
+    gap: spacing.sm,
+    flexShrink: 0
   }
 
   const searchInputStyle: React.CSSProperties = {
     width: "100%",
     boxSizing: "border-box",
-    padding: "9px 12px",
+    padding: "10px 12px 10px 36px",
     border: `1px solid ${theme.border}`,
     borderRadius: radius.medium,
     backgroundColor: theme.page,
@@ -314,55 +317,94 @@ export default function SidePanel({ services }: SidePanelProps) {
     borderRadius: radius.large,
     backgroundColor: theme.accent,
     color: "#ffffff",
-    fontWeight: 600,
+    fontWeight: 500,
     fontSize: "0.875rem",
     cursor: "pointer",
-    boxShadow: "0 10px 24px rgba(99,102,241,0.22)"
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
   }
 
   return (
     <ThemeProvider theme={theme}>
       <main style={pageStyle}>
         <header style={headerStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-            <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: theme.textPrimary }}>Ghostreader</div>
-              <div style={{ marginTop: 2, fontSize: "0.75rem", color: theme.textMuted }}>Ask about the current page and your saved knowledge.</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
+            <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+              <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: theme.textPrimary }}>Ghostreader</div>
+                <div style={{ marginTop: 2, fontSize: "0.75rem", color: theme.textMuted }}>Ask about the current page and your saved knowledge.</div>
+              </div>
             </div>
+            <button
+              aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
+              data-testid="theme-toggle-button"
+              onClick={() => theme.toggle()}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "1.125rem",
+                color: theme.textMuted,
+                padding: "4px",
+                borderRadius: radius.small,
+                lineHeight: 1
+              }}
+              type="button"
+            >
+              {theme.isDark ? "☀️" : "🌙"}
+            </button>
           </div>
-          <button
-            aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
-            data-testid="theme-toggle-button"
-            onClick={() => theme.toggle()}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "1.125rem",
-              color: theme.textMuted,
-              padding: "4px",
-              borderRadius: radius.small,
-              lineHeight: 1
-            }}
-            type="button"
-          >
-            {theme.isDark ? "☀️" : "🌙"}
-          </button>
-        </header>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div style={{ padding: `${spacing.md} ${spacing.md} ${spacing.sm}` }}>
+          <div style={{ position: "relative" }}>
             <label htmlFor="sidepanel-search" style={visuallyHiddenStyle}>Search bookmarks</label>
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: theme.textMuted,
+                fontSize: "0.875rem",
+                lineHeight: 1
+              }}
+            >
+              ⌕
+            </span>
             <input
               id="sidepanel-search"
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="语义搜索书签..."
-              style={searchInputStyle}
+              style={{ ...searchInputStyle, paddingRight: searchQuery ? "36px" : "12px" }}
               type="search"
               value={searchQuery}
             />
+            {searchQuery ? (
+              <button
+                data-testid="sidepanel-search-clear"
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute",
+                  right: "8px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  border: "none",
+                  background: "none",
+                  color: theme.textMuted,
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  lineHeight: 1,
+                  padding: 0
+                }}
+                type="button"
+              >
+                ×
+              </button>
+            ) : null}
           </div>
+        </header>
+
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
 
           {(trial.status === "trial" || trial.status === "expired") ? (
             <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}>
@@ -414,11 +456,12 @@ export default function SidePanel({ services }: SidePanelProps) {
                 <div style={{
                   backgroundColor: theme.surface,
                   border: `1px solid ${theme.border}`,
-                  borderRadius: radius.large,
+                  borderRadius: radius.xl,
+                  borderTopLeftRadius: radius.small,
                   padding: spacing.md,
                   boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
                   maxWidth: "90%"
-                }}>
+                }} data-testid="ghostreader-welcome-card">
                   <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: "0.875rem", color: theme.textPrimary, lineHeight: 1.5 }}>
                     我已经阅读了当前页面{currentPageContext?.title ? `《${currentPageContext.title}》` : ""}。你想了解什么？
                   </p>

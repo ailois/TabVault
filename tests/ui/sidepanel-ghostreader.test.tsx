@@ -62,15 +62,43 @@ describe("SidePanel Ghostreader", () => {
     expect(input?.getAttribute("placeholder")).toContain("Ghostreader")
   })
 
-  it("shows an assistant-led welcome state for the current page", async () => {
+  it("matches the prototype header, welcome bubble, and composer sizing", async () => {
     await renderSidePanel(createServices())
 
-    expect(container?.textContent).toContain("Ghostreader")
-    expect(container?.textContent).toContain("Current React Page")
-    expect(container?.textContent).toContain("总结核心观点")
+    const panel = container?.querySelector<HTMLElement>("main")
+    const searchInput = container?.querySelector<HTMLInputElement>("#sidepanel-search")
+    const welcomeCard = container?.querySelector<HTMLElement>("[data-testid='ghostreader-welcome-card']")
+    const composerInput = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const composerButton = container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")
+
+    expect(panel?.style.borderLeft).toContain("1px solid")
+    expect(searchInput?.style.padding).toBe("10px 12px 10px 36px")
+    expect(searchInput?.style.borderRadius).toBe("8px")
+    expect(welcomeCard?.style.borderTopLeftRadius).toBe("5px")
+    expect(composerInput?.style.borderRadius).toBe("12px")
+    expect(composerButton?.style.width).toBe("28px")
+    expect(composerButton?.style.height).toBe("28px")
   })
 
-  it("uses the persistent Ghostreader input to run a query", async () => {
+  it("shows a clear button in the header search field and clears the query", async () => {
+    await renderSidePanel(createServices())
+
+    const searchInput = container?.querySelector<HTMLInputElement>("#sidepanel-search")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setter?.call(searchInput, "react compiler")
+      searchInput?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    const clearButton = container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-search-clear']")
+    expect(clearButton).not.toBeNull()
+    expect(clearButton?.style.position).toBe("absolute")
+
+    await act(async () => { clearButton?.click() })
+    expect(searchInput?.value).toBe("")
+  })
+
+  it("keeps welcome and result cards within the same visual width system", async () => {
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
         list: vi.fn(async () => [createBookmark({ id: "1", title: "React Compiler Notes", extractedText: "memoization details" })])
@@ -79,11 +107,14 @@ describe("SidePanel Ghostreader", () => {
 
     await renderSidePanel(services)
 
+    const welcomeCard = container?.querySelector<HTMLElement>("[data-testid='ghostreader-welcome-card']")
+    expect(welcomeCard?.style.maxWidth).toBe("90%")
+
     const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
 
     await act(async () => {
-      setter?.call(input, "react compiler")
+      setter?.call(input, "What is react compiler?")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
     await act(async () => {
@@ -91,8 +122,10 @@ describe("SidePanel Ghostreader", () => {
     })
     await act(async () => { await Promise.resolve() })
 
-    expect(container?.textContent).toContain("Current page match")
-    expect(container?.textContent).toContain("React Compiler Notes")
+    const resultCard = container?.querySelector<HTMLElement>("[data-testid='hybrid-result-card']")
+    const answerCard = container?.querySelector<HTMLElement>("[data-testid='hybrid-answer-card']")
+    expect(resultCard?.style.borderRadius).toBe("12px")
+    expect(answerCard?.style.borderRadius).toBe("12px")
   })
 })
 

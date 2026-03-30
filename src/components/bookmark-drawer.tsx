@@ -110,7 +110,9 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
         }}
       >
         {/* Header */}
-        <div style={{
+        <div
+          data-testid="bookmark-drawer-header"
+          style={{
           display: "flex",
           alignItems: "flex-start",
           justifyContent: "space-between",
@@ -136,6 +138,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
             <a
+              data-testid="drawer-open-link"
               href={bookmark.url}
               rel="noreferrer"
               style={{ padding: "5px 10px", border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "0.75rem", fontWeight: 500, color: theme.textSecondary, textDecoration: "none", backgroundColor: "transparent" }}
@@ -158,9 +161,10 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
         {/* Body */}
         <div style={{ flex: 1, padding: spacing.md, display: "grid", gap: spacing.md }}>
           {/* URL */}
-          <div>
+          <div data-testid="drawer-url-section">
             <p style={{ margin: "0 0 4px", fontSize: "0.75rem", fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>URL</p>
             <a
+              data-testid="drawer-url-link"
               href={bookmark.url}
               rel="noreferrer"
               style={{ fontSize: "0.875rem", color: theme.accent, textDecoration: "none", wordBreak: "break-all" }}
@@ -171,12 +175,25 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
           </div>
 
           {/* Status & provider */}
-          <div style={{ display: "flex", gap: spacing.xs, flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: radius.pill, backgroundColor: theme.surfaceElevated, color: theme.textMuted }}>
+          <div style={{ display: "flex", gap: spacing.xs, flexWrap: "wrap", alignItems: "center" }}>
+            <span
+              data-testid="drawer-status-badge"
+              style={{
+                fontSize: "0.75rem",
+                padding: "4px 10px",
+                borderRadius: radius.pill,
+                backgroundColor: theme.surfaceElevated,
+                color: theme.textMuted,
+                display: "inline-flex",
+                alignItems: "center",
+                alignSelf: "flex-start",
+                whiteSpace: "nowrap"
+              }}
+            >
               {bookmark.status}
             </span>
             {bookmark.provider ? (
-              <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: radius.pill, backgroundColor: theme.accentSoft, color: theme.accent }}>
+              <span style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: radius.pill, backgroundColor: theme.accentSoft, color: theme.accent, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}>
                 {bookmark.provider} / {bookmark.model}
               </span>
             ) : null}
@@ -184,7 +201,9 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
 
           {/* Summary */}
           {bookmark.summary ? (
-            <div style={{
+            <div
+              data-testid="drawer-summary-card"
+              style={{
               background: theme.isDark ? theme.surfaceElevated : "linear-gradient(135deg, #F5F3FF 0%, #EFF6FF 100%)",
               border: `1px solid ${theme.isDark ? theme.border : "#e0d9f7"}`,
               borderRadius: "16px",
@@ -287,9 +306,9 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
           ) : null}
 
           {/* Dates */}
-          <div style={{ fontSize: "0.75rem", color: theme.textMuted }}>
+          <div data-testid="drawer-date-block" style={{ fontSize: "0.75rem", color: theme.textMuted, display: "grid", gap: "2px" }}>
             <p style={{ margin: 0 }}>Saved {new Date(bookmark.createdAt).toLocaleDateString()}</p>
-            <p style={{ margin: "2px 0 0" }}>Updated {new Date(bookmark.updatedAt).toLocaleDateString()}</p>
+            <p style={{ margin: 0 }}>Updated {new Date(bookmark.updatedAt).toLocaleDateString()}</p>
           </div>
         </div>
 

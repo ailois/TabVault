@@ -94,14 +94,15 @@ describe("TrialBanner", () => {
     expect(button?.disabled).toBe(true)
   })
 
-  it("renders stable data testid hooks", async () => {
-    await renderBanner()
+  it("uses a rounded card and compact CTA styling", async () => {
+    await renderBanner({ onCtaClick: vi.fn() })
 
     const banner = container?.querySelector<HTMLElement>("[data-testid='trial-banner']")
-    const cta = container?.querySelector<HTMLElement>("[data-testid='trial-banner-cta']")
+    const button = container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")
 
-    expect(banner).not.toBeNull()
-    expect(cta).not.toBeNull()
+    expect(banner?.style.borderRadius).toBe("12px")
+    expect(button?.style.borderRadius).toBe("8px")
+    expect(button?.style.padding).toBe("6px 16px")
   })
 
   it("reuses a single mounted banner when rerendering in the same test", async () => {

@@ -105,34 +105,49 @@ export const typography = {
   }
 } as const
 
+function hexToRgb(hex: string): string {
+  const normalized = hex.replace("#", "")
+  const value = normalized.length === 3
+    ? normalized.split("").map((char) => `${char}${char}`).join("")
+    : normalized
+
+  const red = Number.parseInt(value.slice(0, 2), 16)
+  const green = Number.parseInt(value.slice(2, 4), 16)
+  const blue = Number.parseInt(value.slice(4, 6), 16)
+
+  return `${red},${green},${blue}`
+}
+
 export function buildGlobalStyles(tokens: ThemeTokens): string {
+  const accentRgb = hexToRgb(tokens.accent)
+
   return `
 input:focus, select:focus, textarea:focus {
   border-color: ${tokens.borderFocus} !important;
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important;
+  box-shadow: 0 0 0 3px rgba(${accentRgb},0.12) !important;
   outline: none !important;
 }
 button:focus-visible {
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.16) !important;
+  box-shadow: 0 0 0 3px rgba(${accentRgb},0.16) !important;
   outline: none !important;
 }
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: ${tokens.page};
 }
 ::-webkit-scrollbar-thumb {
-  background: ${tokens.borderStrong};
-  border-radius: 3px;
+  background: ${tokens.border};
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: ${tokens.textMuted};
+  background: ${tokens.borderStrong};
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: ${tokens.borderStrong} ${tokens.page};
+  scrollbar-color: ${tokens.border} ${tokens.page};
 }
 @keyframes pulse {
   0%, 100% { opacity: 1; }

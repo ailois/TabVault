@@ -164,14 +164,16 @@ function Popup({ services }: PopupProps) {
     backgroundColor: theme.page,
     boxSizing: "border-box",
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
+    padding: spacing.md
   }
 
   const shellStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
     minHeight: "100%",
-    backgroundColor: theme.page
+    backgroundColor: theme.page,
+    gap: spacing.md
   }
 
   const iconButtonStyle: React.CSSProperties = {
@@ -187,12 +189,12 @@ function Popup({ services }: PopupProps) {
   }
 
   const currentPageCardStyle: React.CSSProperties = {
-    margin: `${spacing.md} ${spacing.md} ${spacing.sm}`,
     padding: spacing.md,
     backgroundColor: theme.surface,
     border: `1px solid ${theme.border}`,
-    borderRadius: radius.large,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
+    borderRadius: radius.xl,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+    marginBottom: spacing.sm
   }
 
   const launchButtonStyle: React.CSSProperties = {
@@ -202,35 +204,33 @@ function Popup({ services }: PopupProps) {
     color: theme.textSecondary,
     fontSize: "0.875rem",
     padding: `${spacing.sm} ${spacing.md}`,
-    cursor: "pointer"
+    cursor: "pointer",
+    minHeight: "40px"
   }
 
   const statusTextStyle: React.CSSProperties = {
-    margin: `0 ${spacing.md}`,
+    margin: 0,
     fontSize: "0.8125rem",
     color: theme.textSuccess,
-    padding: `0 0 ${spacing.xs}`
+    paddingBottom: spacing.xs
   }
 
   const stickyFooterStyle: React.CSSProperties = {
-    marginTop: "auto",
-    padding: spacing.md,
-    borderTop: `1px solid ${theme.border}`,
-    backgroundColor: theme.surface,
-    boxShadow: theme.shadow
+    marginTop: "auto"
   }
 
   const primaryActionButtonStyle: React.CSSProperties = {
     width: "100%",
     padding: `${spacing.sm} ${spacing.md}`,
     border: "none",
-    borderRadius: radius.large,
+    borderRadius: radius.medium,
     backgroundColor: theme.accent,
     color: "#ffffff",
-    fontWeight: 600,
-    fontSize: "0.9375rem",
+    fontWeight: 500,
+    fontSize: "0.875rem",
     cursor: "pointer",
-    boxShadow: "0 10px 24px rgba(99,102,241,0.22)"
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+    minHeight: "40px"
   }
 
   return (
@@ -241,14 +241,21 @@ function Popup({ services }: PopupProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: `${spacing.sm} ${spacing.md}`,
-            borderBottom: `1px solid ${theme.borderMuted}`,
-            backgroundColor: theme.surface
+            marginBottom: spacing.xs
           }}>
-            <h1 id="popup-title" style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary, display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ color: theme.accent }}>✦</span>
+            <h1 id="popup-title" style={{ margin: 0, fontSize: "0.875rem", fontWeight: 700, color: theme.textPrimary, display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  backgroundColor: theme.accent,
+                  borderRadius: radius.small,
+                  transform: "rotate(45deg)",
+                  display: "inline-block"
+                }}
+              />
               TabVault
-              <span style={{ fontSize: "0.625rem", fontWeight: 800, background: theme.accentSoft, color: theme.accent, padding: "1px 5px", borderRadius: "4px" }}>PRO</span>
             </h1>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
               <button
@@ -285,7 +292,7 @@ function Popup({ services }: PopupProps) {
             ) : null}
           </section>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.sm, margin: `0 ${spacing.md} ${spacing.sm}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.sm, marginBottom: spacing.sm }}>
             <button
               data-testid="popup-open-sidepanel"
               onClick={() => void openCurrentTabSidePanel()}
@@ -304,7 +311,7 @@ function Popup({ services }: PopupProps) {
             </button>
           </div>
 
-          {errorMessage ? <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}><ErrorBanner message={errorMessage} /></div> : null}
+          {errorMessage ? <div style={{ paddingBottom: spacing.sm }}><ErrorBanner message={errorMessage} /></div> : null}
           {statusTone === "success" ? (
             <p aria-live="polite" role="status" style={statusTextStyle}>{statusMessage}</p>
           ) : null}

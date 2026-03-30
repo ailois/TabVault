@@ -8,24 +8,27 @@ type DashboardNavigationProps = {
   bookmarks: BookmarkRecord[]
   activeBookmarkId: string | null
   onSelect: (bookmark: BookmarkRecord) => void
+  width: number
 }
 
-export function DashboardNavigation({ bookmarks, activeBookmarkId, onSelect }: DashboardNavigationProps) {
+export function DashboardNavigation({ bookmarks, activeBookmarkId, onSelect, width }: DashboardNavigationProps) {
   const theme = useThemeContext()
 
   return (
     <aside
       data-testid="dashboard-navigation"
       style={{
-        width: "256px",
+        width: `${width}px`,
+        minWidth: `${width}px`,
         borderRight: `1px solid ${theme.border}`,
         backgroundColor: theme.surface,
         padding: spacing.md,
         boxSizing: "border-box",
-        overflowY: "auto"
+        overflowY: "auto",
+        flexShrink: 0
       }}
     >
-      <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", marginBottom: spacing.sm }}>
+      <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", marginBottom: spacing.sm, padding: "4px 0" }}>
         BOOKMARKS
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
@@ -38,12 +41,14 @@ export function DashboardNavigation({ bookmarks, activeBookmarkId, onSelect }: D
               style={{
                 textAlign: "left",
                 border: `1px solid ${selected ? theme.borderFocus : theme.border}`,
-                borderRadius: radius.medium,
+                borderRadius: radius.large,
                 backgroundColor: selected ? theme.accentSoft : theme.surface,
                 color: selected ? theme.accent : theme.textPrimary,
-                padding: `${spacing.sm} ${spacing.sm}`,
+                padding: `${spacing.sm} 12px`,
                 cursor: "pointer",
-                fontSize: "0.875rem"
+                fontSize: "0.875rem",
+                lineHeight: 1.4,
+                boxShadow: selected ? "0 2px 8px rgba(99,102,241,0.08)" : "none"
               }}
               type="button"
             >

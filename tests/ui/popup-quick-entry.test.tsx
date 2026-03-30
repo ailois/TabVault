@@ -52,12 +52,21 @@ describe("Popup quick entry", () => {
     vi.clearAllMocks()
   })
 
-  it("shows current page card and primary save CTA", async () => {
+  it("matches the prototype popup spacing and card sizing", async () => {
     await renderPopup(createServices())
 
-    expect(container?.textContent).toContain("正在浏览")
-    expect(container?.textContent).toContain("Example page")
-    expect(container?.querySelector("[data-testid='popup-primary-action']")).not.toBeNull()
+    const shell = container?.querySelector<HTMLElement>("main")
+    const header = container?.querySelector<HTMLElement>("header")
+    const card = Array.from(container?.querySelectorAll<HTMLElement>("section") ?? [])[0]
+    const primaryAction = container?.querySelector<HTMLElement>("[data-testid='popup-primary-action']")
+
+    expect(shell?.style.width).toBe("320px")
+    expect(shell?.style.padding).toBe("16px")
+    expect(header?.style.padding).toBe("")
+    expect(card?.style.borderRadius).toBe("16px")
+    expect(card?.style.padding).toBe("16px")
+    expect(primaryAction?.style.borderRadius).toBe("8px")
+    expect(primaryAction?.style.padding).toBe("8px 16px")
   })
 
   it("does not render bookmark list or search UI", async () => {

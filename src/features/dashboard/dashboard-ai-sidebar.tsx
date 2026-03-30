@@ -11,23 +11,26 @@ type DashboardAiSidebarProps = {
   bookmark: BookmarkRecord | null
   onSaveSummary?: (summary: string) => Promise<void>
   onSaveTags?: (aiTags: string[], userTags: string[]) => Promise<void>
+  width?: number
 }
 
-export function DashboardAiSidebar({ bookmark, onSaveSummary = async () => {}, onSaveTags = async () => {} }: DashboardAiSidebarProps) {
+export function DashboardAiSidebar({ bookmark, onSaveSummary = async () => {}, onSaveTags = async () => {}, width = 360 }: DashboardAiSidebarProps) {
   const theme = useThemeContext()
 
   return (
     <aside
       data-testid="dashboard-ai-sidebar"
       style={{
-        width: "320px",
+        width: `${width}px`,
+        minWidth: `${width}px`,
         borderLeft: `1px solid ${theme.border}`,
         backgroundColor: theme.surface,
         padding: spacing.md,
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        gap: spacing.md
+        gap: spacing.md,
+        flexShrink: 0
       }}
     >
       <EditableSummaryCard summary={bookmark?.summary} onSave={onSaveSummary} />

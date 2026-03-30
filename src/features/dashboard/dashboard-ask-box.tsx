@@ -49,7 +49,7 @@ export function DashboardAskBox({ bookmark }: DashboardAskBoxProps) {
   }
 
   return (
-    <div style={{ border: `1px solid ${theme.border}`, borderRadius: radius.large, padding: spacing.md, backgroundColor: theme.page }}>
+    <div data-testid="dashboard-ask-card" style={{ border: `1px solid ${theme.border}`, borderRadius: radius.xl, padding: "20px", backgroundColor: theme.page, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
       <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", marginBottom: spacing.sm }}>
         ASK GHOSTREADER
       </div>
@@ -81,7 +81,7 @@ export function DashboardAskBox({ bookmark }: DashboardAskBoxProps) {
             transform: "translateY(-50%)",
             width: "28px",
             height: "28px",
-            border: "none",
+            border: `1px solid ${theme.accent}`,
             borderRadius: radius.medium,
             backgroundColor: theme.accent,
             color: "#ffffff",

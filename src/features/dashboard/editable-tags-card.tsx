@@ -22,12 +22,17 @@ export function EditableTagsCard({ aiTags, userTags, onSave }: EditableTagsCardP
   }, [aiTags, userTags])
 
   return (
-    <div style={{ border: `1px solid ${theme.border}`, borderRadius: radius.large, padding: spacing.md, backgroundColor: theme.surface }}>
+    <div data-testid="dashboard-tags-card" style={{ border: `1px solid ${theme.border}`, borderRadius: radius.xl, padding: "20px", backgroundColor: theme.surface, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em" }}>
           SMART TAGS
         </div>
-        <button aria-label="Edit tags" onClick={() => setIsEditing(true)} type="button">
+        <button
+          aria-label="Edit tags"
+          onClick={() => setIsEditing(true)}
+          style={{ border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: theme.surface, color: theme.textPrimary, fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer" }}
+          type="button"
+        >
           Edit
         </button>
       </div>
@@ -46,7 +51,12 @@ export function EditableTagsCard({ aiTags, userTags, onSave }: EditableTagsCardP
             value={tagInput}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing.sm }}>
-            <button aria-label="Cancel tags edit" onClick={() => { setLocalAiTags(aiTags); setLocalUserTags(userTags); setTagInput(""); setIsEditing(false) }} type="button">
+            <button
+              aria-label="Cancel tags edit"
+              onClick={() => { setLocalAiTags(aiTags); setLocalUserTags(userTags); setTagInput(""); setIsEditing(false) }}
+              style={{ border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: theme.surface, color: theme.textSecondary, fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer" }}
+              type="button"
+            >
               Cancel
             </button>
             <button
@@ -57,6 +67,7 @@ export function EditableTagsCard({ aiTags, userTags, onSave }: EditableTagsCardP
                 setTagInput("")
                 setIsEditing(false)
               }}
+              style={{ border: `1px solid ${theme.accent}`, borderRadius: radius.medium, backgroundColor: theme.accent, color: "#ffffff", fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer" }}
               type="button"
             >
               Save

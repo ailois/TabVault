@@ -34,7 +34,7 @@ export function TrialBanner({ status, title, message, detail, ctaLabel, onCtaCli
     justifyContent: "space-between",
     gap: spacing.md,
     padding: `${spacing.sm} ${spacing.md}`,
-    borderRadius: radius.medium,
+    borderRadius: radius.large,
     border: `1px solid ${statusPalette.background}`,
     backgroundColor: statusPalette.background
   }
@@ -70,7 +70,7 @@ export function TrialBanner({ status, title, message, detail, ctaLabel, onCtaCli
   const ctaStyle: React.CSSProperties = {
     flexShrink: 0,
     border: "none",
-    borderRadius: radius.small,
+    borderRadius: radius.medium,
     padding: `6px ${spacing.md}`,
     backgroundColor: theme.accent,
     color: theme.surface,

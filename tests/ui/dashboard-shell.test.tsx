@@ -23,13 +23,20 @@ describe("DashboardShell", () => {
     root = null
   })
 
-  it("renders a three-column workspace shell", async () => {
-    await renderDashboard([])
+  it("renders resizable three-column workspace rails", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "React Docs" })])
 
-    expect(container?.querySelector("[data-testid='dashboard-shell']")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-navigation']")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-reading-pane']")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-ai-sidebar']")).not.toBeNull()
+    const shell = container?.querySelector<HTMLElement>("[data-testid='dashboard-shell']")
+    const leftRail = container?.querySelector<HTMLElement>("[data-testid='dashboard-navigation']")
+    const rightRail = container?.querySelector<HTMLElement>("[data-testid='dashboard-ai-sidebar']")
+    const leftResize = container?.querySelector<HTMLElement>("[data-testid='dashboard-resize-left']")
+    const rightResize = container?.querySelector<HTMLElement>("[data-testid='dashboard-resize-right']")
+
+    expect(shell).not.toBeNull()
+    expect(leftRail?.style.width).toBe("280px")
+    expect(rightRail?.style.width).toBe("360px")
+    expect(leftResize).not.toBeNull()
+    expect(rightResize).not.toBeNull()
   })
 
   it("shows an empty reading state when no bookmark is selected", async () => {
@@ -38,15 +45,23 @@ describe("DashboardShell", () => {
     expect(container?.textContent).toContain("Select a bookmark to start reading")
   })
 
-  it("renders bookmark titles in the navigation", async () => {
+  it("styles navigation items and reading metadata closer to the design", async () => {
     await renderDashboard([
-      createBookmark({ id: "1", title: "React Docs" }),
-      createBookmark({ id: "2", title: "Vue Docs" })
+      createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })
     ])
 
-    expect(container?.textContent).toContain("React Docs")
-    expect(container?.textContent).toContain("Vue Docs")
+    const navButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-navigation'] button")
+    await act(async () => {
+      navButton?.click()
+    })
+
+    const metadata = container?.querySelector<HTMLElement>("[data-testid='dashboard-reading-metadata']")
+    expect(navButton?.style.padding).toBe("8px 12px")
+    expect(navButton?.style.borderRadius).toBe("12px")
+    expect(metadata).not.toBeNull()
+    expect(metadata?.style.borderBottom).toContain("1px solid")
   })
+
 })
 
 let container: HTMLDivElement | null = null

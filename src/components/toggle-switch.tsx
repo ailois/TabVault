@@ -15,12 +15,12 @@ export function ToggleSwitch({ checked, onChange, label }: ToggleSwitchProps) {
   const trackStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    width: "34px",
-    height: "20px",
+    width: "40px",
+    height: "24px",
     borderRadius: radius.pill,
-    backgroundColor: checked ? theme.accent : theme.surfaceElevated,
+    backgroundColor: checked ? theme.accent : theme.page,
     border: `1px solid ${checked ? theme.accent : theme.border}`,
-    padding: "2px",
+    padding: "3px",
     cursor: "pointer",
     transition: "background-color 0.15s ease, border-color 0.15s ease",
     flexShrink: 0,
@@ -28,11 +28,11 @@ export function ToggleSwitch({ checked, onChange, label }: ToggleSwitchProps) {
   }
 
   const thumbStyle: React.CSSProperties = {
-    width: "14px",
-    height: "14px",
+    width: "16px",
+    height: "16px",
     borderRadius: "50%",
     backgroundColor: checked ? "#ffffff" : theme.textMuted,
-    transform: checked ? "translateX(14px)" : "translateX(0)",
+    transform: checked ? "translateX(16px)" : "translateX(0)",
     transition: "transform 0.15s ease, background-color 0.15s ease",
     flexShrink: 0
   }

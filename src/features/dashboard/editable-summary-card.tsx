@@ -18,12 +18,17 @@ export function EditableSummaryCard({ summary, onSave }: EditableSummaryCardProp
   }, [summary])
 
   return (
-    <div style={{ border: `1px solid ${theme.border}`, borderRadius: radius.large, padding: spacing.md, backgroundColor: theme.surface }}>
+    <div data-testid="dashboard-summary-card" style={{ border: `1px solid ${theme.border}`, borderRadius: radius.xl, padding: "20px", backgroundColor: theme.surface, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em" }}>
           AI SUMMARY
         </div>
-        <button aria-label="Edit summary" onClick={() => setIsEditing(true)} type="button">
+        <button
+          aria-label="Edit summary"
+          onClick={() => setIsEditing(true)}
+          style={{ border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: theme.surface, color: theme.textPrimary, fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer" }}
+          type="button"
+        >
           Edit
         </button>
       </div>
@@ -37,10 +42,20 @@ export function EditableSummaryCard({ summary, onSave }: EditableSummaryCardProp
             value={draft}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.sm }}>
-            <button aria-label="Cancel summary edit" onClick={() => { setDraft(summary ?? ""); setIsEditing(false) }} type="button">
+            <button
+              aria-label="Cancel summary edit"
+              onClick={() => { setDraft(summary ?? ""); setIsEditing(false) }}
+              style={{ border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: theme.surface, color: theme.textSecondary, fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer" }}
+              type="button"
+            >
               Cancel
             </button>
-            <button aria-label="Save summary" onClick={async () => { await onSave(draft); setIsEditing(false) }} type="button">
+            <button
+              aria-label="Save summary"
+              onClick={async () => { await onSave(draft); setIsEditing(false) }}
+              style={{ border: `1px solid ${theme.accent}`, borderRadius: radius.medium, backgroundColor: theme.accent, color: "#ffffff", fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer" }}
+              type="button"
+            >
               Save
             </button>
           </div>

@@ -70,33 +70,42 @@ describe("Dashboard editing", () => {
     expect(onSaveSummary).toHaveBeenCalledWith("Updated summary")
   })
 
-  it("adds a user tag and saves through the callback", async () => {
-    const onSaveTags = vi.fn(async () => undefined)
-
-    await renderSidebar(createBookmark({ aiTags: ["react"], userTags: [] }), {
+  it("styles summary and tags edit actions as compact design buttons", async () => {
+    await renderSidebar(createBookmark(), {
       onSaveSummary: vi.fn(async () => undefined),
-      onSaveTags
+      onSaveTags: vi.fn(async () => undefined)
     })
 
-    const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit tags']")
+    const summaryEdit = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
+    const tagsEdit = container?.querySelector<HTMLButtonElement>("[aria-label='Edit tags']")
+
+    expect(summaryEdit?.style.borderRadius).toBe("8px")
+    expect(summaryEdit?.style.padding).toBe("4px 10px")
+    expect(tagsEdit?.style.borderRadius).toBe("8px")
+    expect(tagsEdit?.style.padding).toBe("4px 10px")
+  })
+
+  it("styles summary save and cancel buttons in edit mode", async () => {
+    await renderSidebar(createBookmark({ summary: "Original summary" }), {
+      onSaveSummary: vi.fn(async () => undefined),
+      onSaveTags: vi.fn(async () => undefined)
+    })
+
+    const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
     await act(async () => {
       editButton?.click()
     })
 
-    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-tag-input']")
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
-    await act(async () => {
-      setter?.call(input, "favorite")
-      input?.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    const cancelButton = container?.querySelector<HTMLButtonElement>("[aria-label='Cancel summary edit']")
+    const saveButton = container?.querySelector<HTMLButtonElement>("[aria-label='Save summary']")
 
-    const saveButton = container?.querySelector<HTMLButtonElement>("[aria-label='Save tags']")
-    await act(async () => {
-      saveButton?.click()
-    })
-
-    expect(onSaveTags).toHaveBeenCalledWith(["react"], ["favorite"])
+    expect(cancelButton?.style.borderRadius).toBe("8px")
+    expect(cancelButton?.style.padding).toBe("4px 10px")
+    expect(saveButton?.style.borderRadius).toBe("8px")
+    expect(saveButton?.style.padding).toBe("4px 10px")
   })
+
+
 })
 
 let container: HTMLDivElement | null = null

@@ -5,6 +5,8 @@ import { createRoot, type Root } from "react-dom/client"
 import { act } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { ThemeProvider } from "../../src/ui/theme-context"
+import { buildThemeFromOverride } from "../../src/ui/use-theme"
 import { ToggleSwitch } from "../../src/components/toggle-switch"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -46,15 +48,36 @@ describe("ToggleSwitch", () => {
     root = createRoot(container)
 
     await act(async () => {
-      root!.render(<ToggleSwitch checked={checked} onChange={onChange} label={label} />)
+      root!.render(
+        <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+          <ToggleSwitch checked={checked} onChange={onChange} label={label} />
+        </ThemeProvider>
+      )
     })
   }
 
-  it("renders with role=\"switch\"", async () => {
+  it("uses the prototype-sized track and thumb when unchecked", async () => {
     await renderToggle(false, vi.fn())
 
-    const toggle = container?.querySelector('[role="switch"]')
-    expect(toggle).not.toBeNull()
+    const toggle = container?.querySelector<HTMLElement>('[role="switch"]')
+    const thumb = toggle?.querySelector<HTMLElement>("span")
+    expect(toggle?.style.width).toBe("40px")
+    expect(toggle?.style.height).toBe("24px")
+    expect(toggle?.style.backgroundColor).toBe("rgb(244, 246, 249)")
+    expect(thumb?.style.width).toBe("16px")
+    expect(thumb?.style.height).toBe("16px")
+    expect(thumb?.style.backgroundColor).toBe("rgb(108, 117, 125)")
+  })
+
+  it("uses the prototype accent track and translated thumb when checked", async () => {
+    await renderToggle(true, vi.fn())
+
+    const toggle = container?.querySelector<HTMLElement>('[role="switch"]')
+    const thumb = toggle?.querySelector<HTMLElement>("span")
+    expect(toggle?.style.backgroundColor).toBe("rgb(94, 106, 210)")
+    expect(toggle?.style.borderColor).toBe("rgb(94, 106, 210)")
+    expect(thumb?.style.transform).toBe("translateX(16px)")
+    expect(thumb?.style.backgroundColor).toBe("rgb(255, 255, 255)")
   })
 
   it("has aria-checked=false when unchecked", async () => {

@@ -448,7 +448,7 @@ describe("SidePanel", () => {
     expect(container?.textContent).toContain("Current React Page")
   })
 
-  it("renders hybrid retrieval cards for a keyword query", async () => {
+  it("renders styled context and result cards instead of plain text rows", async () => {
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
         list: vi.fn(async () => [createBookmark({ id: "1", title: "React Compiler Notes", extractedText: "memoization details" })])
@@ -459,6 +459,10 @@ describe("SidePanel", () => {
 
     await renderSidePanel(services)
 
+    const contextBar = container?.querySelector<HTMLElement>("[data-testid='hybrid-context-bar']")
+    expect(contextBar).not.toBeNull()
+    expect(contextBar?.style.borderRadius).toBe("12px")
+
     const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
@@ -467,9 +471,9 @@ describe("SidePanel", () => {
     })
     await act(async () => { await Promise.resolve() })
 
-    expect(container?.textContent).toContain("Current page match")
-    expect(container?.textContent).toContain("Saved bookmarks")
-    expect(container?.textContent).toContain("React Compiler Notes")
+    const resultCard = container?.querySelector<HTMLElement>("[data-testid='hybrid-result-card']")
+    expect(resultCard).not.toBeNull()
+    expect(resultCard?.style.borderRadius).toBe("12px")
   })
 
   it("opens the drawer when a saved-bookmark hybrid result is selected", async () => {

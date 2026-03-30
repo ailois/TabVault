@@ -112,4 +112,17 @@ describe("BookmarkDrawer", () => {
     await render(makeBookmark({ status: "done" }))
     expect(container?.querySelector("[data-testid='drawer-clear-button']")).not.toBeNull()
   })
+
+  it("keeps drawer metadata and summary hierarchy visually compact", async () => {
+    await render(makeBookmark())
+
+    const header = container?.querySelector<HTMLElement>("[data-testid='bookmark-drawer-header']")
+    const summaryCard = container?.querySelector<HTMLElement>("[data-testid='drawer-summary-card']")
+    const openLink = container?.querySelector<HTMLElement>("[data-testid='drawer-open-link']")
+
+    expect(header?.style.gap).toBe("8px")
+    expect(summaryCard?.style.borderRadius).toBe("16px")
+    expect(summaryCard?.style.padding).toBe("20px")
+    expect(openLink?.style.fontSize).toBe("0.75rem")
+  })
 })
