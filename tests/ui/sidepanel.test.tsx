@@ -209,13 +209,13 @@ describe("SidePanel", () => {
     expect(input?.value).toBe("LSKEY-BAD")
   })
 
-  it("renders the Side Panel header and library", async () => {
+  it("renders the Ghostreader header and search entry", async () => {
     await renderSidePanel()
 
-    expect(container?.textContent).toContain("TabVault Pro")
-    expect(container?.textContent).toContain("Search the current page and your saved library.")
+    expect(container?.textContent).toContain("Ghostreader")
+    expect(container?.textContent).toContain("Ask about the current page and your saved knowledge.")
     expect(container?.querySelector("#sidepanel-search")).not.toBeNull()
-    expect(container?.textContent).toContain("Library")
+    expect(container?.querySelector("[data-testid='ghostreader-input']")).not.toBeNull()
   })
 
   it("renders a theme toggle button in the header", async () => {
@@ -390,26 +390,11 @@ describe("SidePanel", () => {
     expect(container?.querySelector("[data-testid='bookmark-drawer']")?.textContent).toContain("Drawer article")
   })
 
-  it("shows analyzing spinner on a bookmark card immediately after clicking Analyze", async () => {
+  it("shows analyzing spinner after a query result analyze action starts", async () => {
     let resolveAnalyze!: () => void
     const analyzeBookmark = vi.fn(
       () => new Promise<BookmarkRecord>((resolve) => { resolveAnalyze = () => resolve(createBookmark({ id: "bm-sp", status: "done" })) })
     )
-
-    globalThis.chrome = {
-      ...(globalThis.chrome ?? {}),
-      bookmarks: {
-        getTree: vi.fn(async () => [{
-          id: "root",
-          title: "Bookmarks",
-          children: [{
-            id: "bm-node",
-            title: "Example page",
-            url: "https://example.com/article"
-          }]
-        }])
-      }
-    } as any
 
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
@@ -425,15 +410,28 @@ describe("SidePanel", () => {
 
     await renderSidePanel(services)
 
-    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "Example")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const resultButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Example page"))
+    await act(async () => {
+      resultButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='drawer-analyze-button']")
     expect(analyzeBtn).not.toBeNull()
 
     await act(async () => {
       analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     })
 
-    const spinner = container?.querySelector("[data-testid='bookmark-analyzing-spinner']")
-    expect(spinner).not.toBeNull()
+    expect(analyzeBookmark).toHaveBeenCalledOnce()
 
     await act(async () => { resolveAnalyze() })
   })

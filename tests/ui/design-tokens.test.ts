@@ -1,47 +1,55 @@
 import { describe, expect, it } from "vitest"
+import { lightTokens, darkTokens, radius, spacing } from "../../src/ui/design-tokens"
 
-import { darkTokens, lightTokens, radius, shadow, spacing, typography } from "../../src/ui/design-tokens"
-
-describe("design tokens", () => {
-  it("exports lightTokens and darkTokens with required fields", () => {
-    for (const tokens of [lightTokens, darkTokens]) {
-      expect(tokens.page).toBeTruthy()
-      expect(tokens.surface).toBeTruthy()
-      expect(tokens.surfaceElevated).toBeTruthy()
-      expect(tokens.surfaceHover).toBeTruthy()
-      expect(tokens.border).toBeTruthy()
-      expect(tokens.borderMuted).toBeTruthy()
-      expect(tokens.borderFocus).toBeTruthy()
-      expect(tokens.accent).toBeTruthy()
-      expect(tokens.textPrimary).toBeTruthy()
-      expect(tokens.textSecondary).toBeTruthy()
-      expect(tokens.textMuted).toBeTruthy()
-      expect(tokens.textSuccess).toBeTruthy()
-      expect(tokens.textDanger).toBeTruthy()
-    }
+describe("lightTokens", () => {
+  it("matches design prototype light theme values", () => {
+    expect(lightTokens.page).toBe("#F4F6F9")
+    expect(lightTokens.surface).toBe("#FFFFFF")
+    expect(lightTokens.border).toBe("#DEE2E6")
+    expect(lightTokens.accent).toBe("#5E6AD2")
+    expect(lightTokens.accentHover).toBe("#4A55A2")
+    expect(lightTokens.textPrimary).toBe("#212529")
+    expect(lightTokens.textSecondary).toBe("#6C757D")
   })
 
-  it("exports spacing, radius, typography, and shadow token groups", () => {
-    expect(spacing.md).toBeTruthy()
-    expect(spacing.sm).toBeTruthy()
-    expect(spacing.lg).toBeTruthy()
-    expect(radius.large).toBeTruthy()
-    expect(radius.medium).toBeTruthy()
-    expect(radius.pill).toBeTruthy()
-    expect(shadow.soft).toBeTruthy()
-    expect(shadow.dark).toBeTruthy()
-    expect(shadow.light).toBeTruthy()
-    expect(typography.title.size).toBeTruthy()
-    expect(typography.metadata.size).toBeTruthy()
-    expect(typography.tag.size).toBeTruthy()
+  it("has accentHover field", () => {
+    expect(lightTokens.accentHover).toBeDefined()
+    expect(typeof lightTokens.accentHover).toBe("string")
+  })
+})
+
+describe("darkTokens", () => {
+  it("matches design prototype dark theme values", () => {
+    expect(darkTokens.page).toBe("#1C1E23")
+    expect(darkTokens.surface).toBe("#25282E")
+    expect(darkTokens.border).toBe("#383C42")
+    expect(darkTokens.accent).toBe("#7986CB")
+    expect(darkTokens.accentHover).toBe("#5C6BC0")
+    expect(darkTokens.textPrimary).toBe("#E1E1E1")
+    expect(darkTokens.textSecondary).toBe("#8A8F98")
   })
 
-  it("light and dark tokens have distinct page colors", () => {
-    expect(lightTokens.page).not.toBe(darkTokens.page)
+  it("has accentHover field", () => {
+    expect(darkTokens.accentHover).toBeDefined()
+    expect(typeof darkTokens.accentHover).toBe("string")
+  })
+})
+
+describe("radius", () => {
+  it("has xl value for dashboard large cards", () => {
+    expect(radius.xl).toBe("16px")
   })
 
-  it("borderFocus is defined in both themes for focus style injection", () => {
-    expect(lightTokens.borderFocus).toBeTruthy()
-    expect(darkTokens.borderFocus).toBeTruthy()
+  it("keeps medium at 8px and large at 12px", () => {
+    expect(radius.medium).toBe("8px")
+    expect(radius.large).toBe("12px")
+  })
+})
+
+describe("spacing", () => {
+  it("exports expected scale", () => {
+    expect(spacing.xs).toBe("4px")
+    expect(spacing.sm).toBe("8px")
+    expect(spacing.md).toBe("16px")
   })
 })

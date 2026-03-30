@@ -29,7 +29,16 @@ globalThis.chrome = {
   runtime: {
     ...((globalThis.chrome as any)?.runtime ?? {}),
     onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
-    sendMessage: vi.fn()
+    sendMessage: vi.fn(),
+    getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
+    openOptionsPage: vi.fn(async () => undefined)
+  },
+  tabs: {
+    create: vi.fn(async () => undefined),
+    query: vi.fn(async () => [{ id: 1, title: "Example page", url: "https://example.com/article" }])
+  },
+  sidePanel: {
+    open: vi.fn(async () => undefined)
   }
 } as any
 
@@ -46,94 +55,29 @@ describe("Popup state", () => {
     root = null
   })
 
-  it("shows a loading state while bookmarks are being fetched", async () => {
-    const listDeferred = createDeferred<BookmarkRecord[]>()
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(() => listDeferred.promise)
-      })
-    })
-
-    await renderPopup(services)
-
-    expect(screen().getButton("Loading...")?.textContent).toBe("Loading...")
-    expect(screen().getButton("Loading...")?.hasAttribute("disabled")).toBe(true)
-
-    listDeferred.resolve([])
-    await flush()
-  })
-
-  it("renders a popup shell with a search bar and actions section", async () => {
+  it("shows current page quick-entry content on load", async () => {
     await renderPopup(createServices())
 
-    const actionsSection = screen().getActionsSection()
-
-    expect(actionsSection?.querySelector("h2")?.textContent).toBe("Actions")
-    expect(actionsSection?.textContent).toContain("Reload")
-    expect(actionsSection?.textContent).toContain("Analyze all")
-
+    expect(screen().text()).toContain("正在浏览")
+    expect(screen().text()).toContain("Example page")
+    expect(screen().getPrimaryActionButton()?.textContent).toContain("Save current page")
     expect(screen().getPopupShell()?.style.backgroundColor).toBeTruthy()
-    expect(screen().getPrimaryActionButton()?.style.backgroundColor).toBeTruthy()
-    expect(screen().getSecondaryActionButton()?.style.backgroundColor).toBeTruthy()
-    expect(container?.querySelector("footer [data-testid='popup-primary-action']")).not.toBeNull()
   })
 
-  it("renders search and bookmark count inside a dedicated library section", async () => {
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [createBookmark(), createBookmark({ id: "bookmark-2", title: "Second page" })])
-      })
-    })
-
-    await renderPopup(services)
-
-    const librarySection = screen().getLibrarySection()
-    const searchInput = container?.querySelector("#bookmark-search")
-
-    expect(librarySection?.querySelector("h2")?.textContent).toContain("Library")
-    expect(librarySection?.querySelector("h2")?.textContent).toContain("2")
-    expect(container?.querySelector("label[for='bookmark-search']")).not.toBeNull()
-    expect(searchInput?.getAttribute("type")).toBe("search")
-  })
-
-  it("renders bookmark results as cards with title, metadata, summary, and tags", async () => {
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [
-          createBookmark({
-            summary: "A concise page summary.",
-            aiTags: ["research", "alpha"],
-        userTags: []
-          })
-        ])
-      })
-    })
-
-    await renderPopup(services)
-
-    const [bookmarkCard] = screen().getBookmarkCards()
-    const metadata = bookmarkCard?.querySelector<HTMLElement>("p") ?? null
-    const tag = bookmarkCard?.querySelector<HTMLElement>("ul li") ?? null
-
-    expect(bookmarkCard?.querySelector("h3 a")?.textContent).toBe("Example page")
-    expect(bookmarkCard?.querySelector("p")?.textContent).toContain("example.com")
-    expect(bookmarkCard?.querySelector("p")?.textContent).not.toContain("https://example.com/article")
-    expect(bookmarkCard?.textContent).toContain("A concise page summary.")
-    expect(bookmarkCard?.textContent).toContain("research")
-    expect(bookmarkCard?.textContent).toContain("alpha")
-    expect(bookmarkCard?.style.backgroundColor).toBeTruthy()
-    expect(bookmarkCard?.style.borderBottom).toBeTruthy()
-    expect(bookmarkCard?.style.padding).not.toBe("")
-    expect(metadata?.style.color).toBeTruthy()
-    expect(tag?.style.backgroundColor).toBeTruthy()
-    expect(tag?.style.color).toBeTruthy()
-    expect(tag?.style.borderRadius).toBe("4px")
-  })
-
-  it("preserves the empty-state message when no bookmarks exist", async () => {
+  it("renders the quick-entry launch actions", async () => {
     await renderPopup(createServices())
 
-    expect(screen().text()).toContain("No bookmarks found.")
+    expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("打开侧边栏")
+    expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("控制台")
+  })
+
+  it("does not render search, library, or bookmark management UI", async () => {
+    await renderPopup(createServices())
+
+    expect(container?.querySelector("#bookmark-search")).toBeNull()
+    expect(screen().getActionsSection()).toBeNull()
+    expect(screen().getLibrarySection()).toBeNull()
+    expect(screen().getBookmarkCards()).toHaveLength(0)
   })
 
   it("shows save success and a missing API key hint when auto-analysis cannot start", async () => {
@@ -231,6 +175,7 @@ describe("Popup state", () => {
     expect(screen().getErrorAlert()?.textContent).toContain("Analysis failed")
   })
 
+
   it.each<readonly [ProviderConfig["provider"], ProviderConfig]>([
     [
       "openai",
@@ -295,210 +240,31 @@ describe("Popup state", () => {
     }
   })
 
-  it("removes a bookmark from the list after it is deleted", async () => {
-    const bookmark = createBookmark({ id: "bm-to-delete", title: "Page to delete" })
-    vi.spyOn(window, "confirm").mockReturnValue(true)
-
-    const deleteBookmark = vi.fn(async () => undefined)
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [bookmark]),
-        delete: deleteBookmark
-      })
-    })
-
-    await renderPopup(services)
-
-    expect(screen().text()).toContain("Page to delete")
-
-    const deleteBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-delete-button']")
-
-    await act(async () => {
-      deleteBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
-    })
-
-    await flush()
-
-    expect(deleteBookmark).toHaveBeenCalledWith("bm-to-delete")
-  })
-
-  it("analyzes a bookmark when the Analyze button is clicked on a card", async () => {
-    const bookmark = createBookmark({ id: "bm-to-analyze", title: "Page to analyze", status: "saved" })
-    const analyzeBookmark = vi.fn(async (input: { bookmark: BookmarkRecord }) => bookmark)
-    const providerConfig: ProviderConfig = {
-      provider: "openai",
-      apiKey: "test-key",
-      baseUrl: "https://api.openai.com/v1",
-      model: "gpt-4o-mini",
-      enabled: true
-    }
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [bookmark])
-      }),
-      settingsRepository: createSettingsRepository({
-        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
-          defaultProvider: "openai",
-          autoAnalyzeOnSave: false,
-          summaryLanguage: "auto",
-          autoRetryOnError: false
-        })),
-        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
-      }),
-      analyzeBookmark
-    })
-
-    await renderPopup(services)
-
-    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
-
-    await act(async () => {
-      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
-    })
-
-    await flush()
-
-    expect(analyzeBookmark).toHaveBeenCalledOnce()
-    expect(analyzeBookmark.mock.calls[0]![0]!.bookmark.id).toBe("bm-to-analyze")
-  })
-
-  it("shows analyzing spinner on a bookmark card immediately after clicking Analyze", async () => {
-    let resolveAnalyze!: () => void
-    const analyzeBookmark = vi.fn(
-      () => new Promise<BookmarkRecord>((resolve) => { resolveAnalyze = () => resolve(createBookmark({ status: "done" })) })
-    )
-
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [createBookmark({ id: "bm-test", status: "saved" })])
-      }),
-      settingsRepository: createSettingsRepository({
-        getProviders: vi.fn(async () => [
-          { provider: "openai" as const, apiKey: "sk-test", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", enabled: true }
-        ])
-      }),
-      analyzeBookmark
-    })
-
-    await renderPopup(services)
-
-    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
-    expect(analyzeBtn).not.toBeNull()
-
-    await act(async () => {
-      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
-    })
-
-    // Before the analysis promise settles, spinner must be visible
-    const spinner = container?.querySelector("[data-testid='bookmark-analyzing-spinner']")
-    expect(spinner).not.toBeNull()
-
-    // Cleanup: resolve to avoid dangling promises
-    await act(async () => { resolveAnalyze() })
-  })
-
-  it("shows error banner when Analyze is clicked but no provider is configured", async () => {
-    const bookmark = createBookmark({ id: "bm-1", status: "saved" })
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [bookmark])
-      }),
-      settingsRepository: createSettingsRepository({
-        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
-          defaultProvider: "openai",
-          autoAnalyzeOnSave: false,
-          summaryLanguage: "auto",
-          autoRetryOnError: false
-        })),
-        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [])
-      })
-    })
-
-    await renderPopup(services)
-
-    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='bookmark-analyze-button']")
-
-    await act(async () => {
-      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
-    })
-
-    await flush()
-
-    expect(screen().getErrorAlert()?.textContent).toContain("Add an API key in Settings")
-  })
-
-  it("shows Analyze all button in the actions section", async () => {
-    await renderPopup(createServices())
-    expect(screen().getActionsSection()?.textContent).toContain("Analyze all")
-    expect(screen().getActionsSection()?.textContent).toContain("Reload")
-  })
-
-  it("disables Analyze all when no bookmarks are pending analysis", async () => {
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [createBookmark({ status: "done" })])
-      })
-    })
-    await renderPopup(services)
-
-    const analyzeAllBtn = screen().getButton("Analyze all")
-    expect(analyzeAllBtn?.hasAttribute("disabled")).toBe(true)
-  })
-
-  it("calls analyzeBookmark for each pending bookmark when Analyze all is clicked", async () => {
-    const b1 = createBookmark({ id: "bm-1", status: "saved" })
-    const b2 = createBookmark({ id: "bm-2", status: "error" })
-    const b3 = createBookmark({ id: "bm-3", status: "done" })
-    const sendMessageMock = vi.fn()
-    const providerConfig: ProviderConfig = {
-      provider: "openai",
-      apiKey: "test-key",
-      baseUrl: "https://api.openai.com/v1",
-      model: "gpt-4o-mini",
-      enabled: true
-    }
-
-    globalThis.chrome = {
-      ...(globalThis.chrome ?? {}),
-      runtime: {
-        ...((globalThis.chrome as any)?.runtime ?? {}),
-        sendMessage: sendMessageMock,
-        onMessage: {
-          addListener: vi.fn(),
-          removeListener: vi.fn()
-        }
-      }
-    } as any
-
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [b1, b2, b3])
-      }),
-      settingsRepository: createSettingsRepository({
-        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
-          defaultProvider: "openai",
-          autoAnalyzeOnSave: false,
-          summaryLanguage: "auto",
-          autoRetryOnError: false
-        })),
-        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
-      })
-    })
-
-    await renderPopup(services)
-    await clickButton("Analyze all")
-
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      { type: "ANALYZE_ALL" },
-      expect.any(Function)
-    )
-  })
 
   it("renders a theme toggle button in the header area", async () => {
     await renderPopup(createServices())
     const btn = container?.querySelector<HTMLButtonElement>("[data-testid='theme-toggle-button']")
     expect(btn).not.toBeNull()
     expect(btn?.getAttribute("aria-label")).toMatch(/switch to (dark|light) mode/i)
+  })
+
+  it("opens settings from the header action", async () => {
+    const openOptionsPage = vi.fn(async () => undefined)
+    globalThis.chrome = {
+      ...globalThis.chrome,
+      runtime: {
+        ...globalThis.chrome.runtime,
+        openOptionsPage
+      }
+    } as any
+
+    await renderPopup(createServices())
+
+    const settingsButton = container?.querySelector<HTMLButtonElement>("button[aria-label='Open settings']")
+    await act(async () => { settingsButton?.click() })
+    await flush()
+
+    expect(openOptionsPage).toHaveBeenCalled()
   })
 
   it("calls themeRepository.setTheme and sends THEME_CHANGED when toggle is clicked", async () => {

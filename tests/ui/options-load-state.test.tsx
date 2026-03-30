@@ -78,7 +78,7 @@ describe("Options load state", () => {
     expect(getProviderRailButton("claude")?.getAttribute("aria-pressed")).toBe("true")
     expect(getProviderRailButton("openai")?.getAttribute("aria-pressed")).toBe("false")
     expect(getProviderRailButton("gemini")?.getAttribute("aria-pressed")).toBe("false")
-    expect(getSectionByHeading("App Settings")?.querySelector('[role="switch"]')?.getAttribute("aria-checked")).toBe("true")
+    expect(getSectionByHeading("Provider & Protocol")?.querySelector('[role="switch"]')?.getAttribute("aria-checked")).toBe("true")
 
     // defaultProvider is claude, so only the claude form is visible
     expect(getInput("claude-api-key")?.value).toBe("claude-key")

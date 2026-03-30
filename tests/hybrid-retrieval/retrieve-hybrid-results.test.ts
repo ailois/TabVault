@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
+import type { BookmarkRecord } from "../../src/types/bookmark"
 import { retrieveHybridResults } from "../../src/features/hybrid-retrieval/retrieve-hybrid-results"
 
-const bookmarks = [
+const bookmarks: BookmarkRecord[] = [
   {
     id: "bm-1",
     title: "React Compiler Notes",

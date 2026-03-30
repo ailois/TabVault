@@ -1,40 +1,36 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { BookmarkList } from "./components/bookmark-list"
-import { BookmarkTree } from "./components/bookmark-tree"
+
 import { BookmarkDrawer } from "./components/bookmark-drawer"
 import { ErrorBanner } from "./components/error-banner"
+import { HybridContextBar } from "./components/hybrid-context-bar"
+import { HybridQueryStream } from "./components/hybrid-query-stream"
 import { LicenseActivation } from "./components/license-activation"
 import { TrialBanner } from "./components/trial-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
-import { searchBookmarks, searchBookmarksWithReasons, type SearchMode } from "./features/bookmarks/search-bookmarks"
+import { buildActionCards, type ActionCard } from "./features/hybrid-retrieval/build-action-cards"
+import { buildAnswerBlock, type AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
+import { detectQueryIntent } from "./features/hybrid-retrieval/query-intent"
+import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
+import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
-import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
+import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
 import type { AiProvider } from "./lib/providers/provider"
-import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
+import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
-import { getBrowserName } from "./lib/utils/browser"
+import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
+import { openDashboardTab } from "./lib/utils/navigation"
 import { validateLicenseKey } from "./lib/trial/license-service"
 import { TrialRepository } from "./lib/trial/trial-repository"
 import { useTrialStatus } from "./lib/trial/use-trial-status"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
-import { buildGlobalStyles, radius, spacing } from "./ui/design-tokens"
-import { useTheme } from "./ui/use-theme"
-import { useGlobalStyles } from "./ui/use-global-styles"
+import { radius, spacing } from "./ui/design-tokens"
 import { ThemeProvider } from "./ui/theme-context"
-import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
-import { buildActionCards } from "./features/hybrid-retrieval/build-action-cards"
-import { buildAnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
-import { detectQueryIntent } from "./features/hybrid-retrieval/query-intent"
-import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
-import type { ActionCard } from "./features/hybrid-retrieval/build-action-cards"
-import type { AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
-import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
-import { HybridContextBar } from "./components/hybrid-context-bar"
-import { HybridQueryStream } from "./components/hybrid-query-stream"
+import { useGlobalStyles } from "./ui/use-global-styles"
+import { useTheme } from "./ui/use-theme"
 
 type SidePanelProps = {
   services?: Partial<SidePanelServices>
@@ -67,21 +63,19 @@ export default function SidePanel({ services }: SidePanelProps) {
   const sidePanelServices = useMemo(() => ({ ...DEFAULT_SIDEPANEL_SERVICES, ...services }), [services])
   const theme = useTheme(sidePanelServices.themeRepository)
   useGlobalStyles(theme)
+
   const trial = useTrialStatus()
   const trialRepository = useMemo(() => new TrialRepository(), [])
   const [isActivationExpanded, setIsActivationExpanded] = useState(false)
   const [licenseKeyInput, setLicenseKeyInput] = useState("")
   const [licenseError, setLicenseError] = useState<string | null>(null)
   const [isSubmittingLicense, setIsSubmittingLicense] = useState(false)
-  const [status, setStatus] = useState<string>("")
+  const [status, setStatus] = useState("")
   const [isImporting, setIsImporting] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([])
   const [isLoadingBookmarks, setIsLoadingBookmarks] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchMode, setSearchMode] = useState<SearchMode>("all")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null)
-  const [bookmarkTree, setBookmarkTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>([])
   const [selectedBookmark, setSelectedBookmark] = useState<BookmarkRecord | null>(null)
   const [localAnalyzingIds, setLocalAnalyzingIds] = useState<Set<string>>(new Set())
   const [currentPageContext, setCurrentPageContext] = useState<{ title?: string; url?: string; extractedText?: string } | null>(null)
@@ -89,84 +83,29 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [actionCards, setActionCards] = useState<ActionCard[]>([])
   const [answerBlock, setAnswerBlock] = useState<AnswerBlock | null>(null)
 
-  const filteredBookmarks = useMemo(
-    () => searchBookmarks(bookmarks, searchQuery, searchMode),
-    [bookmarks, searchQuery, searchMode]
-  )
-
-  const searchResultsWithReasons = useMemo(
-    () => searchQuery.trim() ? searchBookmarksWithReasons(bookmarks, searchQuery) : [],
-    [bookmarks, searchQuery]
-  )
-
-  const matchReasonMap = useMemo(
-    () => Object.fromEntries(searchResultsWithReasons.map((r) => [r.bookmark.id, r.matchReason])),
-    [searchResultsWithReasons]
-  )
-
   const displayedBookmarks = useMemo(
-    () => filteredBookmarks.map((bm) =>
-      localAnalyzingIds.has(bm.id) && bm.status !== "analyzing"
-        ? { ...bm, status: "analyzing" as const }
-        : bm
+    () => bookmarks.map((bookmark) =>
+      localAnalyzingIds.has(bookmark.id) && bookmark.status !== "analyzing"
+        ? { ...bookmark, status: "analyzing" as const }
+        : bookmark
     ),
-    [filteredBookmarks, localAnalyzingIds]
+    [bookmarks, localAnalyzingIds]
   )
-
-  const metadataMap = useMemo(
-    () => bookmarks.reduce((acc, b) => ({ ...acc, [b.url]: b }), {} as Record<string, BookmarkRecord>),
-    [bookmarks]
-  )
-
-  const displayedMetadataMap = useMemo(() => {
-    const map: Record<string, BookmarkRecord> = { ...metadataMap }
-    for (const id of localAnalyzingIds) {
-      const bm = bookmarks.find((b) => b.id === id)
-      if (bm && map[bm.url] && map[bm.url].status !== "analyzing") {
-        map[bm.url] = { ...map[bm.url], status: "analyzing" }
-      }
-    }
-    return map
-  }, [metadataMap, localAnalyzingIds, bookmarks])
-
-  const hasPendingBookmarks = bookmarks.some(
-    (b) => b.status === "saved" || b.status === "error"
-  )
-
-  const hasClearableBookmarks = bookmarks.some(
-    (b) => b.status === "done" || b.status === "error" || b.status === "analyzing" || b.summary
-  )
-
-  const browserName = useMemo(() => getBrowserName(), [])
 
   useEffect(() => {
     void loadBookmarks()
   }, [])
 
-  // Listen for background updates
   useEffect(() => {
     const listener = (message: any) => {
       if (message.type === "IMPORT_COMPLETE" || message.type === "ANALYSIS_COMPLETE") {
-        setAnalyzeProgress(null)
         void loadBookmarks()
       }
       if (message.type === "BOOKMARKS_CHANGED") {
         void loadBookmarks()
       }
-      if (message.type === "ANALYSIS_PROGRESS") {
-        setAnalyzeProgress({ current: message.current, total: message.total })
-      }
     }
     globalThis.chrome?.runtime?.onMessage.addListener(listener)
-
-    globalThis.chrome?.runtime?.sendMessage(
-      { type: "GET_ANALYSIS_STATUS" },
-      (response: any) => {
-        if (response?.running) {
-          setAnalyzeProgress({ current: response.current, total: response.total })
-        }
-      }
-    )
 
     return () => globalThis.chrome?.runtime?.onMessage.removeListener(listener)
   }, [])
@@ -178,8 +117,9 @@ export default function SidePanel({ services }: SidePanelProps) {
       const extractedText = await sidePanelServices.extractPage(tab.id)
       setCurrentPageContext({ title: tab.title ?? undefined, url: tab.url ?? undefined, extractedText })
     }
+
     void loadCurrentPage()
-  }, [])
+  }, [sidePanelServices])
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -197,8 +137,8 @@ export default function SidePanel({ services }: SidePanelProps) {
       })
       setRankedResults(results)
 
-      const hasCurrentPage = results.some((r) => r.document.sourceType === "current-page")
-      const hasSavedMatches = results.some((r) => r.document.sourceType === "saved-bookmark")
+      const hasCurrentPage = results.some((result) => result.document.sourceType === "current-page")
+      const hasSavedMatches = results.some((result) => result.document.sourceType === "saved-bookmark")
       setActionCards(buildActionCards({ hasCurrentPage, hasSavedMatches }))
 
       const intent = detectQueryIntent(searchQuery)
@@ -208,8 +148,22 @@ export default function SidePanel({ services }: SidePanelProps) {
         setAnswerBlock(null)
       }
     }
+
     void runHybridRetrieval()
-  }, [searchQuery, currentPageContext])
+  }, [currentPageContext, searchQuery, sidePanelServices])
+
+  async function loadBookmarks(): Promise<void> {
+    setIsLoadingBookmarks(true)
+
+    try {
+      const savedBookmarks = await sidePanelServices.bookmarkRepository.list()
+      setBookmarks(savedBookmarks)
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Failed to load bookmarks"))
+    } finally {
+      setIsLoadingBookmarks(false)
+    }
+  }
 
   const handleLicenseSubmit = useCallback(async () => {
     setLicenseError(null)
@@ -217,64 +171,29 @@ export default function SidePanel({ services }: SidePanelProps) {
 
     try {
       const result = await validateLicenseKey(licenseKeyInput)
-
-      if (result === "invalid") {
+      if (result !== "valid") {
         setLicenseError("This license key is invalid.")
         return
       }
 
-      if (result === "unvalidated") {
-        setLicenseError("Could not validate right now. Try again shortly.")
-        return
-      }
-
-      const existingState = (await trialRepository.get()) ?? {
-        installedAt: new Date().toISOString(),
-        analysisUsed: 0
-      }
-
+      const currentState = await trialRepository.get()
       await trialRepository.save({
-        ...existingState,
+        ...(currentState ?? { installedAt: new Date().toISOString(), analysisUsed: 0 }),
         licenseKey: licenseKeyInput,
         licenseStatus: "valid",
         licenseValidatedAt: new Date().toISOString()
       })
-
       await trial.reload()
       setIsActivationExpanded(false)
-    } catch {
-      setLicenseError("Failed to save license state.")
+      setLicenseKeyInput("")
+    } catch (error) {
+      setLicenseError(getErrorMessage(error, "Failed to activate license"))
     } finally {
       setIsSubmittingLicense(false)
     }
   }, [licenseKeyInput, trial, trialRepository])
 
-  async function loadBookmarks(): Promise<void> {
-    setIsLoadingBookmarks(true)
-    try {
-      const savedBookmarks = await sidePanelServices.bookmarkRepository.list()
-      setBookmarks(savedBookmarks)
-      if (globalThis.chrome?.bookmarks) {
-        const tree = await chrome.bookmarks.getTree()
-        setBookmarkTree(tree[0]?.children || tree)
-      }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load bookmarks")
-    } finally {
-      setIsLoadingBookmarks(false)
-    }
-  }
-
-  async function handleDeleteBookmark(id: string): Promise<void> {
-    try {
-      await sidePanelServices.bookmarkRepository.delete(id)
-      await loadBookmarks()
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete bookmark")
-    }
-  }
-
-  async function handleAnalyzeBookmark(idOrUrl: string): Promise<void> {
+  async function handleAnalyzeBookmark(id: string): Promise<void> {
     const settings = await sidePanelServices.settingsRepository.getAppSettings()
     const providers = await sidePanelServices.settingsRepository.getProviders()
     const selectedProvider = providers.find(
@@ -286,10 +205,10 @@ export default function SidePanel({ services }: SidePanelProps) {
       return
     }
 
-    const bookmark = bookmarks.find((b) => b.id === idOrUrl || b.url === idOrUrl)
+    const bookmark = bookmarks.find((item) => item.id === id)
     if (!bookmark) return
 
-    setLocalAnalyzingIds((prev) => new Set([...prev, bookmark.id]))
+    setLocalAnalyzingIds((prev) => new Set([...prev, id]))
     setErrorMessage(null)
 
     try {
@@ -298,64 +217,34 @@ export default function SidePanel({ services }: SidePanelProps) {
         provider: sidePanelServices.createProvider(selectedProvider),
         bookmarkRepository: sidePanelServices.bookmarkRepository
       })
+      await loadBookmarks()
     } finally {
       setLocalAnalyzingIds((prev) => {
         const next = new Set(prev)
-        next.delete(bookmark.id)
+        next.delete(id)
         return next
       })
-      await loadBookmarks()
-    }
-  }
-
-  async function handleClearAnalysis(id: string): Promise<void> {
-    try {
-      await sidePanelServices.bookmarkRepository.clearAnalysis(id)
-      await loadBookmarks()
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to clear analysis")
     }
   }
 
   async function handleUpdateTags(id: string, aiTags: string[], userTags: string[]): Promise<void> {
-    const bookmark = bookmarks.find((b) => b.id === id)
+    const bookmark = bookmarks.find((item) => item.id === id)
     if (!bookmark) return
+
     try {
-      await sidePanelServices.bookmarkRepository.update({ ...bookmark, aiTags, userTags, updatedAt: new Date().toISOString() })
+      await sidePanelServices.bookmarkRepository.update({
+        ...bookmark,
+        aiTags,
+        userTags,
+        updatedAt: new Date().toISOString()
+      })
       await loadBookmarks()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to update tags")
+      setErrorMessage(getErrorMessage(error, "Failed to update tags"))
     }
   }
 
-  async function handleClearAllAnalysis(): Promise<void> {
-    try {
-      await sidePanelServices.bookmarkRepository.clearAllAnalysis()
-      await loadBookmarks()
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to clear all analysis")
-    }
-  }
-
-  async function handleAnalyzeAll(): Promise<void> {
-    if (!hasPendingBookmarks) return
-
-    const settings = await sidePanelServices.settingsRepository.getAppSettings()
-    const providers = await sidePanelServices.settingsRepository.getProviders()
-    const selectedProvider = providers.find(
-      (provider) => provider.enabled && provider.provider === settings.defaultProvider
-    )
-
-    if (!selectedProvider?.apiKey.trim()) {
-      setErrorMessage("Add an API key in Settings to enable analysis.")
-      return
-    }
-
-    setErrorMessage(null)
-    globalThis.chrome?.runtime?.sendMessage({ type: "ANALYZE_ALL" }, () => {})
-  }
-
-  async function handleImport() {
+  async function handleImport(): Promise<void> {
     setIsImporting(true)
     setStatus("Importing...")
     setErrorMessage(null)
@@ -374,7 +263,7 @@ export default function SidePanel({ services }: SidePanelProps) {
 
   async function handleHybridAction(actionId: ActionCard["id"]): Promise<void> {
     if (actionId === "open-dashboard") {
-      globalThis.chrome?.runtime?.openOptionsPage?.()
+      await openDashboardTab()
       return
     }
 
@@ -390,7 +279,7 @@ export default function SidePanel({ services }: SidePanelProps) {
   }
 
   const pageStyle: React.CSSProperties = {
-    backgroundColor: theme.surface,
+    backgroundColor: theme.page,
     minHeight: "100vh",
     boxSizing: "border-box",
     display: "flex",
@@ -398,18 +287,12 @@ export default function SidePanel({ services }: SidePanelProps) {
   }
 
   const headerStyle: React.CSSProperties = {
-    padding: `${spacing.sm} ${spacing.md}`,
-    borderBottom: `1px solid ${theme.borderMuted}`,
-    backgroundColor: theme.surfaceElevated,
+    padding: `${spacing.md}`,
+    borderBottom: `1px solid ${theme.border}`,
+    backgroundColor: theme.surface,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between"
-  }
-
-  const subtitleStyle: React.CSSProperties = {
-    margin: 0,
-    color: theme.textMuted,
-    fontSize: "0.75rem"
   }
 
   const searchInputStyle: React.CSSProperties = {
@@ -418,66 +301,17 @@ export default function SidePanel({ services }: SidePanelProps) {
     padding: "9px 12px",
     border: `1px solid ${theme.border}`,
     borderRadius: radius.medium,
-    backgroundColor: theme.surface,
+    backgroundColor: theme.page,
     color: theme.textPrimary,
     fontSize: "0.875rem",
     boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
-  }
-
-  const secondaryActionButtonStyle: React.CSSProperties = {
-    padding: "4px 10px",
-    border: `1px solid ${theme.border}`,
-    borderRadius: radius.pill,
-    backgroundColor: theme.surface,
-    color: theme.textMuted,
-    fontSize: "0.8125rem",
-    fontWeight: 500,
-    cursor: "pointer"
-  }
-
-  const libraryHeadingStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: spacing.xs,
-    margin: 0,
-    padding: `${spacing.md} ${spacing.lg}`,
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    color: theme.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em"
-  }
-
-  const bookmarkCountStyle: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "1px 6px",
-    borderRadius: radius.pill,
-    backgroundColor: theme.surfaceElevated,
-    fontSize: "0.7rem",
-    fontWeight: 600,
-    color: theme.textMuted
-  }
-
-  const loadingTextStyle: React.CSSProperties = {
-    padding: `0 ${spacing.lg}`,
-    fontSize: "0.875rem",
-    color: theme.textMuted
-  }
-
-  const footerStyle: React.CSSProperties = {
-    padding: spacing.lg,
-    borderTop: `1px solid ${theme.borderMuted}`,
-    backgroundColor: theme.surface,
-    boxShadow: theme.shadow
   }
 
   const importButtonStyle: React.CSSProperties = {
     width: "100%",
     padding: `${spacing.sm} ${spacing.md}`,
     border: "none",
-    borderRadius: "12px",
+    borderRadius: radius.large,
     backgroundColor: theme.accent,
     color: "#ffffff",
     fontWeight: 600,
@@ -486,203 +320,183 @@ export default function SidePanel({ services }: SidePanelProps) {
     boxShadow: "0 10px 24px rgba(99,102,241,0.22)"
   }
 
-  const statusStyle: React.CSSProperties = {
-    margin: `0 ${spacing.lg} ${spacing.sm}`,
-    fontSize: "0.8125rem",
-    color: theme.textSuccess
-  }
-
   return (
     <ThemeProvider theme={theme}>
-    <main style={pageStyle}>
-      <header style={headerStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-          <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
-          <div>
-            <span style={{ fontWeight: 700, fontSize: "1rem", color: theme.textPrimary }}>TabVault Pro</span>
-            <p style={subtitleStyle}>Search the current page and your saved library.</p>
+      <main style={pageStyle}>
+        <header style={headerStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+            <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: theme.textPrimary }}>Ghostreader</div>
+              <div style={{ marginTop: 2, fontSize: "0.75rem", color: theme.textMuted }}>Ask about the current page and your saved knowledge.</div>
+            </div>
           </div>
-        </div>
-        <button
-          aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
-          data-testid="theme-toggle-button"
-          onClick={() => theme.toggle()}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "1.125rem",
-            color: theme.textMuted,
-            padding: "4px",
-            borderRadius: radius.small,
-            lineHeight: 1
-          }}
-          type="button"
-        >
-          {theme.isDark ? "☀️" : "🌙"}
-        </button>
-      </header>
+          <button
+            aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
+            data-testid="theme-toggle-button"
+            onClick={() => theme.toggle()}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "1.125rem",
+              color: theme.textMuted,
+              padding: "4px",
+              borderRadius: radius.small,
+              lineHeight: 1
+            }}
+            type="button"
+          >
+            {theme.isDark ? "☀️" : "🌙"}
+          </button>
+        </header>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div style={{ padding: `${spacing.md} ${spacing.lg} ${spacing.sm}` }}>
-          <label htmlFor="sidepanel-search" style={visuallyHiddenStyle}>Search bookmarks</label>
-          <input
-            id="sidepanel-search"
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search title, URL, summary, tags..."
-            style={searchInputStyle}
-            type="search"
-            value={searchQuery}
-          />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div style={{ padding: `${spacing.md} ${spacing.md} ${spacing.sm}` }}>
+            <label htmlFor="sidepanel-search" style={visuallyHiddenStyle}>Search bookmarks</label>
+            <input
+              id="sidepanel-search"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="语义搜索书签..."
+              style={searchInputStyle}
+              type="search"
+              value={searchQuery}
+            />
+          </div>
+
+          {(trial.status === "trial" || trial.status === "expired") ? (
+            <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}>
+              <TrialBanner
+                ctaLabel={trial.status === "trial" ? "Activate now" : "Unlock TabVault"}
+                message={trial.status === "trial" ? "Try TabVault free for 3 days." : "New AI analysis is locked until you activate TabVault."}
+                onCtaClick={() => setIsActivationExpanded(true)}
+                status={trial.status}
+              />
+              {isActivationExpanded ? (
+                <div style={{ marginTop: spacing.sm }}>
+                  <LicenseActivation
+                    errorMessage={licenseError}
+                    isLicensed={false}
+                    isSubmitting={isSubmittingLicense}
+                    licenseKey={licenseKeyInput}
+                    onLicenseKeyChange={setLicenseKeyInput}
+                    onSubmit={handleLicenseSubmit}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {errorMessage ? <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}><ErrorBanner message={errorMessage} /></div> : null}
+          {status ? <p style={{ margin: `0 ${spacing.md} ${spacing.sm}`, fontSize: "0.8125rem", color: theme.textSuccess }}>{status}</p> : null}
+
+          <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}>
+            <HybridContextBar currentPageTitle={currentPageContext?.title} indexedBookmarkCount={bookmarks.length} />
+          </div>
+
+          <section style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: `0 ${spacing.md} ${spacing.md}` }}>
+            {searchQuery ? (
+              <HybridQueryStream
+                query={searchQuery}
+                rankedResults={rankedResults}
+                actions={actionCards}
+                answer={answerBlock}
+                onOpenBookmark={(bookmarkId) => {
+                  const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
+                  setSelectedBookmark(bookmark)
+                }}
+                onAction={(actionId) => {
+                  void handleHybridAction(actionId)
+                }}
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
+                <div style={{
+                  backgroundColor: theme.surface,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: radius.large,
+                  padding: spacing.md,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  maxWidth: "90%"
+                }}>
+                  <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: "0.875rem", color: theme.textPrimary, lineHeight: 1.5 }}>
+                    我已经阅读了当前页面{currentPageContext?.title ? `《${currentPageContext.title}》` : ""}。你想了解什么？
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs }}>
+                    <span style={{ fontSize: "0.6875rem", backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "4px 8px", borderRadius: radius.pill, color: theme.textSecondary }}>总结核心观点</span>
+                    <span style={{ fontSize: "0.6875rem", backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "4px 8px", borderRadius: radius.pill, color: theme.textSecondary }}>列出相关代码片段</span>
+                  </div>
+                </div>
+
+                {isLoadingBookmarks ? (
+                  <p style={{ fontSize: "0.875rem", color: theme.textMuted }}>Loading bookmarks...</p>
+                ) : displayedBookmarks.length > 0 ? (
+                  <div style={{ fontSize: "0.75rem", color: theme.textMuted }}>
+                    已连接 {displayedBookmarks.length} 条已保存书签，可直接提问或搜索。
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
         </div>
 
-        {/* Search filter chips */}
-        <div style={{ display: "flex", gap: spacing.xs, padding: `0 ${spacing.lg} ${spacing.xs}` }}>
-          {(["all", "title", "tags", "url"] as const).map((mode) => (
+        <footer style={{ padding: spacing.md, borderTop: `1px solid ${theme.border}`, backgroundColor: theme.surface }}>
+          <div style={{ position: "relative" }}>
+            <input
+              data-testid="ghostreader-input"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="向 Ghostreader 提问..."
+              style={{ ...searchInputStyle, paddingRight: "42px", borderRadius: radius.large }}
+              type="text"
+              value={searchQuery}
+            />
             <button
-              data-testid="search-chip"
-              key={mode}
-              onClick={() => setSearchMode(mode)}
+              data-testid="ghostreader-submit"
+              onClick={() => setSearchQuery(searchQuery.trim())}
               style={{
-                padding: "3px 10px",
-                border: searchMode === mode ? "none" : `1px solid ${theme.border}`,
-                borderRadius: radius.pill,
-                fontSize: "0.75rem",
-                fontWeight: searchMode === mode ? 600 : 500,
-                cursor: "pointer",
-                backgroundColor: searchMode === mode ? theme.accent : theme.surface,
-                color: searchMode === mode ? "#ffffff" : theme.textMuted,
-                transition: "background-color 0.15s ease, color 0.15s ease"
+                position: "absolute",
+                right: "8px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "28px",
+                height: "28px",
+                border: "none",
+                borderRadius: radius.medium,
+                backgroundColor: theme.accent,
+                color: "#ffffff",
+                cursor: "pointer"
               }}
               type="button"
             >
-              {mode === "all" ? "All" : mode === "tags" ? "Tags" : mode === "url" ? "URL" : "Title"}
+              →
             </button>
-          ))}
-        </div>
-
-        {(trial.status === "trial" || trial.status === "expired") ? (
-          <div style={{ padding: `0 ${spacing.lg} ${spacing.sm}` }}>
-            <TrialBanner
-              ctaLabel={trial.status === "trial" ? "Activate now" : "Unlock TabVault"}
-              message={
-                trial.status === "trial"
-                  ? "Try TabVault free for 3 days."
-                  : "New AI analysis is locked until you activate TabVault."
-              }
-              onCtaClick={() => setIsActivationExpanded(true)}
-              status={trial.status}
-            />
-            {isActivationExpanded ? (
-              <div style={{ marginTop: spacing.sm }}>
-                <LicenseActivation
-                  errorMessage={licenseError}
-                  isLicensed={false}
-                  isSubmitting={isSubmittingLicense}
-                  licenseKey={licenseKeyInput}
-                  onLicenseKeyChange={setLicenseKeyInput}
-                  onSubmit={handleLicenseSubmit}
-                />
-              </div>
-            ) : null}
           </div>
-        ) : null}
+          <div style={{ marginTop: spacing.sm }}>
+            <button disabled={isImporting} onClick={() => void handleImport()} style={importButtonStyle} type="button">
+              {isImporting ? "Syncing..." : "Sync Bookmarks"}
+            </button>
+          </div>
+        </footer>
 
-        <div style={{ display: "flex", gap: spacing.sm, padding: `0 ${spacing.lg} ${spacing.sm}` }}>
-          <button
-            disabled={!hasPendingBookmarks || analyzeProgress !== null}
-            onClick={() => void handleAnalyzeAll()}
-            style={secondaryActionButtonStyle}
-            type="button">
-            {analyzeProgress
-              ? `Analyzing ${analyzeProgress.current}/${analyzeProgress.total}...`
-              : "Analyze all"}
-          </button>
-          <button
-            disabled={!hasClearableBookmarks}
-            onClick={() => void handleClearAllAnalysis()}
-            style={secondaryActionButtonStyle}
-            type="button">
-            Clear all
-          </button>
-        </div>
-
-        {errorMessage && <div style={{ padding: `0 ${spacing.lg}` }}><ErrorBanner message={errorMessage} /></div>}
-        {status && <p style={statusStyle}>{status}</p>}
-
-        <HybridContextBar
-          currentPageTitle={currentPageContext?.title}
-          indexedBookmarkCount={bookmarks.length}
+        <BookmarkDrawer
+          bookmark={selectedBookmark}
+          onClose={() => setSelectedBookmark(null)}
+          onAnalyze={async (id) => {
+            setSelectedBookmark(null)
+            await handleAnalyzeBookmark(id)
+          }}
+          onClearAnalysis={async () => {
+            setSelectedBookmark(null)
+          }}
+          onUpdateTags={handleUpdateTags}
         />
-
-        <section aria-labelledby="sidepanel-library-title" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-          <h2 id="sidepanel-library-title" style={libraryHeadingStyle}>
-            Library
-            <span style={bookmarkCountStyle}>{filteredBookmarks.length}</span>
-          </h2>
-          {isLoadingBookmarks ? (
-            <p style={loadingTextStyle}>Loading bookmarks...</p>
-          ) : searchQuery ? (
-            <HybridQueryStream
-              query={searchQuery}
-              rankedResults={rankedResults}
-              actions={actionCards}
-              answer={answerBlock}
-              onOpenBookmark={(bookmarkId) => {
-                const bookmark = bookmarks.find((b) => b.id === bookmarkId) ?? null
-                setSelectedBookmark(bookmark)
-              }}
-              onAction={(actionId) => {
-                void handleHybridAction(actionId)
-              }}
-            />
-          ) : (
-            <>
-              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", padding: "8px 16px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                YOUR FOLDERS
-              </div>
-              <BookmarkTree
-                treeNodes={bookmarkTree}
-                metadataMap={displayedMetadataMap}
-                onAnalyze={handleAnalyzeBookmark}
-                onDelete={handleDeleteBookmark}
-                onClearAnalysis={handleClearAnalysis}
-                selectedUrl={selectedBookmark?.url ?? null}
-                onSelect={(url) => {
-                  const bookmark = bookmarks.find((b) => b.url === url) ?? null
-                  setSelectedBookmark(bookmark)
-                }}
-              />
-            </>
-          )}
-        </section>
-      </div>
-
-      <footer style={footerStyle}>
-        <button
-          disabled={isImporting}
-          onClick={() => void handleImport()}
-          style={importButtonStyle}
-          type="button">
-          {isImporting ? "Syncing..." : "Sync Bookmarks"}
-        </button>
-      </footer>
-    </main>
-    <BookmarkDrawer
-      bookmark={selectedBookmark}
-      onClose={() => setSelectedBookmark(null)}
-      onAnalyze={async (id) => {
-        setSelectedBookmark(null)
-        await handleAnalyzeBookmark(id)
-      }}
-      onClearAnalysis={async (id) => {
-        await handleClearAnalysis(id)
-        setSelectedBookmark(null)
-      }}
-      onUpdateTags={handleUpdateTags}
-    />
+      </main>
     </ThemeProvider>
   )
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }
 
 const visuallyHiddenStyle: React.CSSProperties = {

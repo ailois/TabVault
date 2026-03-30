@@ -9,7 +9,7 @@ export function HybridQueryStream(input: {
   actions: ActionCard[]
   answer?: AnswerBlock | null
   onOpenBookmark?: (bookmarkId: string) => void
-  onAction?: (actionId: string) => void
+  onAction?: (actionId: ActionCard["id"]) => void
 }) {
   const currentPageResults = input.rankedResults.filter((result) => result.document.sourceType === "current-page")
   const savedBookmarkResults = input.rankedResults.filter((result) => result.document.sourceType === "saved-bookmark")

@@ -78,8 +78,8 @@ describe("Options", () => {
     expect(mainContent).toBeTruthy()
     expect(settingsNavButton?.getAttribute("aria-pressed")).toBe("true")
 
-    const appSection = getSectionByHeading("App Settings")
-    const maintenanceSection = getSectionByHeading("Maintenance")
+    const appSection = getSectionByHeading("Provider & Protocol")
+    const maintenanceSection = getSectionByHeading("Retrieval Architecture")
     const openAiSection = getSectionByHeading("OpenAI-compatible")
     const workspace = container?.querySelector('[data-testid="settings-workspace"]')
     const providerRail = container?.querySelector('[data-testid="provider-rail"]')

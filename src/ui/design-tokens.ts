@@ -9,6 +9,7 @@ export type ThemeTokens = {
   borderStrong: string
   borderFocus: string
   accent: string
+  accentHover: string
   accentSoft: string
   textPrimary: string
   textSecondary: string
@@ -20,43 +21,45 @@ export type ThemeTokens = {
 }
 
 export const lightTokens: ThemeTokens = {
-  page: "#FAFAFA",           // zinc-50
-  surface: "#FFFFFF",        // white
-  surfaceElevated: "#F4F4F5", // zinc-100
-  surfaceSubtle: "#F4F4F5",  // zinc-100
-  surfaceHover: "#F4F4F5",   // zinc-100
-  border: "#E4E4E7",         // zinc-200
-  borderMuted: "#F4F4F5",    // zinc-100
-  borderStrong: "#A1A1AA",   // zinc-400
-  borderFocus: "#4F46E5",    // indigo-600
-  accent: "#4F46E5",         // indigo-600
-  accentSoft: "#EEF2FF",     // indigo-50
-  textPrimary: "#18181B",    // zinc-900
-  textSecondary: "#3F3F46",  // zinc-700
-  textMuted: "#71717A",      // zinc-500
-  textSuccess: "#16A34A",    // green-600
-  textDanger: "#DC2626",     // red-600
-  successSoft: "#DCFCE7",    // green-100
-  dangerSoft: "#FEE2E2"      // red-100
+  page: "#F4F6F9",           // design/:root --bg-color
+  surface: "#FFFFFF",        // design/:root --surface-color
+  surfaceElevated: "#F4F6F9", // same as page — cards sit on page bg
+  surfaceSubtle: "#F4F6F9",
+  surfaceHover: "#EEF0F3",
+  border: "#DEE2E6",         // design/:root --border-color
+  borderMuted: "#DEE2E6",
+  borderStrong: "#ADB5BD",
+  borderFocus: "#5E6AD2",    // design/:root --accent-color
+  accent: "#5E6AD2",         // design/:root --accent-color
+  accentHover: "#4A55A2",    // design/:root --accent-hover
+  accentSoft: "rgba(94,106,210,0.10)",
+  textPrimary: "#212529",    // design/:root --primary-text
+  textSecondary: "#6C757D",  // design/:root --secondary-text
+  textMuted: "#6C757D",
+  textSuccess: "#16A34A",
+  textDanger: "#DC2626",
+  successSoft: "#DCFCE7",
+  dangerSoft: "#FEE2E2"
 }
 
 export const darkTokens: ThemeTokens = {
-  page: "#09090B",           // zinc-950
-  surface: "#18181B",        // zinc-900
-  surfaceElevated: "#27272A", // zinc-800
-  surfaceSubtle: "#27272A",  // zinc-800
-  surfaceHover: "#3F3F46",   // zinc-700
-  border: "#27272A",         // zinc-800
-  borderMuted: "#27272A",    // zinc-800
-  borderStrong: "#52525B",   // zinc-600
-  borderFocus: "#6366F1",    // indigo-500
-  accent: "#6366F1",         // indigo-500
-  accentSoft: "rgba(99,102,241,0.15)",
-  textPrimary: "#F4F4F5",    // zinc-100
-  textSecondary: "#D4D4D8",  // zinc-300
-  textMuted: "#A1A1AA",      // zinc-400
-  textSuccess: "#34D399",    // emerald-400
-  textDanger: "#F87171",     // red-400
+  page: "#1C1E23",           // design/.dark --bg-color
+  surface: "#25282E",        // design/.dark --surface-color
+  surfaceElevated: "#25282E",
+  surfaceSubtle: "#25282E",
+  surfaceHover: "#2E3139",
+  border: "#383C42",         // design/.dark --border-color
+  borderMuted: "#383C42",
+  borderStrong: "#52575F",
+  borderFocus: "#7986CB",    // design/.dark --accent-color
+  accent: "#7986CB",         // design/.dark --accent-color
+  accentHover: "#5C6BC0",    // design/.dark --accent-hover
+  accentSoft: "rgba(121,134,203,0.15)",
+  textPrimary: "#E1E1E1",    // design/.dark --primary-text
+  textSecondary: "#8A8F98",  // design/.dark --secondary-text
+  textMuted: "#8A8F98",
+  textSuccess: "#34D399",
+  textDanger: "#F87171",
   successSoft: "rgba(52,211,153,0.12)",
   dangerSoft: "rgba(248,113,113,0.12)"
 }
@@ -73,6 +76,7 @@ export const radius = {
   small: "5px",
   medium: "8px",
   large: "12px",
+  xl: "16px",
   pill: "999px"
 } as const
 
