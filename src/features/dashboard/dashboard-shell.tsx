@@ -3,37 +3,64 @@ import React, { useEffect, useMemo, useState } from "react"
 import { IndexedDbBookmarkRepository } from "../../lib/storage/indexeddb-bookmark-repository"
 import { updateBookmarkMetadata } from "../../lib/storage/update-bookmark-metadata"
 import type { BookmarkRecord } from "../../types/bookmark"
-import { radius } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
+import { collectBookmarksWithFolderContext, findDefaultFolderId } from "./bookmark-workspace"
 import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
 import { DashboardNavigation } from "./dashboard-navigation"
 import { DashboardReadingPane } from "./dashboard-reading-pane"
 
 type DashboardShellProps = {
   initialBookmarks?: BookmarkRecord[]
+  initialTree?: chrome.bookmarks.BookmarkTreeNode[]
   listBookmarks?: () => Promise<BookmarkRecord[]>
+  getBookmarkTree?: () => Promise<chrome.bookmarks.BookmarkTreeNode[]>
   updateBookmark?: (bookmark: BookmarkRecord) => Promise<void>
 }
 
-export function DashboardShell({ initialBookmarks, listBookmarks, updateBookmark }: DashboardShellProps) {
+export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, getBookmarkTree, updateBookmark }: DashboardShellProps) {
   const theme = useThemeContext()
   const bookmarkRepository = useMemo(() => new IndexedDbBookmarkRepository(), [])
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>(initialBookmarks ?? [])
+  const [chromeTree, setChromeTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>(initialTree ?? [])
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [activeBookmark, setActiveBookmark] = useState<BookmarkRecord | null>(null)
   const [leftWidth, setLeftWidth] = useState(280)
   const [rightWidth, setRightWidth] = useState(360)
 
   useEffect(() => {
-    if (initialBookmarks) {
-      return
-    }
+    if (initialBookmarks !== undefined) return
 
-    const load = listBookmarks ?? (() => bookmarkRepository.list())
+    const loadBookmarks = listBookmarks ?? (() => bookmarkRepository.list())
+    const loadTree = getBookmarkTree ?? (() => (typeof chrome !== "undefined" && chrome.bookmarks ? chrome.bookmarks.getTree() : Promise.resolve([])))
 
-    void load().then((records) => {
+    void Promise.all([loadBookmarks(), loadTree()]).then(([records, tree]) => {
       setBookmarks(records)
+      setChromeTree(tree)
     })
-  }, [bookmarkRepository, initialBookmarks, listBookmarks])
+  }, [bookmarkRepository, getBookmarkTree, initialBookmarks, initialTree, listBookmarks])
+
+  // When tree is provided but no folder selected, pick the first folder
+  useEffect(() => {
+    if (selectedFolderId !== null) return
+    const defaultId = findDefaultFolderId(chromeTree)
+    if (defaultId) setSelectedFolderId(defaultId)
+  }, [chromeTree, selectedFolderId])
+
+  const metadataMap = useMemo(() => {
+    const map: Record<string, BookmarkRecord> = {}
+    for (const bm of bookmarks) map[bm.url] = bm
+    return map
+  }, [bookmarks])
+
+  // Derive visible bookmarks: if tree provided, use folder-scoped; else show all
+  const visibleBookmarks = useMemo(() => {
+    if (chromeTree.length === 0) {
+      return bookmarks
+    }
+    const allItems = collectBookmarksWithFolderContext(chromeTree)
+    const folderItems = selectedFolderId ? allItems.filter((item) => item.folderId === selectedFolderId) : allItems
+    return folderItems.map((item) => metadataMap[item.url]).filter(Boolean) as BookmarkRecord[]
+  }, [chromeTree, selectedFolderId, bookmarks, metadataMap])
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -120,8 +147,11 @@ export function DashboardShell({ initialBookmarks, listBookmarks, updateBookmark
     >
       <DashboardNavigation
         activeBookmarkId={activeBookmark?.id ?? null}
-        bookmarks={bookmarks}
+        bookmarks={visibleBookmarks}
+        chromeTree={chromeTree}
         onSelect={setActiveBookmark}
+        onSelectFolder={setSelectedFolderId}
+        selectedFolderId={selectedFolderId}
         width={leftWidth}
       />
       <div

@@ -11,6 +11,28 @@ import type { BookmarkRecord } from "../../src/types/bookmark"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
+const SAMPLE_TREE: chrome.bookmarks.BookmarkTreeNode[] = [
+  {
+    id: "0",
+    title: "",
+    children: [
+      {
+        id: "1",
+        title: "Bookmarks Bar",
+        children: [
+          { id: "b1", title: "React Docs", url: "https://react.dev" },
+          { id: "b2", title: "Vue Docs", url: "https://vuejs.org" }
+        ]
+      },
+      {
+        id: "2",
+        title: "Other Bookmarks",
+        children: [{ id: "b3", title: "Svelte Docs", url: "https://svelte.dev" }]
+      }
+    ]
+  }
+]
+
 describe("DashboardShell", () => {
   afterEach(async () => {
     if (root && container) {
@@ -21,6 +43,38 @@ describe("DashboardShell", () => {
     container?.remove()
     container = null
     root = null
+  })
+
+  it("renders a dashboard folder tree and updates results when a folder is selected", async () => {
+    const bookmarks = [
+      createBookmark({ id: "b1", title: "React Docs", url: "https://react.dev" }),
+      createBookmark({ id: "b2", title: "Vue Docs", url: "https://vuejs.org" }),
+      createBookmark({ id: "b3", title: "Svelte Docs", url: "https://svelte.dev" })
+    ]
+
+    await renderDashboardWithTree(bookmarks, SAMPLE_TREE)
+
+    expect(container?.querySelector('[data-testid="dashboard-folder-tree"]')).not.toBeNull()
+    expect(container?.textContent).toContain("React Docs")
+    expect(container?.textContent).toContain("Vue Docs")
+
+    const otherBookmarks = Array.from(container?.querySelectorAll('[role="button"]') ?? []).find((el) =>
+      el.textContent?.includes("Other Bookmarks")
+    )
+    await act(async () => {
+      ;(otherBookmarks as HTMLElement | undefined)?.click()
+    })
+
+    expect(container?.textContent).toContain("Svelte Docs")
+    expect(container?.textContent).not.toContain("React Docs")
+  })
+
+  it("loads bookmarks and browser folders into the dashboard workspace", async () => {
+    const bookmarks = [createBookmark({ id: "b1", title: "React Docs", url: "https://react.dev" })]
+    await renderDashboardWithTree(bookmarks, SAMPLE_TREE)
+
+    expect(container?.querySelector('[data-testid="dashboard-navigation"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-folder-tree"]')).not.toBeNull()
   })
 
   it("renders resizable three-column workspace rails", async () => {
@@ -76,6 +130,20 @@ async function renderDashboard(bookmarks: BookmarkRecord[]) {
     root?.render(
       <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
         <DashboardShell initialBookmarks={bookmarks} />
+      </ThemeProvider>
+    )
+  })
+}
+
+async function renderDashboardWithTree(bookmarks: BookmarkRecord[], tree: chrome.bookmarks.BookmarkTreeNode[]) {
+  container = document.createElement("div")
+  document.body.appendChild(container)
+  root = createRoot(container)
+
+  await act(async () => {
+    root?.render(
+      <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+        <DashboardShell initialBookmarks={bookmarks} initialTree={tree} />
       </ThemeProvider>
     )
   })
