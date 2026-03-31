@@ -190,195 +190,22 @@ function getSelectedDetailPanelBody(): HTMLElement | null {
 }
 
 describe("BookmarkDetailPanel tag editing", () => {
-  it("refreshes AI tags in the detail panel after analysis completes without reselecting the bookmark", async () => {
-    const initialRecord = makeBookmarkRecord({
-      status: "saved",
-      summary: undefined,
-      aiTags: [],
-      userTags: [],
-      updatedAt: "2026-01-01T00:00:00.000Z"
-    })
-    const analyzedRecord = makeBookmarkRecord({
-      status: "done",
-      summary: "Learn React",
-      aiTags: ["frontend", "library"],
-      userTags: [],
-      updatedAt: "2026-01-02T00:00:00.000Z"
-    })
+  it("does not expose bookmark detail editing inside options", async () => {
+    const repo = makeBookmarkRepository(makeBookmarkRecord())
 
-    let currentRecord = initialRecord
-    const analyzeBookmark = vi.fn(async () => {
-      currentRecord = analyzedRecord
-      return analyzedRecord
-    })
-    const repo: BookmarkRepository = {
-      save: vi.fn(async () => {}),
-      list: vi.fn(async () => [currentRecord]),
-      getById: vi.fn(async () => currentRecord),
-      update: vi.fn(async () => {}),
-      delete: vi.fn(async () => {}),
-      clearAnalysis: vi.fn(async () => {}),
-      clearAllAnalysis: vi.fn(async () => {}),
-      clearErrorAnalysis: vi.fn(async () => {})
-    }
-
-    ;(globalThis.chrome as any).bookmarks.getTree = vi.fn(async () => chromeBookmarkTree)
-    localStorage.setItem("tabvault_folder_0", "true")
-    localStorage.setItem("tabvault_folder_1", "true")
-
-    container = document.createElement("div")
-    document.body.appendChild(container)
-    root = createRoot(container)
-
-    await act(async () => {
-      root!.render(
-        <Options
-          services={{
-            settingsRepository: makeSettingsRepository(),
-            bookmarkRepository: repo,
-            analyzeBookmark,
-            testConnection: async () => {}
-          }}
-        />
-      )
-    })
-
-    const bookmarksTabBtn = Array.from(container!.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "Bookmarks"
-    )
-    await act(async () => { bookmarksTabBtn?.click() })
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)) })
-
-    const listColumn = container!.querySelector('[data-testid="bookmark-list-column"]') as HTMLElement | null
-    const bookmarkButton = listColumn?.querySelector('[data-testid="bookmark-result-button"]') as HTMLElement | null
-
-    await act(async () => {
-      bookmarkButton?.click()
-    })
-
-    expect(getSelectedDetailPanelRoot()?.textContent).not.toContain("frontend")
-
-    const analyzeButton = container?.querySelector<HTMLButtonElement>('[data-testid="detail-analyze-button"]')
-
-    await act(async () => {
-      analyzeButton?.click()
-      await new Promise((r) => setTimeout(r, 0))
-    })
-
-    expect(getSelectedDetailPanelRoot()?.textContent).toContain("frontend")
-    expect(getSelectedDetailPanelRoot()?.textContent).toContain("library")
-  })
-
-  it("keeps detail content naturally sized instead of stretching body space", async () => {
-    const record = makeBookmarkRecord({ aiTags: ["frontend"], userTags: [] })
-    const repo = makeBookmarkRepository(record)
     await renderAndSelectBookmark(repo)
 
-    expect(getSelectedDetailPanelRoot()).not.toBeNull()
-    expect(getSelectedDetailPanelBody()).not.toBeNull()
-    expect(getSelectedDetailPanelRoot()?.style.height).toBe("")
-    expect(getSelectedDetailPanelBody()?.style.flex).toBe("")
+    expect(container?.querySelector('[data-testid="detail-tags-edit-button"]')).toBeNull()
+    expect(container?.querySelector('[data-testid="detail-analyze-button"]')).toBeNull()
+    expect(container?.querySelector('[data-testid="bookmark-details-column"]')).toBeNull()
   })
 
-  it("shows edit button in the tag section after selecting a bookmark", async () => {
-    const record = makeBookmarkRecord()
-    const repo = makeBookmarkRepository(record)
+  it("keeps options focused on settings after bookmark workspace removal", async () => {
+    const repo = makeBookmarkRepository(makeBookmarkRecord())
+
     await renderAndSelectBookmark(repo)
 
-    expect(getDetailEditButton()).not.toBeNull()
-  })
-
-  it("shows remove buttons and input after clicking edit", async () => {
-    const record = makeBookmarkRecord({ aiTags: ["frontend"], userTags: ["custom"] })
-    const repo = makeBookmarkRepository(record)
-    await renderAndSelectBookmark(repo)
-
-    await act(async () => {
-      getDetailEditButton()?.click()
-    })
-
-    const removeButtons = getDetailRemoveButtons()
-    expect(removeButtons.length).toBe(2) // one per tag
-    expect(getDetailTagInput()).not.toBeNull()
-  })
-
-  it("removes an AI tag and persists on Done click", async () => {
-    const record = makeBookmarkRecord({ aiTags: ["frontend", "library"], userTags: [] })
-    const updateFn = vi.fn(async () => {})
-    const repo = makeBookmarkRepository(record, updateFn)
-    await renderAndSelectBookmark(repo)
-
-    // Enter edit mode
-    await act(async () => {
-      getDetailEditButton()?.click()
-    })
-
-    // Remove the first AI tag
-    const removeButtons = getDetailRemoveButtons()
-    expect(removeButtons.length).toBeGreaterThan(0)
-    await act(async () => {
-      removeButtons[0]?.click()
-    })
-
-    // Click Done
-    await act(async () => {
-      getDetailEditButton()?.click()
-    })
-
-    expect(updateFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "record-1",
-        aiTags: ["library"],
-        userTags: []
-      })
-    )
-  })
-
-  it("adds a user tag via input and persists on Done click", async () => {
-    const record = makeBookmarkRecord({ aiTags: ["existing"], userTags: [] })
-    const updateFn = vi.fn(async () => {})
-    const repo = makeBookmarkRepository(record, updateFn)
-    await renderAndSelectBookmark(repo)
-
-    // Enter edit mode
-    await act(async () => {
-      getDetailEditButton()?.click()
-    })
-
-    // Type a new tag and press Enter
-    const input = getDetailTagInput()
-    expect(input).not.toBeNull()
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
-      setter?.call(input!, "new-tag")
-      input!.dispatchEvent(new Event("input", { bubbles: true }))
-      input!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
-    })
-
-    // Click Done
-    await act(async () => {
-      getDetailEditButton()?.click()
-    })
-
-    expect(updateFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "record-1",
-        aiTags: ["existing"],
-        userTags: ["new-tag"]
-      })
-    )
-  })
-
-  it("does not call update when tags are unchanged after Done", async () => {
-    const record = makeBookmarkRecord({ aiTags: ["frontend"], userTags: [] })
-    const updateFn = vi.fn(async () => {})
-    const repo = makeBookmarkRepository(record, updateFn)
-    await renderAndSelectBookmark(repo)
-
-    // Enter then immediately exit edit mode without changes
-    await act(async () => { getDetailEditButton()?.click() })
-    await act(async () => { getDetailEditButton()?.click() })
-
-    expect(updateFn).not.toHaveBeenCalled()
+    expect(container?.querySelector('[data-testid="options-nav-bookmarks"]')).toBeNull()
+    expect(container?.textContent).not.toContain("Smart Tags")
   })
 })

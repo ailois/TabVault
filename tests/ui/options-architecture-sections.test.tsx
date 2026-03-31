@@ -45,9 +45,10 @@ describe("Options architecture sections", () => {
     root = null
   })
 
-  it("renders provider, retrieval, experience, and license sections in settings workspace", async () => {
+  it("renders provider, retrieval, experience, and license sections in an architecture settings workspace", async () => {
     await renderOptions(createSettingsRepository())
 
+    expect(container?.textContent).toContain("Architecture Settings")
     expect(container?.textContent).toContain("Provider & Protocol")
     expect(container?.textContent).toContain("Retrieval Architecture")
     expect(container?.textContent).toContain("Experience & Theme")

@@ -62,6 +62,41 @@ describe("Options", () => {
     root = null
   })
 
+  it("renders settings as the only primary options destination", async () => {
+    await renderOptions()
+
+    expect(container?.querySelector('[data-testid="options-nav-settings"]')?.getAttribute("aria-pressed")).toBe("true")
+    expect(container?.querySelector('[data-testid="options-nav-bookmarks"]')).toBeNull()
+    expect(container?.textContent).not.toContain("Bookmarks")
+    expect(container?.querySelector('[data-testid="settings-page-shell"]')).toBeTruthy()
+  })
+
+  it("renders settings with architecture-style header and section grouping", async () => {
+    await renderOptions()
+
+    expect(container?.textContent).toContain("Architecture Settings")
+    expect(container?.querySelector('[data-testid="settings-page-description"]')?.textContent).toContain("provider protocols")
+    expect(container?.textContent).toContain("Provider & Protocol")
+    expect(container?.textContent).toContain("Retrieval Architecture")
+    expect(container?.textContent).toContain("Experience & Theme")
+    expect(container?.textContent).toContain("Trial & License")
+    expect(container?.querySelector('[data-testid="settings-save-actions"]')).toBeTruthy()
+  })
+
+  it("renders the license state in a single settings section", async () => {
+    mockTrialStatus({
+      status: "trial",
+      state: {
+        installedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        analysisUsed: 3
+      }
+    })
+
+    await renderOptions()
+
+    expect(container?.querySelectorAll('[data-testid="settings-license-state"]')).toHaveLength(1)
+  })
+
   it("renders editable app and provider settings sections", async () => {
     await renderOptions()
 
@@ -72,7 +107,7 @@ describe("Options", () => {
 
     expect(container?.textContent).toContain("TabVault")
     expect(container?.textContent).toContain("Settings")
-    expect(container?.textContent).toContain("Bookmarks")
+    expect(container?.textContent).not.toContain("Bookmarks")
     expect(dashboardShell).toBeTruthy()
     expect(sidebar).toBeTruthy()
     expect(mainContent).toBeTruthy()

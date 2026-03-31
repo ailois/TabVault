@@ -2,13 +2,11 @@
 
 import ProviderSettingsForm from "./components/provider-settings-form"
 import { ToggleSwitch } from "./components/toggle-switch"
-import { BookmarkTree } from "./components/bookmark-tree"
 import { LicenseActivation } from "./components/license-activation"
 import { TrialBanner } from "./components/trial-banner"
 import { DEFAULT_APP_SETTINGS } from "./features/settings/default-settings"
 import { buildProviderFormState } from "./features/settings/provider-form-state"
 import { validateSettingsForm } from "./features/settings/settings-validation"
-import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { validateLicenseKey } from "./lib/trial/license-service"
@@ -16,18 +14,15 @@ import { TrialRepository } from "./lib/trial/trial-repository"
 import { TRIAL_ANALYSIS_LIMIT, TRIAL_DAYS } from "./lib/trial/trial-constants"
 import { useTrialStatus } from "./lib/trial/use-trial-status"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
-import type { AiProvider } from "./lib/providers/provider"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
 import type { ProviderConfig, ProviderType } from "./types/settings"
-import type { BookmarkRecord } from "./types/bookmark"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
-import { buildGlobalStyles, radius, spacing } from "./ui/design-tokens"
+import { radius, spacing } from "./ui/design-tokens"
 import { useTheme } from "./ui/use-theme"
 import { useGlobalStyles } from "./ui/use-global-styles"
 import { ThemeProvider } from "./ui/theme-context"
-import { useThemeContext } from "./ui/theme-context"
 
 type OptionsProps = {
   services?: Partial<OptionsServices>
@@ -38,23 +33,9 @@ type OptionsServices = {
   bookmarkRepository: BookmarkRepository
   testConnection: (config: ProviderConfig) => Promise<void>
   themeRepository: ThemeRepository
-  analyzeBookmark?: typeof defaultAnalyzeBookmark
-  createProvider?: (config: ProviderConfig) => AiProvider
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
-
-type OptionsTab = "settings" | "bookmarks"
-
-type BookmarkFilterMode = "all" | "analyzed" | "unanalyzed"
-
-type BookmarkListItem = {
-  id: string
-  title: string
-  url: string
-  folderId: string | null
-  folderTitle: string
-}
 
 type LicenseEntryStateProps = {
   status: "trial" | "expired" | "licensed"
@@ -71,87 +52,6 @@ type LicenseEntryStateProps = {
   onLicenseEdit: () => void
 }
 
-function collectBookmarksWithFolderContext(
-  nodes: chrome.bookmarks.BookmarkTreeNode[],
-  currentFolder: chrome.bookmarks.BookmarkTreeNode | null = null
-): BookmarkListItem[] {
-  const result: BookmarkListItem[] = []
-
-  for (const node of nodes) {
-    if (node.url) {
-      result.push({
-        id: node.id,
-        title: node.title,
-        url: node.url,
-        folderId: currentFolder?.id ?? null,
-        folderTitle: currentFolder?.title || "Root"
-      })
-      continue
-    }
-
-    const nextFolder = node.title ? node : currentFolder
-    result.push(...collectBookmarksWithFolderContext(node.children ?? [], nextFolder))
-  }
-
-  return result
-}
-
-function findDefaultFolderId(nodes: chrome.bookmarks.BookmarkTreeNode[]): string | null {
-  for (const node of nodes) {
-    if (node.url) continue
-    if (node.title) return node.id
-
-    const nested = findDefaultFolderId(node.children ?? [])
-    if (nested) return nested
-  }
-
-  return null
-}
-
-function findFolderTitle(nodes: chrome.bookmarks.BookmarkTreeNode[], folderId: string): string | null {
-  for (const node of nodes) {
-    if (node.url) continue
-    if (node.id === folderId) return node.title || "Root"
-
-    const nested = findFolderTitle(node.children ?? [], folderId)
-    if (nested) return nested
-  }
-
-  return null
-}
-
-function matchesFilterMode(
-  url: string,
-  filterMode: BookmarkFilterMode,
-  metadataMap: Record<string, BookmarkRecord>
-): boolean {
-  if (filterMode === "analyzed") return metadataMap[url]?.status === "done"
-  if (filterMode === "unanalyzed") return metadataMap[url]?.status !== "done"
-  return true
-}
-
-function matchesSearch(
-  item: BookmarkListItem,
-  query: string,
-  metadataMap: Record<string, BookmarkRecord>
-): boolean {
-  const normalizedQuery = query.trim().toLowerCase()
-  if (!normalizedQuery) return true
-
-  const record = metadataMap[item.url]
-  const fields = [
-    item.title,
-    item.url,
-    item.folderTitle,
-    record?.title ?? "",
-    record?.summary ?? "",
-    ...(record?.aiTags ?? []),
-    ...(record?.userTags ?? [])
-  ]
-
-  return fields.some((field) => field.toLowerCase().includes(normalizedQuery))
-}
-
 const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
   settingsRepository: new ChromeSettingsRepository(),
   bookmarkRepository: new IndexedDbBookmarkRepository(),
@@ -162,9 +62,7 @@ const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
       content: "Say OK"
     })
   },
-  themeRepository: new ChromeThemeRepository(),
-  analyzeBookmark: defaultAnalyzeBookmark,
-  createProvider: defaultCreateProvider
+  themeRepository: new ChromeThemeRepository()
 }
 
 export function applySingleProviderEnabledState(
@@ -183,7 +81,6 @@ function Options({ services }: OptionsProps) {
   useGlobalStyles(theme)
   const trial = useTrialStatus()
   const trialRepository = React.useMemo(() => new TrialRepository(), [])
-  const [activeTab, setActiveTab] = React.useState<OptionsTab>("settings")
   const [appSettings, setAppSettings] = React.useState(DEFAULT_APP_SETTINGS)
   const [providers, setProviders] = React.useState(() => buildProviderFormState([]))
   const [providerEditorSelection, setProviderEditorSelection] = React.useState<ProviderType>(DEFAULT_APP_SETTINGS.defaultProvider)
@@ -409,41 +306,31 @@ function Options({ services }: OptionsProps) {
           </div>
 
           <nav style={{ display: "grid", gap: spacing.xs }}>
-            {(["settings", "bookmarks"] as const).map((tab) => {
-              const isActive = activeTab === tab
-
-              return (
-                <button
-                  key={tab}
-                  aria-pressed={isActive}
-                  data-testid={`options-nav-${tab}`}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: "100%",
-                    padding: `${spacing.sm} ${spacing.md}`,
-                    border: `1px solid ${isActive ? theme.borderFocus : "transparent"}`,
-                    borderRadius: "12px",
-                    backgroundColor: isActive ? theme.accentSoft : "transparent",
-                    color: isActive ? theme.textPrimary : theme.textMuted,
-                    fontSize: "0.875rem",
-                    fontWeight: isActive ? 600 : 500,
-                    cursor: "pointer",
-                    transition: "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease"
-                  }}
-                  type="button"
-                >
-                  <span>{tab === "settings" ? "Settings" : "Bookmarks"}</span>
-                  {isActive ? (
-                    <span aria-hidden="true" style={{ color: theme.accent, fontSize: "0.75rem" }}>
-                      ●
-                    </span>
-                  ) : null}
-                </button>
-              )
-            })}
+            <button
+              aria-pressed={true}
+              data-testid="options-nav-settings"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                padding: `${spacing.sm} ${spacing.md}`,
+                border: `1px solid ${theme.borderFocus}`,
+                borderRadius: "12px",
+                backgroundColor: theme.accentSoft,
+                color: theme.textPrimary,
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "default",
+                transition: "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease"
+              }}
+              type="button"
+            >
+              <span>Settings</span>
+              <span aria-hidden="true" style={{ color: theme.accent, fontSize: "0.75rem" }}>
+                ●
+              </span>
+            </button>
           </nav>
         </aside>
 
@@ -456,38 +343,13 @@ function Options({ services }: OptionsProps) {
             minWidth: 0
           }}
         >
-          {activeTab === "bookmarks" ? (
-            <BookmarksTab services={optionsServices} />
-          ) : (
-            <div data-testid="settings-page-shell" style={{ width: "100%", minWidth: 0, display: "grid", gap: spacing.lg }}>
+          <div data-testid="settings-page-shell" style={{ width: "100%", minWidth: 0, display: "grid", gap: spacing.lg }}>
               <header data-testid="settings-page-header" style={{ display: "grid", gap: "4px" }}>
-                <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: theme.textPrimary }}>Settings</h1>
+                <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: theme.textPrimary }}>Architecture Settings</h1>
                 <p data-testid="settings-page-description" style={{ margin: 0, color: theme.textMuted, fontSize: "0.875rem" }}>
-                  Configure providers, retrieval architecture, experience, and licensing.
+                  Configure provider protocols, retrieval architecture, experience behavior, and licensing.
                 </p>
               </header>
-
-              {trial.status ? (
-                <OptionsLicenseEntry
-                  analysisUsed={trial.state?.analysisUsed}
-                  installedAt={trial.state?.installedAt}
-                  isActivationExpanded={isActivationExpanded}
-                  isSubmittingLicense={isSubmittingLicense}
-                  licenseError={licenseError}
-                  licenseInput={licenseInput}
-                  onExpandActivation={() => setIsActivationExpanded(true)}
-                  onLicenseEdit={() => {
-                    setLicenseError(null)
-                    setIsActivationExpanded(true)
-                    setOptimisticLicensedKey(null)
-                    setLicenseInput(trial.state?.licenseKey ?? licenseInput)
-                  }}
-                  onLicenseInputChange={setLicenseInput}
-                  onLicenseSubmit={handleLicenseSubmit}
-                  storedLicenseKey={optimisticLicensedKey ?? trial.state?.licenseKey}
-                  status={optimisticLicensedKey ? "licensed" : trial.status}
-                />
-              ) : null}
 
               <SettingsTabContent
                 appSettings={appSettings}
@@ -525,7 +387,6 @@ function Options({ services }: OptionsProps) {
                 } : null}
               />
             </div>
-          )}
         </div>
       </main>
     </ThemeProvider>
@@ -1059,836 +920,6 @@ function SettingsTabContent({
         </button>
       </section>
     </>
-  )
-}
-
-type ColumnWidths = {
-  folders: number
-  details: number
-}
-
-function useColumnResize(initial: ColumnWidths) {
-  const [widths, setWidths] = React.useState<ColumnWidths>(initial)
-  const draggingRef = React.useRef<"folders-list" | "list-details" | null>(null)
-  const startXRef = React.useRef(0)
-  const startWidthRef = React.useRef(0)
-
-  const handleMouseDown = React.useCallback(
-    (divider: "folders-list" | "list-details") =>
-      (e: React.MouseEvent) => {
-        e.preventDefault()
-        draggingRef.current = divider
-        startXRef.current = e.clientX
-        startWidthRef.current = divider === "folders-list" ? widths.folders : widths.details
-      },
-    [widths]
-  )
-
-  React.useEffect(() => {
-    function onMouseMove(e: MouseEvent) {
-      if (!draggingRef.current) return
-      const delta = e.clientX - startXRef.current
-      if (draggingRef.current === "folders-list") {
-        setWidths((w) => ({
-          ...w,
-          folders: Math.max(180, Math.min(400, startWidthRef.current + delta))
-        }))
-      } else {
-        setWidths((w) => ({
-          ...w,
-          details: Math.max(240, Math.min(600, startWidthRef.current - delta))
-        }))
-      }
-    }
-    function onMouseUp() {
-      draggingRef.current = null
-    }
-    window.addEventListener("mousemove", onMouseMove)
-    window.addEventListener("mouseup", onMouseUp)
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove)
-      window.removeEventListener("mouseup", onMouseUp)
-    }
-  }, [])
-
-  return { widths, handleMouseDown }
-}
-
-function ResizeDivider({
-  onMouseDown,
-  isDragging
-}: {
-  onMouseDown: (e: React.MouseEvent) => void
-  isDragging: boolean
-}) {
-  const [isHovered, setIsHovered] = React.useState(false)
-  return (
-    <div
-      onMouseDown={onMouseDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        width: "5px",
-        flexShrink: 0,
-        cursor: "col-resize",
-        position: "relative",
-        userSelect: "none",
-        zIndex: 1
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "1px",
-          left: "2px",
-          backgroundColor:
-            isHovered || isDragging
-              ? "rgba(99,102,241,0.5)"
-              : "transparent",
-          transition: "background-color 0.15s ease"
-        }}
-      />
-    </div>
-  )
-}
-
-function BookmarksTab({ services }: { services: OptionsServices }) {
-  const theme = useThemeContext()
-  const analyzeBookmark = services.analyzeBookmark ?? defaultAnalyzeBookmark
-  const createProvider = services.createProvider ?? defaultCreateProvider
-  const [chromeTree, setChromeTree] = React.useState<chrome.bookmarks.BookmarkTreeNode[]>([])
-  const [tabvaultRecords, setTabvaultRecords] = React.useState<BookmarkRecord[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [searchQuery, setSearchQuery] = React.useState("")
-  const [filterMode, setFilterMode] = React.useState<BookmarkFilterMode>("all")
-  const [selectedUrl, setSelectedUrl] = React.useState<string | null>(null)
-  const [selectedFolderId, setSelectedFolderId] = React.useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
-  const [autoRetryEnabled, setAutoRetryEnabled] = React.useState(false)
-  const { widths, handleMouseDown } = useColumnResize({ folders: 280, details: 360 })
-  const [activeDivider, setActiveDivider] = React.useState<"folders-list" | "list-details" | null>(null)
-
-  const [localAnalyzingUrls, setLocalAnalyzingUrls] = React.useState<Set<string>>(new Set())
-
-  const metadataMap = React.useMemo<Record<string, BookmarkRecord>>(() => {
-    const map: Record<string, BookmarkRecord> = {}
-    for (const record of tabvaultRecords) {
-      map[record.url] = record
-    }
-    return map
-  }, [tabvaultRecords])
-
-  const displayedMetadataMap = React.useMemo<Record<string, BookmarkRecord>>(() => {
-    const map: Record<string, BookmarkRecord> = { ...metadataMap }
-    for (const url of localAnalyzingUrls) {
-      if (map[url] && map[url].status !== "analyzing") {
-        map[url] = { ...map[url], status: "analyzing" }
-      }
-    }
-    return map
-  }, [metadataMap, localAnalyzingUrls])
-
-  const selectedRecord = selectedUrl ? (displayedMetadataMap[selectedUrl] ?? null) : null
-
-  async function loadData() {
-    setIsLoading(true)
-    try {
-      const [tree, records, settings] = await Promise.all([
-        chrome.bookmarks.getTree(),
-        services.bookmarkRepository.list(),
-        services.settingsRepository.getAppSettings()
-      ])
-      setChromeTree(tree)
-      setTabvaultRecords(records)
-      setAutoRetryEnabled(settings.autoRetryOnError)
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load bookmarks")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  React.useEffect(() => {
-    void loadData()
-  }, [])
-
-  React.useEffect(() => {
-    if (selectedFolderId || chromeTree.length === 0) return
-    setSelectedFolderId(findDefaultFolderId(chromeTree))
-  }, [chromeTree, selectedFolderId])
-
-  const allBookmarks = React.useMemo(
-    () => collectBookmarksWithFolderContext(chromeTree),
-    [chromeTree]
-  )
-
-  const hasSearch = searchQuery.trim().length > 0
-  const visibleBookmarks = React.useMemo<BookmarkListItem[]>(() => {
-    const pool = hasSearch
-      ? allBookmarks
-      : allBookmarks.filter((bookmark) => bookmark.folderId === selectedFolderId)
-
-    return pool
-      .filter((bookmark) => matchesFilterMode(bookmark.url, filterMode, displayedMetadataMap))
-      .filter((bookmark) => !hasSearch || matchesSearch(bookmark, searchQuery, displayedMetadataMap))
-  }, [allBookmarks, filterMode, hasSearch, displayedMetadataMap, searchQuery, selectedFolderId])
-
-  const selectedFolderTitle = React.useMemo(() => {
-    if (!selectedFolderId) return null
-    return findFolderTitle(chromeTree, selectedFolderId)
-  }, [chromeTree, selectedFolderId])
-
-  React.useEffect(() => {
-    if (!selectedUrl) return
-    const existsInTree = allBookmarks.some((bookmark) => bookmark.url === selectedUrl)
-    if (!existsInTree) {
-      setSelectedUrl(null)
-    }
-  }, [allBookmarks, selectedUrl])
-
-  React.useEffect(() => {
-    function onMouseUp() {
-      setActiveDivider(null)
-    }
-    window.addEventListener("mouseup", onMouseUp)
-    return () => window.removeEventListener("mouseup", onMouseUp)
-  }, [])
-
-  async function handleAnalyze(url: string) {
-    const settings = await services.settingsRepository.getAppSettings()
-    const providers = await services.settingsRepository.getProviders()
-    const selectedProvider = providers.find(
-      (p) => p.enabled && p.provider === settings.defaultProvider
-    )
-    if (!selectedProvider?.apiKey.trim()) {
-      setErrorMessage("Add an API key in Settings to enable analysis.")
-      return
-    }
-    const record = metadataMap[url]
-    if (!record) {
-      setErrorMessage("This bookmark has not been saved to TabVault yet.")
-      return
-    }
-
-    setLocalAnalyzingUrls((prev) => new Set([...prev, url]))
-    setErrorMessage(null)
-
-    try {
-      await analyzeBookmark({
-        bookmark: record,
-        provider: createProvider(selectedProvider),
-        bookmarkRepository: services.bookmarkRepository
-      })
-    } finally {
-      setLocalAnalyzingUrls((prev) => {
-        const next = new Set(prev)
-        next.delete(url)
-        return next
-      })
-      await loadData()
-    }
-  }
-
-  async function handleDelete(nodeId: string, url: string) {
-    try {
-      await chrome.bookmarks.remove(nodeId)
-      const record = metadataMap[url]
-      if (record) {
-        await services.bookmarkRepository.delete(record.id)
-      }
-      if (selectedUrl === url) setSelectedUrl(null)
-      await loadData()
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete bookmark")
-    }
-  }
-
-  async function handleClearAnalysis(url: string) {
-    const record = metadataMap[url]
-    if (!record) return
-    try {
-      await services.bookmarkRepository.clearAnalysis(record.id)
-      await loadData()
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to clear analysis")
-    }
-  }
-
-  async function handleUpdateTags(url: string, aiTags: string[], userTags: string[]) {
-    const record = metadataMap[url]
-    if (!record) return
-    try {
-      await services.bookmarkRepository.update({ ...record, aiTags, userTags, updatedAt: new Date().toISOString() })
-      await loadData()
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to update tags")
-    }
-  }
-
-  async function handleRetryAllErrors() {
-    const errorRecords = tabvaultRecords.filter((r) => r.status === "error")
-    if (errorRecords.length === 0) return
-
-    const settings = await services.settingsRepository.getAppSettings()
-    const providers = await services.settingsRepository.getProviders()
-    const selectedProvider = providers.find(
-      (p) => p.enabled && p.provider === settings.defaultProvider
-    )
-    if (!selectedProvider?.apiKey.trim()) {
-      setErrorMessage("Add an API key in Settings to enable analysis.")
-      return
-    }
-    const provider = createProvider(selectedProvider)
-
-    for (const record of errorRecords) {
-      try {
-        await analyzeBookmark({
-          bookmark: record,
-          provider,
-          bookmarkRepository: services.bookmarkRepository
-        })
-      } catch {
-        // leave individual errors, continue with others
-      }
-    }
-    await loadData()
-  }
-
-  const microHeadingStyle: React.CSSProperties = {
-    margin: 0,
-    fontSize: "0.625rem",
-    fontWeight: 700,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    color: theme.textMuted
-  }
-
-  return (
-    <div style={{ display: "grid", gap: spacing.md }}>
-      <div style={{ display: "grid", gap: "4px" }}>
-        <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: theme.textPrimary }}>
-          Bookmarks
-        </h2>
-        <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted }}>
-          Browse folders, inspect saved analysis, and manage bookmark metadata.
-        </p>
-      </div>
-
-      <div
-        data-testid="bookmarks-workspace"
-        style={{ display: "grid", gap: spacing.md }}
-      >
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: spacing.sm,
-        flexWrap: "wrap",
-        padding: spacing.sm,
-        border: `1px solid ${theme.borderMuted}`,
-        borderRadius: radius.large,
-        backgroundColor: theme.surfaceElevated,
-        boxShadow: theme.isDark ? "none" : "inset 0 1px 0 rgba(255,255,255,0.8)"
-      }}>
-        <input
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search title, URL, summary, tags..."
-          style={{
-            flex: 1,
-            minWidth: "180px",
-            boxSizing: "border-box",
-            padding: `${spacing.sm} ${spacing.md}`,
-            border: `1px solid ${theme.border}`,
-            borderRadius: radius.medium,
-            backgroundColor: theme.surface,
-            color: theme.textPrimary,
-            fontSize: "0.875rem",
-            boxShadow: "0 1px 2px rgba(15,23,42,0.04)"
-          }}
-          type="search"
-          value={searchQuery}
-        />
-        <div style={{ display: "flex", gap: spacing.xs, flexShrink: 0 }}>
-          {(["all", "analyzed", "unanalyzed"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setFilterMode(mode)}
-              style={{
-                padding: "4px 12px",
-                border: filterMode === mode ? "none" : `1px solid ${theme.border}`,
-                borderRadius: radius.pill,
-                fontSize: "0.75rem",
-                fontWeight: filterMode === mode ? 600 : 500,
-                lineHeight: 1,
-                cursor: "pointer",
-                backgroundColor: filterMode === mode ? theme.accent : theme.surface,
-                color: filterMode === mode ? "#ffffff" : theme.textMuted,
-                transition: "background-color 0.15s ease, color 0.15s ease"
-              }}
-              type="button"
-            >
-              {mode === "all" ? "All" : mode === "analyzed" ? "Analyzed" : "Unanalyzed"}
-            </button>
-          ))}
-        </div>
-        {autoRetryEnabled && tabvaultRecords.some((r) => r.status === "error") ? (
-          <button
-            onClick={() => void handleRetryAllErrors()}
-            style={{
-              padding: "4px 12px",
-              border: "none",
-              borderRadius: radius.pill,
-              fontSize: "0.75rem",
-              fontWeight: 500,
-              lineHeight: 1,
-              cursor: "pointer",
-              backgroundColor: theme.textDanger,
-              color: "#fff",
-              flexShrink: 0
-            }}
-            type="button"
-          >
-            Retry all failed
-          </button>
-        ) : null}
-      </div>
-      {errorMessage ? (
-        <p style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>{errorMessage}</p>
-      ) : null}
-      <div style={{
-        display: "flex",
-        border: `1px solid ${theme.border}`,
-        borderRadius: "20px",
-        overflow: "hidden",
-        backgroundColor: theme.surface,
-        minHeight: "560px",
-        minWidth: 0,
-        boxShadow: theme.isDark ? "0 10px 28px rgba(0,0,0,0.24)" : "0 8px 24px rgba(15,23,42,0.06)",
-        userSelect: activeDivider ? "none" : undefined
-      }}>
-        <div style={{
-          width: `${widths.folders}px`,
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: theme.surfaceSubtle
-        }}>
-          <div style={{ padding: spacing.md, borderBottom: `1px solid ${theme.borderMuted}` }}>
-            <p style={microHeadingStyle}>YOUR FOLDERS</p>
-          </div>
-          <div style={{ padding: spacing.sm, overflowY: "auto", flex: 1 }}>
-            {isLoading ? (
-              <p style={{ margin: 0, padding: spacing.md, fontSize: "0.875rem", color: theme.textMuted }}>
-                Loading bookmarks...
-              </p>
-            ) : (
-              <BookmarkTree
-                metadataMap={displayedMetadataMap}
-                onAnalyze={handleAnalyze}
-                onDelete={handleDelete}
-                onClearAnalysis={handleClearAnalysis}
-                onSelectFolder={setSelectedFolderId}
-                selectedFolderId={selectedFolderId}
-                selectedUrl={selectedUrl}
-                showBookmarks={false}
-                treeNodes={chromeTree}
-                variant="options"
-              />
-            )}
-          </div>
-        </div>
-        <ResizeDivider
-          onMouseDown={(e) => {
-            setActiveDivider("folders-list")
-            handleMouseDown("folders-list")(e)
-          }}
-          isDragging={activeDivider === "folders-list"}
-        />
-        <div
-          data-testid="bookmark-list-column"
-          style={{
-            flex: 1,
-            minWidth: 200,
-            display: "flex",
-            flexDirection: "column",
-            backgroundColor: theme.surface
-          }}
-        >
-          <div style={{ padding: spacing.md, borderBottom: `1px solid ${theme.borderMuted}`, display: "grid", gap: "4px" }}>
-            <p style={microHeadingStyle}>BOOKMARKS</p>
-            <p style={{ margin: 0, fontSize: "0.75rem", color: theme.textMuted }}>
-              {hasSearch ? "Search results" : selectedFolderTitle ?? "No folder selected"}
-            </p>
-          </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: spacing.sm, display: "grid", gap: spacing.xs, alignContent: "start" }}>
-            {isLoading ? (
-              <p style={{ margin: 0, padding: spacing.md, fontSize: "0.875rem", color: theme.textMuted }}>
-                Loading bookmarks...
-              </p>
-            ) : visibleBookmarks.length === 0 ? (
-              <p style={{ margin: 0, padding: spacing.md, fontSize: "0.875rem", color: theme.textMuted }}>
-                {hasSearch ? "No bookmarks match your search." : "This folder has no bookmarks."}
-              </p>
-            ) : (
-              visibleBookmarks.map((item) => {
-                const isSelected = item.url === selectedUrl
-                const status = displayedMetadataMap[item.url]?.status
-                const host = getBookmarkHost(item.url)
-
-                return (
-                  <button
-                    data-testid="bookmark-result-button"
-                    key={item.id}
-                    onClick={() => setSelectedUrl(item.url)}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      display: "grid",
-                      gap: "4px",
-                      padding: "12px 14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${isSelected ? theme.borderFocus : theme.borderMuted}`,
-                      backgroundColor: isSelected ? theme.accentSoft : theme.surface,
-                      cursor: "pointer",
-                      boxShadow: isSelected ? "0 1px 2px rgba(15,23,42,0.06)" : "none"
-                    }}
-                    type="button"
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: spacing.xs, minWidth: 0 }}>
-                      <span style={{ fontSize: "0.875rem", fontWeight: isSelected ? 700 : 600, color: theme.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                        {item.title || item.url}
-                      </span>
-                      {status ? (
-                        <span
-                          data-testid="bookmark-result-status"
-                          style={{ fontSize: "0.6875rem", padding: "2px 8px", borderRadius: radius.pill, backgroundColor: theme.surfaceElevated, color: theme.textMuted, flexShrink: 0 }}
-                        >
-                          {status}
-                        </span>
-                      ) : null}
-                    </div>
-                    <span style={{ fontSize: "0.75rem", color: isSelected ? theme.accent : theme.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {host}
-                    </span>
-                  </button>
-                )
-              })
-            )}
-          </div>
-        </div>
-        <ResizeDivider
-          onMouseDown={(e) => {
-            setActiveDivider("list-details")
-            handleMouseDown("list-details")(e)
-          }}
-          isDragging={activeDivider === "list-details"}
-        />
-        <div
-          data-testid="bookmark-details-column"
-          style={{
-            width: `${widths.details}px`,
-            flexShrink: 0,
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-            backgroundColor: theme.surface
-          }}
-        >
-          <div style={{ padding: spacing.md, borderBottom: `1px solid ${theme.borderMuted}` }}>
-            <p style={microHeadingStyle}>DETAILS</p>
-          </div>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <BookmarkDetailPanel
-              record={selectedRecord}
-              url={selectedUrl}
-              onAnalyze={handleAnalyze}
-              onClearAnalysis={handleClearAnalysis}
-              onUpdateTags={handleUpdateTags}
-            />
-          </div>
-        </div>
-      </div>
-      </div>
-    </div>
-  )
-}
-
-type BookmarkDetailPanelProps = {
-  record: BookmarkRecord | null
-  url: string | null
-  onAnalyze: (url: string) => Promise<void>
-  onClearAnalysis: (url: string) => Promise<void>
-  onUpdateTags: (url: string, aiTags: string[], userTags: string[]) => Promise<void>
-}
-
-function getBookmarkHost(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "")
-  } catch {
-    return ""
-  }
-}
-
-function formatBookmarkDate(timestamp: string): string {
-  return new Date(timestamp).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  })
-}
-
-function BookmarkDetailPanel({ record, url, onAnalyze, onClearAnalysis, onUpdateTags }: BookmarkDetailPanelProps) {
-  const theme = useThemeContext()
-  const [isEditingTags, setIsEditingTags] = React.useState(false)
-  const [localAiTags, setLocalAiTags] = React.useState<string[]>([])
-  const [localUserTags, setLocalUserTags] = React.useState<string[]>([])
-  const [tagInput, setTagInput] = React.useState("")
-
-  React.useEffect(() => {
-    if (record) {
-      setLocalAiTags(record.aiTags)
-      setLocalUserTags(record.userTags)
-    } else {
-      setLocalAiTags([])
-      setLocalUserTags([])
-    }
-    setIsEditingTags(false)
-    setTagInput("")
-  }, [record?.id, record?.aiTags, record?.userTags])
-
-  function handleTagInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault()
-      addTagsFromInput()
-    }
-  }
-
-  function addTagsFromInput() {
-    const newTags = tagInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0)
-      .filter((t) => !localAiTags.includes(t) && !localUserTags.includes(t))
-    if (newTags.length > 0) setLocalUserTags([...localUserTags, ...newTags])
-    setTagInput("")
-  }
-
-  async function handleDoneEditing() {
-    setIsEditingTags(false)
-    if (!url) return
-    const aiChanged = JSON.stringify(localAiTags) !== JSON.stringify(record?.aiTags ?? [])
-    const userChanged = JSON.stringify(localUserTags) !== JSON.stringify(record?.userTags ?? [])
-    if (aiChanged || userChanged) {
-      await onUpdateTags(url, localAiTags, localUserTags)
-    }
-  }
-
-  if (!url) {
-    return (
-      <div style={{
-        flex: 1,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: spacing.lg,
-        color: theme.textMuted,
-        fontSize: "0.875rem",
-        textAlign: "center"
-      }}>
-        Select a bookmark to view details
-      </div>
-    )
-  }
-
-  const showAnalyzeButton = !record || record.status === "saved" || record.status === "error"
-  const showClearButton = record && (record.status === "done" || record.status === "error" || record.status === "analyzing")
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: spacing.lg, borderBottom: `1px solid ${theme.borderMuted}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", color: theme.textMuted, marginBottom: spacing.sm }}>
-          <span>{getBookmarkHost(url)}</span>
-          {record ? (
-            <>
-              <span>•</span>
-              <span>{formatBookmarkDate(record.createdAt)}</span>
-            </>
-          ) : null}
-        </div>
-        {record ? (
-          <h3 style={{ margin: 0, fontSize: "1.4rem", lineHeight: 1.25, fontWeight: 800, color: theme.textPrimary }}>
-            {record.title}
-          </h3>
-        ) : null}
-      </div>
-      <div style={{ padding: spacing.lg, display: "grid", gap: spacing.lg }}>
-        <div>
-          <p style={{ margin: "0 0 4px", fontSize: "0.75rem", fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>URL</p>
-          <a
-            href={url}
-            rel="noreferrer"
-            style={{ fontSize: "0.8125rem", color: theme.accent, textDecoration: "none", wordBreak: "break-all" }}
-            target="_blank"
-          >
-            {url}
-          </a>
-        </div>
-        {record ? (
-          <>
-            <div style={{ display: "flex", gap: spacing.xs, flexWrap: "wrap" }}>
-              <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: radius.pill, backgroundColor: theme.surfaceElevated, color: theme.textMuted }}>
-                {record.status}
-              </span>
-              {record.provider ? (
-                <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: radius.pill, backgroundColor: theme.accentSoft, color: theme.accent }}>
-                  {record.provider} / {record.model}
-                </span>
-              ) : null}
-            </div>
-            {record.summary ? (
-              <div style={{
-                background: theme.accentSoft,
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
-                padding: "22px",
-                boxShadow: theme.isDark ? "0 10px 24px rgba(0,0,0,0.2)" : "0 1px 3px rgba(15,23,42,0.06)"
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", paddingBottom: "10px", borderBottom: `1px solid ${theme.isDark ? theme.borderMuted : "rgba(224,231,255,0.9)"}` }}>
-                  <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: theme.isDark ? theme.textMuted : "#3730a3", textTransform: "uppercase", letterSpacing: "0.05em" }}>AI Summary</p>
-                  {showAnalyzeButton ? (
-                    <button
-                      onClick={() => void onAnalyze(url)}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: theme.accent, fontWeight: 500, padding: 0 }}
-                      type="button"
-                    >
-                      Re-generate
-                    </button>
-                  ) : null}
-                </div>
-                <p style={{ margin: 0, fontSize: "0.9375rem", color: theme.isDark ? theme.textSecondary : "#374151", lineHeight: 1.7 }}>{record.summary}</p>
-              </div>
-            ) : null}
-            {(localAiTags.length + localUserTags.length > 0 || isEditingTags) ? (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <p style={{ margin: 0, fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.07em" }}>Smart Tags</p>
-                  <button
-                    aria-label={isEditingTags ? "Done editing tags" : "Edit tags"}
-                    data-testid="detail-tags-edit-button"
-                    onClick={() => isEditingTags ? void handleDoneEditing() : setIsEditingTags(true)}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: radius.small }}
-                    type="button"
-                  >
-                    {isEditingTags ? "Done" : "✎"}
-                  </button>
-                </div>
-                <div style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: spacing.xs,
-                  alignItems: "center",
-                  padding: "12px",
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: "14px",
-                  backgroundColor: theme.isDark ? theme.surfaceSubtle : "rgba(249,250,251,0.8)",
-                  boxShadow: theme.isDark ? "inset 0 1px 3px rgba(0,0,0,0.22)" : "inset 0 1px 3px rgba(15,23,42,0.05)",
-                  minHeight: "48px"
-                }}>
-                  {localAiTags.map((tag) => (
-                    <div key={`ai-${tag}`} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.8125rem", padding: "5px 10px", borderRadius: "10px", backgroundColor: theme.surface, border: `1px solid ${theme.border}`, boxShadow: theme.isDark ? "0 1px 2px rgba(0,0,0,0.28)" : "0 1px 2px rgba(15,23,42,0.06)", color: theme.textPrimary, fontWeight: 500 }}>
-                      <span style={{ color: theme.accent }}>#</span>
-                      {tag}
-                      {isEditingTags ? (
-                        <button
-                          aria-label={`Remove tag ${tag}`}
-                          data-testid="detail-tag-remove-button"
-                          onClick={() => setLocalAiTags(localAiTags.filter((t) => t !== tag))}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "0 0 0 2px", lineHeight: 1 }}
-                          type="button"
-                        >
-                          ×
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
-                  {localUserTags.map((tag) => (
-                    <div key={`user-${tag}`} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.8125rem", padding: "5px 10px", borderRadius: "10px", backgroundColor: theme.surface, border: `1px solid ${theme.border}`, boxShadow: theme.isDark ? "0 1px 2px rgba(0,0,0,0.28)" : "0 1px 2px rgba(15,23,42,0.06)", color: theme.textPrimary, fontWeight: 500 }}>
-                      <span style={{ color: theme.accent }}>#</span>
-                      {tag}
-                      {isEditingTags ? (
-                        <button
-                          aria-label={`Remove tag ${tag}`}
-                          data-testid="detail-tag-remove-button"
-                          onClick={() => setLocalUserTags(localUserTags.filter((t) => t !== tag))}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "0 0 0 2px", lineHeight: 1 }}
-                          type="button"
-                        >
-                          ×
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
-                  {isEditingTags ? (
-                    <input
-                      data-testid="detail-tag-input"
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={handleTagInputKeyDown}
-                      placeholder="+ Add custom tag..."
-                      style={{ flex: 1, minWidth: "120px", background: "transparent", outline: "none", border: "none", padding: "4px 6px", color: theme.textPrimary, fontSize: "0.8125rem" }}
-                      type="text"
-                      value={tagInput}
-                    />
-                  ) : null}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <p style={{ margin: 0, fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.07em" }}>Smart Tags</p>
-                <button
-                  aria-label="Edit tags"
-                  data-testid="detail-tags-edit-button"
-                  onClick={() => setIsEditingTags(true)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: radius.small }}
-                  type="button"
-                >✎</button>
-              </div>
-            )}
-            {record.status === "error" && record.errorMessage ? (
-              <p style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>{record.errorMessage}</p>
-            ) : null}
-            <div style={{ fontSize: "0.75rem", color: theme.textMuted }}>
-              <p style={{ margin: 0 }}>Saved {formatBookmarkDate(record.createdAt)}</p>
-              <p style={{ margin: "2px 0 0" }}>Updated {formatBookmarkDate(record.updatedAt)}</p>
-            </div>
-          </>
-        ) : (
-          <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted }}>
-            This bookmark has not been analyzed yet.
-          </p>
-        )}
-      </div>
-      <div style={{ padding: spacing.lg, borderTop: `1px solid ${theme.borderMuted}`, display: "flex", gap: spacing.sm, marginTop: spacing.lg }}>
-        {showAnalyzeButton && !record?.summary ? (
-          <button
-            data-testid="detail-analyze-button"
-            onClick={() => void onAnalyze(url)}
-            style={{ flex: 1, padding: `${spacing.sm} ${spacing.md}`, border: "none", borderRadius: radius.medium, backgroundColor: theme.accent, color: "#fff", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
-            type="button"
-          >
-            Analyze
-          </button>
-        ) : null}
-        {showClearButton ? (
-          <button
-            onClick={() => void onClearAnalysis(url)}
-            style={{ flex: 1, padding: `${spacing.sm} ${spacing.md}`, border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: "transparent", color: theme.textSecondary, fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
-            type="button"
-          >
-            Clear analysis
-          </button>
-        ) : null}
-      </div>
-    </div>
   )
 }
 
