@@ -23,6 +23,19 @@ describe("DashboardShell data flow", () => {
     root = null
   })
 
+  it("shows the selected bookmark content after dashboard-level result derivation", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", url: "https://react.dev", extractedText: "React content" })
+    ])
+
+    const button = Array.from(container?.querySelectorAll("button") ?? []).find((el) => el.textContent?.includes("React Docs"))
+    await act(async () => {
+      ;(button as HTMLButtonElement | undefined)?.click()
+    })
+
+    expect(container?.textContent).toContain("React content")
+  })
+
   it("shows bookmark metadata and extracted text after selecting a bookmark", async () => {
     await renderDashboard([
       createBookmark({
