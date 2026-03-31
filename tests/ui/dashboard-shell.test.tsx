@@ -119,6 +119,15 @@ describe("DashboardShell", () => {
     expect(container?.textContent).not.toContain("React Docs")
   })
 
+  it("renders a design-aligned dashboard with search, results, reading pane, and AI sidebar", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "React Docs", extractedText: "React content" })])
+
+    expect(container?.querySelector('[data-testid="dashboard-search-input"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-results-column"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-reading-pane"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-ai-sidebar"]')).not.toBeNull()
+  })
+
   it("styles navigation items and reading metadata closer to the design", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })
