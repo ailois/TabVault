@@ -99,19 +99,39 @@ describe("DashboardShell", () => {
     expect(container?.textContent).toContain("Select a bookmark to start reading")
   })
 
+  it("switches the dashboard results column to search mode when typing", async () => {
+    const bookmarks = [
+      createBookmark({ id: "b1", title: "React Docs", url: "https://react.dev" }),
+      createBookmark({ id: "b2", title: "Vue Docs", url: "https://vuejs.org" }),
+      createBookmark({ id: "b3", title: "Svelte Docs", url: "https://svelte.dev" })
+    ]
+    await renderDashboard(bookmarks)
+
+    const searchInput = container?.querySelector<HTMLInputElement>('[data-testid="dashboard-search-input"]')
+    expect(searchInput).not.toBeNull()
+
+    await act(async () => {
+      Object.defineProperty(searchInput, "value", { writable: true, value: "svelte" })
+      searchInput?.dispatchEvent(new Event("change", { bubbles: true }))
+    })
+
+    expect(container?.textContent).toContain("Svelte Docs")
+    expect(container?.textContent).not.toContain("React Docs")
+  })
+
   it("styles navigation items and reading metadata closer to the design", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })
     ])
 
-    const navButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-navigation'] button")
+    const resultButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")
     await act(async () => {
-      navButton?.click()
+      resultButton?.click()
     })
 
     const metadata = container?.querySelector<HTMLElement>("[data-testid='dashboard-reading-metadata']")
-    expect(navButton?.style.padding).toBe("8px 12px")
-    expect(navButton?.style.borderRadius).toBe("12px")
+    expect(resultButton?.style.padding).toBe("8px 16px")
+    expect(resultButton?.style.borderRadius).toBe("14px")
     expect(metadata).not.toBeNull()
     expect(metadata?.style.borderBottom).toContain("1px solid")
   })

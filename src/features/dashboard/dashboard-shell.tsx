@@ -3,11 +3,13 @@ import React, { useEffect, useMemo, useState } from "react"
 import { IndexedDbBookmarkRepository } from "../../lib/storage/indexeddb-bookmark-repository"
 import { updateBookmarkMetadata } from "../../lib/storage/update-bookmark-metadata"
 import type { BookmarkRecord } from "../../types/bookmark"
+import { spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
-import { collectBookmarksWithFolderContext, findDefaultFolderId } from "./bookmark-workspace"
+import { collectBookmarksWithFolderContext, findDefaultFolderId, matchesSearch } from "./bookmark-workspace"
 import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
 import { DashboardNavigation } from "./dashboard-navigation"
 import { DashboardReadingPane } from "./dashboard-reading-pane"
+import { DashboardResultsList } from "./dashboard-results-list"
 
 type DashboardShellProps = {
   initialBookmarks?: BookmarkRecord[]
@@ -23,6 +25,7 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>(initialBookmarks ?? [])
   const [chromeTree, setChromeTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>(initialTree ?? [])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
   const [activeBookmark, setActiveBookmark] = useState<BookmarkRecord | null>(null)
   const [leftWidth, setLeftWidth] = useState(280)
   const [rightWidth, setRightWidth] = useState(360)
@@ -54,13 +57,26 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
 
   // Derive visible bookmarks: if tree provided, use folder-scoped; else show all
   const visibleBookmarks = useMemo(() => {
+    let folderItems: BookmarkRecord[]
     if (chromeTree.length === 0) {
-      return bookmarks
+      folderItems = bookmarks
+    } else {
+      const allItems = collectBookmarksWithFolderContext(chromeTree)
+      const filtered = selectedFolderId ? allItems.filter((item) => item.folderId === selectedFolderId) : allItems
+      folderItems = filtered.map((item) => metadataMap[item.url]).filter(Boolean) as BookmarkRecord[]
     }
-    const allItems = collectBookmarksWithFolderContext(chromeTree)
-    const folderItems = selectedFolderId ? allItems.filter((item) => item.folderId === selectedFolderId) : allItems
-    return folderItems.map((item) => metadataMap[item.url]).filter(Boolean) as BookmarkRecord[]
-  }, [chromeTree, selectedFolderId, bookmarks, metadataMap])
+
+    if (!searchQuery.trim()) return folderItems
+
+    // Build a minimal BookmarkListItem for matchesSearch
+    return folderItems.filter((bm) =>
+      matchesSearch(
+        { id: bm.id, title: bm.title, url: bm.url, folderId: null, folderTitle: "" },
+        searchQuery,
+        metadataMap
+      )
+    )
+  }, [chromeTree, selectedFolderId, bookmarks, metadataMap, searchQuery])
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -138,6 +154,7 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
       data-testid="dashboard-shell"
       style={{
         display: "flex",
+        flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
         backgroundColor: theme.page,
@@ -145,50 +162,87 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
         fontFamily: "system-ui, sans-serif"
       }}
     >
-      <DashboardNavigation
-        activeBookmarkId={activeBookmark?.id ?? null}
-        bookmarks={visibleBookmarks}
-        chromeTree={chromeTree}
-        onSelect={setActiveBookmark}
-        onSelectFolder={setSelectedFolderId}
-        selectedFolderId={selectedFolderId}
-        width={leftWidth}
-      />
       <div
-        data-testid="dashboard-resize-left"
-        onPointerDown={() => startResize("left")}
         style={{
-          width: "6px",
-          cursor: "col-resize",
-          backgroundColor: theme.page,
-          borderRight: `1px solid ${theme.border}`,
-          flexShrink: 0,
-          position: "relative"
+          padding: `${spacing.sm} ${spacing.md}`,
+          borderBottom: `1px solid ${theme.border}`,
+          backgroundColor: theme.surface,
+          flexShrink: 0
         }}
       >
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: "2px", width: "2px", backgroundColor: theme.border }} />
+        <input
+          data-testid="dashboard-search-input"
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search bookmarks..."
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            padding: `${spacing.sm} ${spacing.md}`,
+            border: `1px solid ${theme.border}`,
+            borderRadius: "10px",
+            backgroundColor: theme.surfaceSubtle,
+            color: theme.textPrimary,
+            fontSize: "0.875rem",
+            outline: "none"
+          }}
+          type="text"
+          value={searchQuery}
+        />
       </div>
-      <DashboardReadingPane bookmark={activeBookmark} />
-      <div
-        data-testid="dashboard-resize-right"
-        onPointerDown={() => startResize("right")}
-        style={{
-          width: "6px",
-          cursor: "col-resize",
-          backgroundColor: theme.page,
-          borderLeft: `1px solid ${theme.border}`,
-          flexShrink: 0,
-          position: "relative"
-        }}
-      >
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: "2px", width: "2px", backgroundColor: theme.border }} />
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        <DashboardNavigation
+          activeBookmarkId={activeBookmark?.id ?? null}
+          bookmarks={[]}
+          chromeTree={chromeTree}
+          onSelect={setActiveBookmark}
+          onSelectFolder={setSelectedFolderId}
+          selectedFolderId={selectedFolderId}
+          width={leftWidth}
+        />
+        <div
+          data-testid="dashboard-resize-left"
+          onPointerDown={() => startResize("left")}
+          style={{
+            width: "6px",
+            cursor: "col-resize",
+            backgroundColor: theme.page,
+            borderRight: `1px solid ${theme.border}`,
+            flexShrink: 0,
+            position: "relative"
+          }}
+        >
+          <div style={{ position: "absolute", top: 0, bottom: 0, left: "2px", width: "2px", backgroundColor: theme.border }} />
+        </div>
+        <DashboardResultsList
+          activeUrl={activeBookmark?.url ?? null}
+          bookmarks={visibleBookmarks}
+          onSelectUrl={(url) => {
+            const bm = bookmarks.find((b) => b.url === url) ?? null
+            setActiveBookmark(bm)
+          }}
+        />
+        <DashboardReadingPane bookmark={activeBookmark} />
+        <div
+          data-testid="dashboard-resize-right"
+          onPointerDown={() => startResize("right")}
+          style={{
+            width: "6px",
+            cursor: "col-resize",
+            backgroundColor: theme.page,
+            borderLeft: `1px solid ${theme.border}`,
+            flexShrink: 0,
+            position: "relative"
+          }}
+        >
+          <div style={{ position: "absolute", top: 0, bottom: 0, left: "2px", width: "2px", backgroundColor: theme.border }} />
+        </div>
+        <DashboardAiSidebar
+          bookmark={activeBookmark}
+          onSaveSummary={handleSaveSummary}
+          onSaveTags={handleSaveTags}
+          width={rightWidth}
+        />
       </div>
-      <DashboardAiSidebar
-        bookmark={activeBookmark}
-        onSaveSummary={handleSaveSummary}
-        onSaveTags={handleSaveTags}
-        width={rightWidth}
-      />
     </div>
   )
 }
