@@ -77,12 +77,13 @@ describe("Popup quick entry", () => {
     expect(container?.querySelector("[data-bookmark-card='true']")).toBeNull()
   })
 
-  it("renders open sidepanel and open dashboard actions", async () => {
+  it("renders Chinese quick-entry actions when display language is zh", async () => {
     await renderPopup(createServices())
 
-    expect(container?.querySelector("[data-testid='popup-open-sidepanel']")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='popup-open-dashboard']")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("打开侧边栏")
+    expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("控制台")
   })
+
 })
 
 let container: HTMLDivElement | null = null
@@ -180,7 +181,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "zh"
     })),
     saveAppSettings: vi.fn(async () => undefined),
     ...overrides

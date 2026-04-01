@@ -17,6 +17,7 @@ import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
 import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
+import { getMessage } from "./lib/i18n/messages"
 import type { AiProvider } from "./lib/providers/provider"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
@@ -66,6 +67,8 @@ export default function SidePanel({ services }: SidePanelProps) {
 
   const trial = useTrialStatus()
   const trialRepository = useMemo(() => new TrialRepository(), [])
+  const [displayLanguage, setDisplayLanguage] = useState<"en" | "zh">("en")
+  const t = useMemo(() => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key), [displayLanguage])
   const [isActivationExpanded, setIsActivationExpanded] = useState(false)
   const [licenseKeyInput, setLicenseKeyInput] = useState("")
   const [licenseError, setLicenseError] = useState<string | null>(null)
@@ -165,6 +168,12 @@ export default function SidePanel({ services }: SidePanelProps) {
     }
   }
 
+  useEffect(() => {
+    void sidePanelServices.settingsRepository.getAppSettings().then((settings) => {
+      setDisplayLanguage(settings.displayLanguage)
+    })
+  }, [sidePanelServices])
+
   const handleLicenseSubmit = useCallback(async () => {
     setLicenseError(null)
     setIsSubmittingLicense(true)
@@ -201,7 +210,7 @@ export default function SidePanel({ services }: SidePanelProps) {
     )
 
     if (!selectedProvider?.apiKey.trim()) {
-      setErrorMessage("Add an API key in Settings to enable analysis.")
+      setErrorMessage(t("sidepanel.apiKeyMissing"))
       return
     }
 
@@ -246,13 +255,13 @@ export default function SidePanel({ services }: SidePanelProps) {
 
   async function handleImport(): Promise<void> {
     setIsImporting(true)
-    setStatus("Importing...")
+    setStatus(t("sidepanel.import.syncing"))
     setErrorMessage(null)
 
     globalThis.chrome?.runtime?.sendMessage({ type: "IMPORT_BOOKMARKS" }, (response: any) => {
       setIsImporting(false)
       if (response?.success) {
-        setStatus(`Imported ${response.count} bookmarks`)
+        setStatus(t("sidepanel.import.success").replace("{count}", String(response.count)))
         void loadBookmarks()
       } else {
         setStatus("")
@@ -332,7 +341,7 @@ export default function SidePanel({ services }: SidePanelProps) {
               <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: theme.textPrimary }}>Ghostreader</div>
-                <div style={{ marginTop: 2, fontSize: "0.75rem", color: theme.textMuted }}>Ask about the current page and your saved knowledge.</div>
+                <div style={{ marginTop: 2, fontSize: "0.75rem", color: theme.textMuted }}>{t("sidepanel.header.tagline")}</div>
               </div>
             </div>
             <button
@@ -374,7 +383,7 @@ export default function SidePanel({ services }: SidePanelProps) {
             <input
               id="sidepanel-search"
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="语义搜索书签..."
+              placeholder={t("sidepanel.search.placeholder")}
               style={{ ...searchInputStyle, paddingRight: searchQuery ? "36px" : "12px" }}
               type="search"
               value={searchQuery}
@@ -463,19 +472,19 @@ export default function SidePanel({ services }: SidePanelProps) {
                   maxWidth: "90%"
                 }} data-testid="ghostreader-welcome-card">
                   <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: "0.875rem", color: theme.textPrimary, lineHeight: 1.5 }}>
-                    我已经阅读了当前页面{currentPageContext?.title ? `《${currentPageContext.title}》` : ""}。你想了解什么？
+                    {t("sidepanel.welcome.prompt").replace("{title}", currentPageContext?.title ? `《${currentPageContext.title}》` : "")}
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs }}>
-                    <span style={{ fontSize: "0.6875rem", backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "4px 8px", borderRadius: radius.pill, color: theme.textSecondary }}>总结核心观点</span>
-                    <span style={{ fontSize: "0.6875rem", backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "4px 8px", borderRadius: radius.pill, color: theme.textSecondary }}>列出相关代码片段</span>
+                    <span style={{ fontSize: "0.6875rem", backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "4px 8px", borderRadius: radius.pill, color: theme.textSecondary }}>{t("sidepanel.welcome.chip.summarize")}</span>
+                    <span style={{ fontSize: "0.6875rem", backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "4px 8px", borderRadius: radius.pill, color: theme.textSecondary }}>{t("sidepanel.welcome.chip.codeSnippets")}</span>
                   </div>
                 </div>
 
                 {isLoadingBookmarks ? (
-                  <p style={{ fontSize: "0.875rem", color: theme.textMuted }}>Loading bookmarks...</p>
+                  <p style={{ fontSize: "0.875rem", color: theme.textMuted }}>{t("sidepanel.bookmarks.loading")}</p>
                 ) : displayedBookmarks.length > 0 ? (
                   <div style={{ fontSize: "0.75rem", color: theme.textMuted }}>
-                    已连接 {displayedBookmarks.length} 条已保存书签，可直接提问或搜索。
+                    {t("sidepanel.bookmarks.connectedPrefix").replace("{count}", String(displayedBookmarks.length))}
                   </div>
                 ) : null}
               </div>
@@ -488,7 +497,7 @@ export default function SidePanel({ services }: SidePanelProps) {
             <input
               data-testid="ghostreader-input"
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="向 Ghostreader 提问..."
+              placeholder={t("sidepanel.input.placeholder")}
               style={{ ...searchInputStyle, paddingRight: "42px", borderRadius: radius.large }}
               type="text"
               value={searchQuery}
@@ -516,7 +525,7 @@ export default function SidePanel({ services }: SidePanelProps) {
           </div>
           <div style={{ marginTop: spacing.sm }}>
             <button disabled={isImporting} onClick={() => void handleImport()} style={importButtonStyle} type="button">
-              {isImporting ? "Syncing..." : "Sync Bookmarks"}
+              {isImporting ? t("sidepanel.import.syncing") : t("sidepanel.import.button")}
             </button>
           </div>
         </footer>

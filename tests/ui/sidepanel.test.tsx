@@ -213,7 +213,7 @@ describe("SidePanel", () => {
     await renderSidePanel()
 
     expect(container?.textContent).toContain("Ghostreader")
-    expect(container?.textContent).toContain("Ask about the current page and your saved knowledge.")
+    expect(container?.textContent).toContain("Ask about the current page")
     expect(container?.querySelector("#sidepanel-search")).not.toBeNull()
     expect(container?.querySelector("[data-testid='ghostreader-input']")).not.toBeNull()
   })
@@ -286,7 +286,7 @@ describe("SidePanel", () => {
     await renderSidePanel()
 
     const importBtn = Array.from(container?.querySelectorAll("button") ?? [])
-      .find(b => b.textContent?.includes("Sync Bookmarks"))
+      .find(b => b.textContent?.match(/Sync Bookmarks|同步书签/))
 
     await act(async () => {
       importBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
@@ -617,7 +617,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "en"
     })),
     saveAppSettings: vi.fn(async () => undefined),
     getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),

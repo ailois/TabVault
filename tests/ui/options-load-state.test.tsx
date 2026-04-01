@@ -51,7 +51,8 @@ describe("Options load state", () => {
         defaultProvider: "claude",
         autoAnalyzeOnSave: true,
         summaryLanguage: "auto" as const,
-        autoRetryOnError: false
+        autoRetryOnError: false,
+        displayLanguage: "en" as const
       }),
       saveAppSettings: async () => {},
       getProviders: async () => [
@@ -78,7 +79,7 @@ describe("Options load state", () => {
     expect(getProviderRailButton("claude")?.getAttribute("aria-pressed")).toBe("true")
     expect(getProviderRailButton("openai")?.getAttribute("aria-pressed")).toBe("false")
     expect(getProviderRailButton("gemini")?.getAttribute("aria-pressed")).toBe("false")
-    expect(getSectionByHeading("Provider & Protocol")?.querySelector('[role="switch"]')?.getAttribute("aria-checked")).toBe("true")
+    expect(container?.querySelector('[data-testid="settings-experience-card"] [role="switch"]')?.getAttribute("aria-checked")).toBe("true")
 
     // defaultProvider is claude, so only the claude form is visible
     expect(getInput("claude-api-key")?.value).toBe("claude-key")
@@ -105,10 +106,9 @@ async function renderOptions(settingsRepository: SettingsRepository): Promise<vo
 }
 
 function getSectionByHeading(heading: string): HTMLElement | undefined {
-  return Array.from(container?.querySelectorAll("section") ?? []).find((section) => {
-    const sectionHeading = section.querySelector("h2")
-    return sectionHeading?.textContent === heading
-  })
+  const headings = Array.from(container?.querySelectorAll("h2") ?? [])
+  const match = headings.find((h) => h.textContent === heading)
+  return match?.closest("section") ?? undefined
 }
 
 function getInput(id: string): HTMLInputElement | null | undefined {

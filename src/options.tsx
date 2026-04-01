@@ -19,6 +19,7 @@ import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
 import type { ProviderConfig, ProviderType } from "./types/settings"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
+import { getMessage } from "./lib/i18n/messages"
 import { radius, spacing } from "./ui/design-tokens"
 import { useTheme } from "./ui/use-theme"
 import { useGlobalStyles } from "./ui/use-global-styles"
@@ -36,6 +37,7 @@ type OptionsServices = {
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
+type SettingsTab = "agent" | "retrieval"
 
 type LicenseEntryStateProps = {
   status: "trial" | "expired" | "licensed"
@@ -84,6 +86,7 @@ function Options({ services }: OptionsProps) {
   const [appSettings, setAppSettings] = React.useState(DEFAULT_APP_SETTINGS)
   const [providers, setProviders] = React.useState(() => buildProviderFormState([]))
   const [providerEditorSelection, setProviderEditorSelection] = React.useState<ProviderType>(DEFAULT_APP_SETTINGS.defaultProvider)
+  const [activeTab, setActiveTab] = React.useState<SettingsTab>("agent")
   const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle")
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasLoadError, setHasLoadError] = React.useState(false)
@@ -94,6 +97,10 @@ function Options({ services }: OptionsProps) {
   const [optimisticLicensedKey, setOptimisticLicensedKey] = React.useState<string | null>(null)
   const isSavingRef = React.useRef(false)
   const validation = React.useMemo(() => validateSettingsForm(appSettings, providers), [appSettings, providers])
+  const t = React.useCallback(
+    (key: Parameters<typeof getMessage>[1]) => getMessage(appSettings.displayLanguage, key),
+    [appSettings.displayLanguage]
+  )
 
   function buildProviderConfig(formState: typeof providers[0]): ProviderConfig {
     return {
@@ -145,9 +152,14 @@ function Options({ services }: OptionsProps) {
           return
         }
 
-        setAppSettings(storedAppSettings)
-        setProviders(applySingleProviderEnabledState(buildProviderFormState(storedProviders), storedAppSettings.defaultProvider))
-        setProviderEditorSelection(storedAppSettings.defaultProvider)
+        const normalizedAppSettings = {
+          ...DEFAULT_APP_SETTINGS,
+          ...storedAppSettings
+        }
+
+        setAppSettings(normalizedAppSettings)
+        setProviders(applySingleProviderEnabledState(buildProviderFormState(storedProviders), normalizedAppSettings.defaultProvider))
+        setProviderEditorSelection(normalizedAppSettings.defaultProvider)
         setHasLoadError(false)
       } catch {
         if (isMounted) {
@@ -277,7 +289,7 @@ function Options({ services }: OptionsProps) {
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: "0.8125rem", color: theme.textMuted, lineHeight: 1.5 }}>
-                Local-first bookmark workspace
+                {t("settings.sidebar.tagline")}
               </p>
             </div>
 
@@ -326,7 +338,7 @@ function Options({ services }: OptionsProps) {
               }}
               type="button"
             >
-              <span>Settings</span>
+              <span>{t("settings.nav.settings")}</span>
               <span aria-hidden="true" style={{ color: theme.accent, fontSize: "0.75rem" }}>
                 ●
               </span>
@@ -345,13 +357,14 @@ function Options({ services }: OptionsProps) {
         >
           <div data-testid="settings-page-shell" style={{ width: "100%", minWidth: 0, display: "grid", gap: spacing.lg }}>
               <header data-testid="settings-page-header" style={{ display: "grid", gap: "4px" }}>
-                <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: theme.textPrimary }}>Architecture Settings</h1>
+                <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: theme.textPrimary }}>{t("settings.title")}</h1>
                 <p data-testid="settings-page-description" style={{ margin: 0, color: theme.textMuted, fontSize: "0.875rem" }}>
-                  Configure provider protocols, retrieval architecture, experience behavior, and licensing.
+                  {t("settings.subtitle")}
                 </p>
               </header>
 
               <SettingsTabContent
+                activeTab={activeTab}
                 appSettings={appSettings}
                 handleSave={handleSave}
                 hasLoadError={hasLoadError}
@@ -360,6 +373,7 @@ function Options({ services }: OptionsProps) {
                 providers={providers}
                 providerEditorSelection={providerEditorSelection}
                 saveStatus={saveStatus}
+                setActiveTab={setActiveTab}
                 setAppSettings={setAppSettings}
                 setProviders={setProviders}
                 setProviderEditorSelection={setProviderEditorSelection}
@@ -385,6 +399,7 @@ function Options({ services }: OptionsProps) {
                   storedLicenseKey: optimisticLicensedKey ?? trial.state?.licenseKey,
                   status: optimisticLicensedKey ? "licensed" : trial.status
                 } : null}
+                t={t}
               />
             </div>
         </div>
@@ -474,28 +489,34 @@ function OptionsLicenseEntry({
   )
 }
 
-function getSaveStatusMessage(saveStatus: SaveStatus, isLoading: boolean, hasLoadError: boolean): string {
+function getSaveStatusMessage(
+  saveStatus: SaveStatus,
+  isLoading: boolean,
+  hasLoadError: boolean,
+  t: (key: Parameters<typeof getMessage>[1]) => string
+): string {
   if (isLoading) {
-    return "Loading settings..."
+    return t("settings.save.status.loading")
   }
 
   if (hasLoadError) {
-    return "Failed to load settings"
+    return t("settings.save.status.loadError")
   }
 
   switch (saveStatus) {
     case "saving":
-      return "Saving..."
+      return t("settings.save.status.saving")
     case "saved":
-      return "Saved settings"
+      return t("settings.save.status.saved")
     case "error":
-      return "Failed to save settings"
+      return t("settings.save.status.saveError")
     default:
-      return "Ready"
+      return t("settings.save.status.ready")
   }
 }
 
 type SettingsTabContentProps = {
+  activeTab: SettingsTab
   appSettings: typeof DEFAULT_APP_SETTINGS
   handleSave: () => Promise<void>
   hasLoadError: boolean
@@ -504,6 +525,7 @@ type SettingsTabContentProps = {
   providers: ReturnType<typeof buildProviderFormState>
   providerEditorSelection: ProviderType
   saveStatus: SaveStatus
+  setActiveTab: React.Dispatch<React.SetStateAction<SettingsTab>>
   setAppSettings: React.Dispatch<React.SetStateAction<typeof DEFAULT_APP_SETTINGS>>
   setProviders: React.Dispatch<React.SetStateAction<ReturnType<typeof buildProviderFormState>>>
   setProviderEditorSelection: React.Dispatch<React.SetStateAction<ProviderType>>
@@ -511,12 +533,14 @@ type SettingsTabContentProps = {
   validation: ReturnType<typeof validateSettingsForm>
   buildProviderConfig: (formState: ReturnType<typeof buildProviderFormState>[0]) => ProviderConfig
   trialStateProps: LicenseEntryStateProps | null
+  t: (key: Parameters<typeof getMessage>[1]) => string
 }
 
 function SettingsTabContent({
+  activeTab,
   appSettings, handleSave, hasLoadError, isLoading, optionsServices,
-  providers, providerEditorSelection, saveStatus, setAppSettings, setProviders,
-  setProviderEditorSelection, theme, validation, buildProviderConfig, trialStateProps
+  providers, providerEditorSelection, saveStatus, setActiveTab, setAppSettings, setProviders,
+  setProviderEditorSelection, theme, validation, buildProviderConfig, trialStateProps, t
 }: SettingsTabContentProps) {
   async function handleClearAll() {
     if (!window.confirm("Clear all analysis results? This cannot be undone.")) return
@@ -568,177 +592,226 @@ function SettingsTabContent({
     backgroundColor: theme.surfaceSubtle
   }
 
-  return (
-    <>
-      <div
-        data-testid="settings-workspace"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(320px, 380px) minmax(0, 1fr)",
-          gap: spacing.lg,
-          alignItems: "start"
-        }}
-      >
-        <div style={{ display: "grid", gap: spacing.lg }}>
-          <section data-testid="settings-section-card" style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>Provider & Protocol</h2>
-            </div>
-            <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
-              <div style={{ display: "grid", gap: spacing.sm }}>
-                <label htmlFor="default-provider" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-                  Default provider
-                </label>
-                <select
-                  aria-describedby={validation.defaultProvider ? "default-provider-error" : undefined}
-                  aria-invalid={validation.defaultProvider ? true : undefined}
-                  id="default-provider"
-                  onChange={(event) => {
-                    const newProvider = event.target.value as typeof appSettings.defaultProvider
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      defaultProvider: newProvider
-                    }))
-                    setProviders((currentProviders) => applySingleProviderEnabledState(currentProviders, newProvider))
-                    setProviderEditorSelection(newProvider)
-                  }}
-                  style={selectStyle}
-                  value={appSettings.defaultProvider}
-                >
-                  <option value="openai">OpenAI-compatible</option>
-                  <option value="claude">Claude</option>
-                  <option value="gemini">Gemini</option>
-                </select>
-                {validation.defaultProvider ? (
-                  <p aria-live="polite" id="default-provider-error" role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
-                    {validation.defaultProvider}
-                  </p>
+  const panelStyle = (isActive: boolean): React.CSSProperties => ({
+    display: isActive ? "grid" : "none",
+    gap: spacing.lg
+  })
+
+  const providerPanel = (
+    <div style={{ display: "grid", gap: spacing.md, minWidth: 0 }}>
+      {providers
+        .map((provider, originalIndex) => ({ provider, originalIndex }))
+        .filter(({ provider }) => provider.provider === providerEditorSelection)
+        .map(({ provider, originalIndex }) => {
+          const isDefault = provider.provider === appSettings.defaultProvider
+
+          return (
+            <div
+              data-testid="settings-section-card"
+              key={provider.provider}
+              style={{
+                border: `1px solid ${theme.border}`,
+                borderRadius: "16px",
+                overflow: "hidden",
+                backgroundColor: theme.surface,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                position: "relative"
+              }}
+            >
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "4px", backgroundColor: theme.accent, borderRadius: "16px 0 0 16px" }} />
+              <div style={{ padding: `${spacing.sm} ${spacing.md}`, paddingLeft: "20px", borderBottom: `1px solid ${theme.borderMuted}`, backgroundColor: theme.surfaceElevated, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>
+                  {providerLabels[provider.provider]}
+                </span>
+                {isDefault ? (
+                  <span style={{ fontSize: "0.625rem", fontWeight: 800, backgroundColor: theme.accentSoft, color: theme.accent, border: `1px solid ${theme.border}`, padding: "2px 8px", borderRadius: "9999px" }}>
+                    DEFAULT
+                  </span>
                 ) : null}
               </div>
-
-              <div style={{ display: "grid", gap: spacing.sm }}>
-                <label htmlFor="summary-language" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-                  Summary language
-                </label>
-                <select
-                  id="summary-language"
-                  onChange={(event) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      summaryLanguage: event.target.value as typeof currentSettings.summaryLanguage
-                    }))
-                  }
-                  style={selectStyle}
-                  value={appSettings.summaryLanguage ?? "auto"}
-                >
-                  <option value="auto">Auto (follow content)</option>
-                  <option value="zh">Chinese</option>
-                  <option value="en">English</option>
-                  <option value="ja">Japanese</option>
-                  <option value="ko">Korean</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="es">Spanish</option>
-                </select>
-              </div>
-
-              <div style={toggleRowStyle}>
-                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>Auto analyze on save</span>
-                <ToggleSwitch
-                  checked={appSettings.autoAnalyzeOnSave}
-                  label="Auto analyze on save"
-                  onChange={(next) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      autoAnalyzeOnSave: next
-                    }))
-                  }
-                />
-              </div>
-
-              <div style={toggleRowStyle}>
-                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>Auto retry failed analysis</span>
-                <ToggleSwitch
-                  checked={appSettings.autoRetryOnError}
-                  label="Auto retry failed analysis"
-                  onChange={(next) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      autoRetryOnError: next
-                    }))
-                  }
+              <div style={{ padding: "20px" }}>
+                <ProviderSettingsForm
+                  onChange={(nextValue) => {
+                    setProviders((currentProviders) =>
+                      currentProviders.map((currentProvider, currentIndex) =>
+                        currentIndex === originalIndex ? nextValue : currentProvider
+                      )
+                    )
+                  }}
+                  fieldErrors={validation.providers[provider.provider]}
+                  onTestConnection={async (formValue) => {
+                    try {
+                      await optionsServices.testConnection(buildProviderConfig(formValue))
+                      return "ok"
+                    } catch (error) {
+                      return error instanceof Error ? error.message : "Connection failed"
+                    }
+                  }}
+                  value={provider}
                 />
               </div>
             </div>
-          </section>
+          )
+        })}
+    </div>
+  )
 
+  return (
+    <>
+      <div style={{ display: "grid", gap: spacing.lg }}>
+        <div
+          role="tablist"
+          aria-label="Settings sections"
+          style={{ display: "flex", gap: spacing.lg, borderBottom: `1px solid ${theme.border}`, paddingBottom: spacing.sm }}
+        >
+          <button
+            aria-selected={activeTab === "agent"}
+            data-testid="settings-tab-agent"
+            onClick={() => setActiveTab("agent")}
+            role="tab"
+            style={{
+              padding: `0 0 ${spacing.xs}`,
+              border: "none",
+              borderBottom: `2px solid ${activeTab === "agent" ? theme.accent : "transparent"}`,
+              backgroundColor: "transparent",
+              color: activeTab === "agent" ? theme.textPrimary : theme.textMuted,
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+            type="button"
+          >
+            {t("settings.tab.agent")}
+          </button>
+          <button
+            aria-selected={activeTab === "retrieval"}
+            data-testid="settings-tab-retrieval"
+            onClick={() => setActiveTab("retrieval")}
+            role="tab"
+            style={{
+              padding: `0 0 ${spacing.xs}`,
+              border: "none",
+              borderBottom: `2px solid ${activeTab === "retrieval" ? theme.accent : "transparent"}`,
+              backgroundColor: "transparent",
+              color: activeTab === "retrieval" ? theme.textPrimary : theme.textMuted,
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+            type="button"
+          >
+            {t("settings.tab.retrieval")}
+          </button>
+        </div>
+
+        <section data-testid="settings-tab-panel-agent" style={panelStyle(activeTab === "agent")}>
+          <div
+            data-testid="settings-workspace"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(320px, 380px) minmax(0, 1fr)",
+              gap: spacing.lg,
+              alignItems: "start"
+            }}
+          >
+            <section data-testid="settings-section-card" style={cardStyle}>
+              <div style={cardHeaderStyle}>
+                <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.provider")}</h2>
+              </div>
+              <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
+                <div style={{ display: "grid", gap: spacing.sm }}>
+                  <label htmlFor="default-provider" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
+                    {t("settings.defaultProvider.label")}
+                  </label>
+                  <select
+                    aria-describedby={validation.defaultProvider ? "default-provider-error" : undefined}
+                    aria-invalid={validation.defaultProvider ? true : undefined}
+                    id="default-provider"
+                    onChange={(event) => {
+                      const newProvider = event.target.value as typeof appSettings.defaultProvider
+                      setAppSettings((currentSettings) => ({
+                        ...currentSettings,
+                        defaultProvider: newProvider
+                      }))
+                      setProviders((currentProviders) => applySingleProviderEnabledState(currentProviders, newProvider))
+                      setProviderEditorSelection(newProvider)
+                    }}
+                    style={selectStyle}
+                    value={appSettings.defaultProvider}
+                  >
+                    <option value="openai">OpenAI-compatible</option>
+                    <option value="claude">Claude</option>
+                    <option value="gemini">Gemini</option>
+                  </select>
+                  {validation.defaultProvider ? (
+                    <p aria-live="polite" id="default-provider-error" role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
+                      {validation.defaultProvider}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div
+                  data-testid="provider-rail"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gap: spacing.sm
+                  }}
+                >
+                  {providers.map((provider) => {
+                    const isActive = providerEditorSelection === provider.provider
+                    const isDefault = appSettings.defaultProvider === provider.provider
+
+                    return (
+                      <button
+                        key={provider.provider}
+                        aria-pressed={isActive}
+                        data-testid={`provider-rail-${provider.provider}`}
+                        onClick={() => setProviderEditorSelection(provider.provider)}
+                        style={{
+                          display: "grid",
+                          gap: "4px",
+                          textAlign: "left",
+                          padding: `${spacing.md} ${spacing.md}`,
+                          border: `1px solid ${isActive ? theme.borderFocus : theme.border}`,
+                          borderRadius: "14px",
+                          backgroundColor: isActive ? theme.accentSoft : theme.surface,
+                          color: theme.textPrimary,
+                          cursor: "pointer",
+                          minWidth: 0
+                        }}
+                        type="button"
+                      >
+                        <span style={{ fontSize: "0.875rem", fontWeight: isActive ? 700 : 600, color: theme.textPrimary }}>
+                          {providerLabels[provider.provider]}
+                        </span>
+                        {isDefault ? (
+                          <span style={{ fontSize: "0.75rem", color: isActive ? theme.accent : theme.textMuted }}>
+                            {t("settings.defaultProvider.badge")}
+                          </span>
+                        ) : null}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </section>
+
+            {providerPanel}
+          </div>
+        </section>
+
+        <section data-testid="settings-tab-panel-retrieval" style={panelStyle(activeTab === "retrieval")}>
           <section data-testid="settings-section-card" style={cardStyle}>
             <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>Retrieval Architecture</h2>
+              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.retrieval")}</h2>
             </div>
             <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
               <p style={{ margin: 0, fontSize: "0.875rem", lineHeight: 1.6, color: theme.textMuted }}>
-                Configure how local retrieval works across saved bookmarks and current-page context.
+                {t("settings.retrieval.description")}
               </p>
-              <div style={toggleRowStyle}>
-                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>Auto retry failed analysis</span>
-                <ToggleSwitch
-                  checked={appSettings.autoRetryOnError}
-                  label="Auto retry failed analysis"
-                  onChange={(next) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      autoRetryOnError: next
-                    }))
-                  }
-                />
-              </div>
               <div style={{ padding: `${spacing.sm} ${spacing.md}`, borderRadius: radius.medium, backgroundColor: theme.surfaceSubtle, color: theme.textMuted, fontSize: "0.8125rem", lineHeight: 1.6 }}>
-                Planned controls for reranking and architecture routing are not wired yet.
-              </div>
-              <div
-                data-testid="provider-rail"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: spacing.sm
-                }}
-              >
-                {providers.map((provider) => {
-                  const isActive = providerEditorSelection === provider.provider
-                  const isDefault = appSettings.defaultProvider === provider.provider
-
-                  return (
-                    <button
-                      key={provider.provider}
-                      aria-pressed={isActive}
-                      data-testid={`provider-rail-${provider.provider}`}
-                      onClick={() => setProviderEditorSelection(provider.provider)}
-                      style={{
-                        display: "grid",
-                        gap: "4px",
-                        textAlign: "left",
-                        padding: `${spacing.md} ${spacing.md}`,
-                        border: `1px solid ${isActive ? theme.borderFocus : theme.border}`,
-                        borderRadius: "14px",
-                        backgroundColor: isActive ? theme.accentSoft : theme.surface,
-                        color: theme.textPrimary,
-                        cursor: "pointer",
-                        minWidth: 0
-                      }}
-                      type="button"
-                    >
-                      <span style={{ fontSize: "0.875rem", fontWeight: isActive ? 700 : 600, color: theme.textPrimary }}>
-                        {providerLabels[provider.provider]}
-                      </span>
-                      {isDefault ? (
-                        <span style={{ fontSize: "0.75rem", color: isActive ? theme.accent : theme.textMuted }}>
-                          Default provider
-                        </span>
-                      ) : null}
-                    </button>
-                  )
-                })}
+                {t("settings.retrieval.placeholder")}
               </div>
               <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap" }}>
                 <button
@@ -747,7 +820,7 @@ function SettingsTabContent({
                   style={{ padding: `${spacing.xs} ${spacing.md}`, border: `1px solid ${theme.borderMuted}`, borderRadius: radius.medium, backgroundColor: "transparent", color: theme.textDanger, fontSize: "0.8125rem", fontWeight: 500, cursor: "pointer" }}
                   type="button"
                 >
-                  Clear all analysis
+                  {t("settings.retrieval.clearAll")}
                 </button>
                 <button
                   data-testid="clear-error-analysis-btn"
@@ -755,20 +828,42 @@ function SettingsTabContent({
                   style={{ padding: `${spacing.xs} ${spacing.md}`, border: `1px solid ${theme.borderMuted}`, borderRadius: radius.medium, backgroundColor: "transparent", color: theme.textDanger, fontSize: "0.8125rem", fontWeight: 500, cursor: "pointer" }}
                   type="button"
                 >
-                  Clear failed analysis
+                  {t("settings.retrieval.clearErrors")}
                 </button>
               </div>
             </div>
           </section>
+        </section>
 
-          <section data-testid="settings-section-card" style={cardStyle}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: spacing.lg, alignItems: "start" }}>
+          <section data-testid="settings-experience-card" style={cardStyle}>
             <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>Experience & Theme</h2>
+              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.experience")}</h2>
             </div>
             <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
               <div style={{ display: "grid", gap: spacing.sm }}>
+                <label htmlFor="display-language" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
+                  {t("settings.displayLanguage.label")}
+                </label>
+                <select
+                  id="display-language"
+                  onChange={(event) =>
+                    setAppSettings((currentSettings) => ({
+                      ...currentSettings,
+                      displayLanguage: event.target.value as typeof currentSettings.displayLanguage
+                    }))
+                  }
+                  style={selectStyle}
+                  value={appSettings.displayLanguage}
+                >
+                  <option value="en">{t("settings.displayLanguage.option.en")}</option>
+                  <option value="zh">{t("settings.displayLanguage.option.zh")}</option>
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gap: spacing.sm }}>
                 <label htmlFor="summary-language" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-                  Summary language
+                  {t("settings.summaryLanguage.label")}
                 </label>
                 <select
                   id="summary-language"
@@ -781,26 +876,40 @@ function SettingsTabContent({
                   style={selectStyle}
                   value={appSettings.summaryLanguage ?? "auto"}
                 >
-                  <option value="auto">Auto (follow content)</option>
-                  <option value="zh">Chinese</option>
-                  <option value="en">English</option>
-                  <option value="ja">Japanese</option>
-                  <option value="ko">Korean</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="es">Spanish</option>
+                  <option value="auto">{t("settings.summaryLanguage.option.auto")}</option>
+                  <option value="zh">{t("settings.summaryLanguage.option.zh")}</option>
+                  <option value="en">{t("settings.summaryLanguage.option.en")}</option>
+                  <option value="ja">{t("settings.summaryLanguage.option.ja")}</option>
+                  <option value="ko">{t("settings.summaryLanguage.option.ko")}</option>
+                  <option value="fr">{t("settings.summaryLanguage.option.fr")}</option>
+                  <option value="de">{t("settings.summaryLanguage.option.de")}</option>
+                  <option value="es">{t("settings.summaryLanguage.option.es")}</option>
                 </select>
               </div>
 
               <div style={toggleRowStyle}>
-                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>Auto analyze on save</span>
+                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>{t("settings.autoAnalyzeOnSave.label")}</span>
                 <ToggleSwitch
                   checked={appSettings.autoAnalyzeOnSave}
-                  label="Auto analyze on save"
+                  label={t("settings.autoAnalyzeOnSave.label")}
                   onChange={(next) =>
                     setAppSettings((currentSettings) => ({
                       ...currentSettings,
                       autoAnalyzeOnSave: next
+                    }))
+                  }
+                />
+              </div>
+
+              <div style={toggleRowStyle}>
+                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>{t("settings.autoRetryOnError.label")}</span>
+                <ToggleSwitch
+                  checked={appSettings.autoRetryOnError}
+                  label={t("settings.autoRetryOnError.label")}
+                  onChange={(next) =>
+                    setAppSettings((currentSettings) => ({
+                      ...currentSettings,
+                      autoRetryOnError: next
                     }))
                   }
                 />
@@ -810,69 +919,12 @@ function SettingsTabContent({
 
           <section data-testid="settings-section-card" style={cardStyle}>
             <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>Trial & License</h2>
+              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.license")}</h2>
             </div>
             <div style={{ padding: "20px" }}>
               {trialStateProps ? <OptionsLicenseEntry {...trialStateProps} /> : null}
             </div>
           </section>
-        </div>
-
-        <div style={{ display: "grid", gap: spacing.md, minWidth: 0 }}>
-          {providers
-            .map((provider, originalIndex) => ({ provider, originalIndex }))
-            .filter(({ provider }) => provider.provider === providerEditorSelection)
-            .map(({ provider, originalIndex }) => {
-              const isDefault = provider.provider === appSettings.defaultProvider
-
-              return (
-                <div
-                  data-testid="settings-section-card"
-                  key={provider.provider}
-                  style={{
-                    border: `1px solid ${theme.border}`,
-                    borderRadius: "16px",
-                    overflow: "hidden",
-                    backgroundColor: theme.surface,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                    position: "relative"
-                  }}
-                >
-                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "4px", backgroundColor: theme.accent, borderRadius: "16px 0 0 16px" }} />
-                  <div style={{ padding: `${spacing.sm} ${spacing.md}`, paddingLeft: "20px", borderBottom: `1px solid ${theme.borderMuted}`, backgroundColor: theme.surfaceElevated, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>
-                      {providerLabels[provider.provider]}
-                    </span>
-                    {isDefault ? (
-                      <span style={{ fontSize: "0.625rem", fontWeight: 800, backgroundColor: theme.accentSoft, color: theme.accent, border: `1px solid ${theme.border}`, padding: "2px 8px", borderRadius: "9999px" }}>
-                        DEFAULT
-                      </span>
-                    ) : null}
-                  </div>
-                  <div style={{ padding: "20px" }}>
-                    <ProviderSettingsForm
-                      onChange={(nextValue) => {
-                        setProviders((currentProviders) =>
-                          currentProviders.map((currentProvider, currentIndex) =>
-                            currentIndex === originalIndex ? nextValue : currentProvider
-                          )
-                        )
-                      }}
-                      fieldErrors={validation.providers[provider.provider]}
-                      onTestConnection={async (formValue) => {
-                        try {
-                          await optionsServices.testConnection(buildProviderConfig(formValue))
-                          return "ok"
-                        } catch (error) {
-                          return error instanceof Error ? error.message : "Connection failed"
-                        }
-                      }}
-                      value={provider}
-                    />
-                  </div>
-                </div>
-              )
-            })}
         </div>
       </div>
 
@@ -893,9 +945,9 @@ function SettingsTabContent({
         }}
       >
         <div style={{ display: "grid", gap: "4px" }}>
-          <h2 style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: theme.textPrimary }}>Save settings</h2>
+          <h2 style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: theme.textPrimary }}>{t("settings.save.title")}</h2>
           <p aria-live="polite" data-testid="save-status" role="status" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textMuted }}>
-            {getSaveStatusMessage(saveStatus, isLoading, hasLoadError)}
+            {getSaveStatusMessage(saveStatus, isLoading, hasLoadError, t)}
           </p>
         </div>
 
@@ -916,7 +968,7 @@ function SettingsTabContent({
           }}
           type="button"
         >
-          Save settings
+          {t("settings.save.button")}
         </button>
       </section>
     </>

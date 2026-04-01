@@ -9,9 +9,16 @@ const PROVIDERS_KEY = "provider-configs"
 export class ChromeSettingsRepository implements SettingsRepository {
   async getAppSettings(): Promise<AppSettings> {
     const result = await chrome.storage.sync.get(APP_SETTINGS_KEY)
-    const settings = result[APP_SETTINGS_KEY] as AppSettings | undefined
+    const stored = result[APP_SETTINGS_KEY] as Partial<AppSettings> | undefined
 
-    return settings ?? DEFAULT_APP_SETTINGS
+    if (!stored) {
+      return DEFAULT_APP_SETTINGS
+    }
+
+    return {
+      ...DEFAULT_APP_SETTINGS,
+      ...stored
+    }
   }
 
   async saveAppSettings(settings: AppSettings): Promise<void> {

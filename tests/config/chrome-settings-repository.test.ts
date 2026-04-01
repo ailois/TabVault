@@ -34,7 +34,8 @@ describe("ChromeSettingsRepository", () => {
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "en"
     })
   })
 
@@ -43,13 +44,31 @@ describe("ChromeSettingsRepository", () => {
       defaultProvider: "claude",
       autoAnalyzeOnSave: true,
       summaryLanguage: "auto",
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "zh"
     }
 
     await repository.saveAppSettings(settings)
 
     expect(storage[APP_SETTINGS_KEY]).toEqual(settings)
     await expect(repository.getAppSettings()).resolves.toEqual(settings)
+  })
+
+  it("merges stored settings with defaults so new fields survive old stored objects", async () => {
+    const oldStyleStored = {
+      defaultProvider: "claude",
+      autoAnalyzeOnSave: true,
+      summaryLanguage: "en",
+      autoRetryOnError: false
+      // displayLanguage absent — simulates settings saved before this field was added
+    }
+    storage[APP_SETTINGS_KEY] = oldStyleStored
+
+    const result = await repository.getAppSettings()
+
+    expect(result.displayLanguage).toBe("en")
+    expect(result.defaultProvider).toBe("claude")
+    expect(result.autoAnalyzeOnSave).toBe(true)
   })
 
   it("stores provider configs under the explicit providers key", async () => {

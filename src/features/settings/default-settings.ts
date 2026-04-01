@@ -4,5 +4,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultProvider: "openai",
   autoAnalyzeOnSave: false,
   summaryLanguage: "auto",
-  autoRetryOnError: false
+  autoRetryOnError: false,
+  displayLanguage: "en"
 }

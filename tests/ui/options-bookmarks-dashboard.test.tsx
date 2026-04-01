@@ -113,7 +113,8 @@ function makeSettingsRepository(): SettingsRepository {
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto" as const,
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "en" as const
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [

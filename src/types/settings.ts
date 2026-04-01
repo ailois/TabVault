@@ -10,9 +10,12 @@ export type ProviderConfig = {
 
 export type SummaryLanguage = "auto" | "zh" | "en" | "ja" | "ko" | "fr" | "de" | "es"
 
+export type DisplayLanguage = "en" | "zh"
+
 export type AppSettings = {
   defaultProvider: ProviderType
   autoAnalyzeOnSave: boolean
   summaryLanguage: SummaryLanguage
   autoRetryOnError: boolean
+  displayLanguage: DisplayLanguage
 }

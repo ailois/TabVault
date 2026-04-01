@@ -8,6 +8,7 @@ import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
 import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
+import { getMessage } from "./lib/i18n/messages"
 import type { AiProvider } from "./lib/providers/provider"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
@@ -33,6 +34,10 @@ type PopupServices = {
   queryActiveTab: () => Promise<ChromeTab | undefined>
   createProvider: (config: ProviderConfig) => AiProvider
   themeRepository: ThemeRepository
+}
+
+function formatSavedStatus(title: string, t: (key: Parameters<typeof getMessage>[1]) => string): string {
+  return `${t("popup.status.savedPrefix")}${title}`
 }
 
 type ChromeTab = {
@@ -64,22 +69,31 @@ function Popup({ services }: PopupProps) {
   const theme = useTheme(popupServices.themeRepository)
   useGlobalStyles(theme)
 
-  const [statusMessage, setStatusMessage] = useState("Ready to save the current page.")
+  const [displayLanguage, setDisplayLanguage] = useState<"en" | "zh">("en")
+  const t = useMemo(() => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key), [displayLanguage])
+  const [statusMessage, setStatusMessage] = useState(() => getMessage("en", "popup.status.ready"))
   const [statusTone, setStatusTone] = useState<"info" | "success">("info")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [currentPageTitle, setCurrentPageTitle] = useState("Loading current page...")
+  const [currentPageTitle, setCurrentPageTitle] = useState(() => getMessage("en", "popup.currentPage.loading"))
   const [currentPageUrl, setCurrentPageUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    void popupServices.settingsRepository.getAppSettings().then((settings) => {
+      setDisplayLanguage(settings.displayLanguage)
+      setStatusMessage(getMessage(settings.displayLanguage, "popup.status.ready"))
+    })
+  }, [popupServices])
 
   useEffect(() => {
     async function loadCurrentPage(): Promise<void> {
       try {
         const activeTab = await popupServices.queryActiveTab()
-        setCurrentPageTitle(activeTab?.title?.trim() || "Current page unavailable")
+        setCurrentPageTitle(activeTab?.title?.trim() || t("popup.currentPage.unavailable"))
         setCurrentPageUrl(activeTab?.url?.trim() || null)
       } catch {
-        setCurrentPageTitle("Current page unavailable")
+        setCurrentPageTitle(t("popup.currentPage.unavailable"))
         setCurrentPageUrl(null)
       }
     }
@@ -92,7 +106,7 @@ function Popup({ services }: PopupProps) {
     setIsAnalyzing(false)
     setErrorMessage(null)
     setStatusTone("info")
-    setStatusMessage("Saving current page...")
+    setStatusMessage(t("popup.status.saving"))
 
     try {
       const activeTab = await popupServices.queryActiveTab()
@@ -108,12 +122,12 @@ function Popup({ services }: PopupProps) {
       setCurrentPageTitle(savedBookmark.title)
       setCurrentPageUrl(savedBookmark.url)
       setStatusTone("success")
-      setStatusMessage(`Saved: ${savedBookmark.title}`)
+      setStatusMessage(formatSavedStatus(savedBookmark.title, t))
       await maybeAnalyzeBookmark(savedBookmark)
     } catch (error) {
-      setErrorMessage(getSaveErrorMessage(error))
+      setErrorMessage(getSaveErrorMessage(error, t))
       setStatusTone("info")
-      setStatusMessage("Ready to save the current page.")
+      setStatusMessage(t("popup.status.ready"))
     } finally {
       setIsSaving(false)
     }
@@ -132,13 +146,13 @@ function Popup({ services }: PopupProps) {
     )
 
     if (!selectedProvider?.apiKey.trim()) {
-      setErrorMessage("Add an API key in Settings to enable automatic analysis.")
+      setErrorMessage(t("popup.error.apiKeyMissing"))
       return
     }
 
     setIsAnalyzing(true)
     setStatusTone("info")
-    setStatusMessage("Analyzing saved bookmark...")
+    setStatusMessage(t("popup.status.analyzing"))
 
     try {
       await popupServices.analyzeBookmark({
@@ -147,11 +161,11 @@ function Popup({ services }: PopupProps) {
         bookmarkRepository: popupServices.bookmarkRepository
       })
       setStatusTone("success")
-      setStatusMessage(`Saved: ${bookmark.title}`)
+      setStatusMessage(formatSavedStatus(bookmark.title, t))
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Failed to analyze bookmark"))
+      setErrorMessage(getErrorMessage(error, t("popup.error.analyzeFallback")))
       setStatusTone("success")
-      setStatusMessage(`Saved: ${bookmark.title}`)
+      setStatusMessage(formatSavedStatus(bookmark.title, t))
     } finally {
       setIsAnalyzing(false)
     }
@@ -268,7 +282,7 @@ function Popup({ services }: PopupProps) {
                 {theme.isDark ? "☀️" : "🌙"}
               </button>
               <button
-                aria-label="Open settings"
+                aria-label={t("popup.actions.openSettings")}
                 onClick={() => void openSettingsPage()}
                 style={iconButtonStyle}
                 type="button"
@@ -280,7 +294,7 @@ function Popup({ services }: PopupProps) {
 
           <section style={currentPageCardStyle}>
             <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginBottom: "4px" }}>
-              正在浏览
+              {t("popup.currentPage.label")}
             </div>
             <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: theme.textPrimary, lineHeight: 1.4, marginBottom: currentPageUrl ? "4px" : 0 }}>
               {currentPageTitle}
@@ -299,7 +313,7 @@ function Popup({ services }: PopupProps) {
               style={launchButtonStyle}
               type="button"
             >
-              打开侧边栏
+              {t("popup.actions.openSidepanel")}
             </button>
             <button
               data-testid="popup-open-dashboard"
@@ -307,7 +321,7 @@ function Popup({ services }: PopupProps) {
               style={launchButtonStyle}
               type="button"
             >
-              控制台
+              {t("popup.actions.openDashboard")}
             </button>
           </div>
 
@@ -324,7 +338,7 @@ function Popup({ services }: PopupProps) {
               style={primaryActionButtonStyle}
               type="button"
             >
-              {isAnalyzing ? "Analyzing..." : isSaving ? "Saving..." : "Save current page"}
+              {isAnalyzing ? t("popup.primary.analyzing") : isSaving ? t("popup.primary.saving") : t("popup.primary.save")}
             </button>
           </footer>
         </div>
@@ -337,11 +351,11 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
 
-function getSaveErrorMessage(error: unknown): string {
-  const message = getErrorMessage(error, "Failed to save current page")
+function getSaveErrorMessage(error: unknown, t: (key: Parameters<typeof getMessage>[1]) => string): string {
+  const message = getErrorMessage(error, t("popup.error.saveFallback"))
 
   if (message === "Active tab title is required" || message === "Active tab URL is required") {
-    return "Current tab can't be saved because its title or URL is unavailable."
+    return t("popup.error.saveUnavailableMetadata")
   }
 
   return message

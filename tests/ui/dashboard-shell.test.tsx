@@ -15,19 +15,22 @@ const SAMPLE_TREE: chrome.bookmarks.BookmarkTreeNode[] = [
   {
     id: "0",
     title: "",
+    syncing: false,
     children: [
       {
         id: "1",
         title: "Bookmarks Bar",
+        syncing: false,
         children: [
-          { id: "b1", title: "React Docs", url: "https://react.dev" },
-          { id: "b2", title: "Vue Docs", url: "https://vuejs.org" }
+          { id: "b1", title: "React Docs", url: "https://react.dev", syncing: false },
+          { id: "b2", title: "Vue Docs", url: "https://vuejs.org", syncing: false }
         ]
       },
       {
         id: "2",
         title: "Other Bookmarks",
-        children: [{ id: "b3", title: "Svelte Docs", url: "https://svelte.dev" }]
+        syncing: false,
+        children: [{ id: "b3", title: "Svelte Docs", url: "https://svelte.dev", syncing: false }]
       }
     ]
   }

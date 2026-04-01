@@ -86,6 +86,7 @@ function createValidAppSettings(overrides: Partial<AppSettings> = {}): AppSettin
     autoAnalyzeOnSave: false,
     summaryLanguage: "auto",
     autoRetryOnError: false,
+    displayLanguage: "en",
     ...overrides
   }
 }

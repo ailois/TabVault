@@ -7,4 +7,8 @@ describe("DEFAULT_APP_SETTINGS", () => {
     expect(DEFAULT_APP_SETTINGS.defaultProvider).toBe("openai")
     expect(DEFAULT_APP_SETTINGS.autoAnalyzeOnSave).toBe(false)
   })
+
+  it("defaults display language to English", () => {
+    expect(DEFAULT_APP_SETTINGS.displayLanguage).toBe("en")
+  })
 })

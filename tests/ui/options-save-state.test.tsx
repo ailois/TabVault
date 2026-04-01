@@ -55,7 +55,8 @@ describe("Options save state", () => {
         defaultProvider: "claude",
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
-        autoRetryOnError: false
+        autoRetryOnError: false,
+        displayLanguage: "en" as const
       }),
       saveAppSettings,
       getProviders: async () => [
@@ -117,7 +118,8 @@ describe("Options save state", () => {
         defaultProvider: "claude",
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
-        autoRetryOnError: false
+        autoRetryOnError: false,
+        displayLanguage: "en" as const
       }),
       saveAppSettings: async () => {},
       getProviders: async () => [
@@ -171,7 +173,8 @@ describe("Options save state", () => {
         defaultProvider: "openai",
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
-        autoRetryOnError: false
+        autoRetryOnError: false,
+        displayLanguage: "en" as const
       }),
       saveAppSettings: async () => {
         await saveCompletion.promise
@@ -213,7 +216,8 @@ describe("Options save state", () => {
         defaultProvider: "openai",
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
-        autoRetryOnError: false
+        autoRetryOnError: false,
+        displayLanguage: "en" as const
       }),
       saveAppSettings: async () => {
         throw new Error("save failed")
@@ -311,6 +315,7 @@ describe("Options save state", () => {
     expect(saveProviders).not.toHaveBeenCalled()
   })
 
+
   it("allows save when a disabled provider has empty fields", async () => {
     const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
     const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
@@ -323,7 +328,8 @@ describe("Options save state", () => {
           defaultProvider: "claude",
           autoAnalyzeOnSave: false,
           summaryLanguage: "auto" as const,
-          autoRetryOnError: false
+          autoRetryOnError: false,
+          displayLanguage: "en" as const
         }),
         getProviders: async () => [
           {
@@ -358,7 +364,8 @@ describe("Options save state", () => {
       defaultProvider: "claude",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "en"
     })
     expect(saveProviders).toHaveBeenCalledWith([
       {
@@ -412,6 +419,32 @@ async function changeInputValue(id: string, value: string): Promise<void> {
   })
 }
 
+async function changeSelectValue(id: string, value: string): Promise<void> {
+  const select = container?.querySelector<HTMLSelectElement>(`#${id}`)
+
+  if (!select) {
+    throw new Error(`Expected select #${id}`)
+  }
+
+  await act(async () => {
+    setElementValue(select, value)
+    select.dispatchEvent(new Event("input", { bubbles: true }))
+    select.dispatchEvent(new Event("change", { bubbles: true }))
+  })
+}
+
+async function clickSwitchByLabel(label: string): Promise<void> {
+  const button = container?.querySelector<HTMLButtonElement>(`[role="switch"][aria-label="${label}"]`)
+
+  if (!button) {
+    throw new Error(`Expected switch ${label}`)
+  }
+
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+  })
+}
+
 async function clickProviderRail(provider: "openai" | "claude" | "gemini"): Promise<void> {
   const button = container?.querySelector<HTMLButtonElement>(`[data-testid="provider-rail-${provider}"]`)
 
@@ -446,7 +479,7 @@ function getInput(id: string): HTMLInputElement | null | undefined {
   return container?.querySelector<HTMLInputElement>(`#${id}`)
 }
 
-function setElementValue(element: HTMLInputElement, value: string): void {
+function setElementValue(element: HTMLInputElement | HTMLSelectElement, value: string): void {
   const prototype = Object.getPrototypeOf(element)
   const descriptor = Object.getOwnPropertyDescriptor(prototype, "value")
 
@@ -454,10 +487,10 @@ function setElementValue(element: HTMLInputElement, value: string): void {
 }
 
 function getSectionByHeading(heading: string): HTMLElement | undefined {
-  return Array.from(container?.querySelectorAll("section") ?? []).find((section) => {
-    const sectionHeading = section.querySelector("h2")
-    return sectionHeading?.textContent === heading
-  })
+  const headings = Array.from(container?.querySelectorAll("h2") ?? [])
+  const match = headings.find((sectionHeading) => sectionHeading.textContent === heading)
+
+  return match?.closest("section") ?? undefined
 }
 
 function getSaveStatusText(): string | undefined {
@@ -493,7 +526,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto" as const,
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "en" as const
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [],

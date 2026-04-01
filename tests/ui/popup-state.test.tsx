@@ -58,17 +58,29 @@ describe("Popup state", () => {
   it("shows current page quick-entry content on load", async () => {
     await renderPopup(createServices())
 
-    expect(screen().text()).toContain("正在浏览")
+    expect(screen().text()).toContain("Browsing now")
     expect(screen().text()).toContain("Example page")
     expect(screen().getPrimaryActionButton()?.textContent).toContain("Save current page")
     expect(screen().getPopupShell()?.style.backgroundColor).toBeTruthy()
   })
 
-  it("renders the quick-entry launch actions", async () => {
-    await renderPopup(createServices())
+  it("renders popup copy in Chinese when display language is zh", async () => {
+    await renderPopup(createServices({
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto",
+          autoRetryOnError: false,
+          displayLanguage: "zh"
+        }))
+      })
+    }))
 
+    expect(screen().text()).toContain("正在浏览")
     expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("打开侧边栏")
     expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("控制台")
+    expect(screen().getPrimaryActionButton()?.textContent).toContain("保存当前页面")
   })
 
   it("does not render search, library, or bookmark management UI", async () => {
@@ -87,7 +99,8 @@ describe("Popup state", () => {
           defaultProvider: "openai",
           autoAnalyzeOnSave: true,
           summaryLanguage: "auto",
-          autoRetryOnError: false
+          autoRetryOnError: false,
+          displayLanguage: "en"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [])
       })
@@ -147,7 +160,8 @@ describe("Popup state", () => {
           defaultProvider: "openai",
           autoAnalyzeOnSave: true,
           summaryLanguage: "auto",
-          autoRetryOnError: false
+          autoRetryOnError: false,
+          displayLanguage: "en"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
           {
@@ -215,7 +229,8 @@ describe("Popup state", () => {
           defaultProvider: providerConfig.provider,
           autoAnalyzeOnSave: true,
           summaryLanguage: "auto",
-          autoRetryOnError: false
+          autoRetryOnError: false,
+          displayLanguage: "en"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
       }),
@@ -434,7 +449,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "en"
     })),
     saveAppSettings: vi.fn(async () => undefined),
     getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),

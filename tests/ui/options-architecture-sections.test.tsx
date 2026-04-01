@@ -45,14 +45,26 @@ describe("Options architecture sections", () => {
     root = null
   })
 
-  it("renders provider, retrieval, experience, and license sections in an architecture settings workspace", async () => {
+  it("renders design-aligned header tabs and a separate experience card", async () => {
     await renderOptions(createSettingsRepository())
 
-    expect(container?.textContent).toContain("Architecture Settings")
-    expect(container?.textContent).toContain("Provider & Protocol")
-    expect(container?.textContent).toContain("Retrieval Architecture")
-    expect(container?.textContent).toContain("Experience & Theme")
-    expect(container?.textContent).toContain("Trial & License")
+    const agentTab = container?.querySelector<HTMLButtonElement>('[data-testid="settings-tab-agent"]')
+    const retrievalTab = container?.querySelector<HTMLButtonElement>('[data-testid="settings-tab-retrieval"]')
+    const experienceCard = container?.querySelector('[data-testid="settings-experience-card"]')
+
+    const agentPanel = container?.querySelector<HTMLElement>('[data-testid="settings-tab-panel-agent"]')
+    const retrievalPanel = container?.querySelector<HTMLElement>('[data-testid="settings-tab-panel-retrieval"]')
+
+    expect(container?.querySelector('[data-testid="settings-page-header"]')?.textContent).toContain("Architecture Settings")
+    expect(agentTab?.textContent).toBe("Agent Companion Engine")
+    expect(retrievalTab?.textContent).toBe("Lightweight Hybrid Retrieval")
+    expect(agentTab?.getAttribute("aria-selected")).toBe("true")
+    expect(retrievalTab?.getAttribute("aria-selected")).toBe("false")
+    expect(agentPanel).toBeTruthy()
+    expect(retrievalPanel).toBeTruthy()
+    expect(agentPanel?.style.display).toBe("grid")
+    expect(retrievalPanel?.style.display).toBe("none")
+    expect(experienceCard?.textContent).toContain("Experience & Automation")
   })
 })
 
@@ -75,7 +87,8 @@ function createSettingsRepository(): SettingsRepository {
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto" as const,
-      autoRetryOnError: false
+      autoRetryOnError: false,
+      displayLanguage: "en" as const
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [

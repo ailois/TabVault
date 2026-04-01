@@ -77,24 +77,56 @@ describe("Options", () => {
     expect(container?.textContent).toContain("Architecture Settings")
     expect(container?.querySelector('[data-testid="settings-page-description"]')?.textContent).toContain("provider protocols")
     expect(container?.textContent).toContain("Provider & Protocol")
-    expect(container?.textContent).toContain("Retrieval Architecture")
-    expect(container?.textContent).toContain("Experience & Theme")
+    expect(container?.textContent).toContain("Experience & Automation")
     expect(container?.textContent).toContain("Trial & License")
     expect(container?.querySelector('[data-testid="settings-save-actions"]')).toBeTruthy()
   })
 
-  it("renders the license state in a single settings section", async () => {
-    mockTrialStatus({
-      status: "trial",
-      state: {
-        installedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        analysisUsed: 3
-      }
-    })
-
+  it("renders the experience card with real settings controls", async () => {
     await renderOptions()
 
-    expect(container?.querySelectorAll('[data-testid="settings-license-state"]')).toHaveLength(1)
+    const experienceCard = container?.querySelector<HTMLElement>('[data-testid="settings-experience-card"]')
+    const displayLanguage = container?.querySelector<HTMLSelectElement>('#display-language')
+    const summaryLanguage = container?.querySelector<HTMLSelectElement>('#summary-language')
+    const autoAnalyzeToggle = container?.querySelector<HTMLButtonElement>('[aria-label="Auto analyze on save"]')
+    const autoRetryToggle = container?.querySelector<HTMLButtonElement>('[aria-label="Auto retry failed analysis"]')
+
+    expect(experienceCard?.textContent).toContain("Display language")
+    expect(experienceCard?.textContent).toContain("Summary language")
+    expect(experienceCard?.textContent).toContain("Auto (follow content)")
+    expect(experienceCard?.textContent).toContain("Auto analyze on save")
+    expect(experienceCard?.textContent).toContain("Auto retry failed analysis")
+    expect(displayLanguage?.value).toBe("en")
+    expect(summaryLanguage?.value).toBe("auto")
+    expect(autoAnalyzeToggle?.getAttribute("aria-checked")).toBe("false")
+    expect(autoRetryToggle?.getAttribute("aria-checked")).toBe("false")
+  })
+
+  it("renders Chinese settings copy when display language is zh", async () => {
+    const zhSettingsRepository: SettingsRepository = {
+      ...settingsRepository,
+      getAppSettings: async () => ({
+        defaultProvider: "openai",
+        autoAnalyzeOnSave: false,
+        summaryLanguage: "auto" as const,
+        autoRetryOnError: false,
+        displayLanguage: "zh" as const
+      })
+    }
+
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root.render(<Options services={{ settingsRepository: zhSettingsRepository, testConnection: async () => {} }} />)
+    })
+
+    expect(container?.textContent).toContain("架构配置")
+    expect(container?.textContent).toContain("轻量级混合检索")
+    expect(container?.textContent).toContain("体验与自动化")
+    expect(container?.textContent).toContain("界面语言")
+    expect(container?.textContent).toContain("保存设置")
   })
 
   it("renders editable app and provider settings sections", async () => {
@@ -114,7 +146,7 @@ describe("Options", () => {
     expect(settingsNavButton?.getAttribute("aria-pressed")).toBe("true")
 
     const appSection = getSectionByHeading("Provider & Protocol")
-    const maintenanceSection = getSectionByHeading("Retrieval Architecture")
+    const retrievalPanel = container?.querySelector('[data-testid="settings-tab-panel-retrieval"]')
     const openAiSection = getSectionByHeading("OpenAI-compatible")
     const workspace = container?.querySelector('[data-testid="settings-workspace"]')
     const providerRail = container?.querySelector('[data-testid="provider-rail"]')
@@ -122,7 +154,7 @@ describe("Options", () => {
     const providerRailButtons = Array.from(container?.querySelectorAll('[data-testid^="provider-rail-"]') ?? [])
 
     expect(appSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
-    expect(maintenanceSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
+    expect(retrievalPanel).toBeTruthy()
     expect(workspace).toBeTruthy()
     expect(providerRail).toBeTruthy()
     expect(providerRailButtons).toHaveLength(3)
@@ -520,7 +552,8 @@ const settingsRepository: SettingsRepository = {
     defaultProvider: "openai",
     autoAnalyzeOnSave: false,
     summaryLanguage: "auto" as const,
-    autoRetryOnError: false
+    autoRetryOnError: false,
+    displayLanguage: "en" as const
   }),
   saveAppSettings: async () => {},
   getProviders: async () => [],
@@ -560,10 +593,10 @@ async function renderProviderSettingsForm(value: ProviderFormState, fieldErrors:
 }
 
 function getSectionByHeading(heading: string): HTMLElement | undefined {
-  return Array.from(container?.querySelectorAll("section") ?? []).find((section) => {
-    const sectionHeading = section.querySelector("h2")
-    return sectionHeading?.textContent === heading
-  })
+  const headings = Array.from(container?.querySelectorAll("h2") ?? [])
+  const match = headings.find((sectionHeading) => sectionHeading.textContent === heading)
+
+  return match?.closest("section") ?? undefined
 }
 
 function getInputById(id: string): HTMLInputElement | null | undefined {
