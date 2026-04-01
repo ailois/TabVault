@@ -1,4 +1,5 @@
-﻿import React from "react"
+﻿import "./styles/globals.css"
+import React from "react"
 
 import ProviderSettingsForm from "./components/provider-settings-form"
 import { ToggleSwitch } from "./components/toggle-switch"

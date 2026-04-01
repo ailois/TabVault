@@ -1,3 +1,4 @@
+import "./styles/globals.css"
 import React, { useEffect, useMemo, useState } from "react"
 
 import { ErrorBanner } from "./components/error-banner"
