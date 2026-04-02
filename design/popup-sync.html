@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabVault Popup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 为 Popup 设定一个极佳的固定尺寸 */
+        body { width: 360px; margin: 0; }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    </style>
+</head>
+<body class="bg-[#F4F7F4] text-[#2A332C] font-sans antialiased flex flex-col h-full border border-[#E8ECE8]">
+
+    <header class="p-4 pb-3 flex justify-between items-center bg-white border-b border-[#E8ECE8]">
+        <div class="flex items-center gap-2 cursor-pointer group" title="打开完整工作台">
+            <div class="w-5 h-5 bg-[#6B8E73] rounded shadow-sm flex items-center justify-center text-white text-[10px] group-hover:bg-[#5A7A61] transition">✦</div>
+            <span class="font-bold text-sm text-[#2A332C] group-hover:text-[#6B8E73] transition">TabVault</span>
+        </div>
+        <div class="flex gap-2">
+            <button class="w-7 h-7 flex items-center justify-center rounded-md bg-[#F4F7F4] text-[#7A8A7D] hover:text-[#2A332C] hover:bg-[#E8ECE8] transition" title="搜索知识库">🔍</button>
+            <button class="w-7 h-7 flex items-center justify-center rounded-md bg-[#F4F7F4] text-[#7A8A7D] hover:text-[#2A332C] hover:bg-[#E8ECE8] transition" title="偏好设置">⚙️</button>
+        </div>
+    </header>
+
+    <main class="p-4 flex flex-col gap-3">
+        
+        <div class="flex justify-between items-center">
+            <span class="text-[11px] font-bold text-[#7A8A7D] uppercase tracking-wider">当前页面 (Current Page)</span>
+            <div class="flex items-center gap-1.5 bg-[#EBF0EC] text-[#6B8E73] px-2 py-0.5 rounded-full text-[10px] font-medium border border-[#6B8E73]/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#6B8E73]"></span>
+                已同步至知识库
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#E8ECE8]">
+            <div class="flex gap-2 items-start mb-2">
+                <img src="https://github.githubassets.com/favicons/favicon.svg" class="w-4 h-4 mt-0.5 opacity-80" alt="icon">
+                <div>
+                    <h2 class="font-semibold text-[13px] leading-tight text-[#2A332C] mb-1">jesseduffield/lazygit: simple terminal UI for git commands</h2>
+                    <p class="text-[10px] text-[#7A8A7D] truncate max-w-[280px]">github.com/jesseduffield/lazygit</p>
+                </div>
+            </div>
+
+            <div class="bg-[#FAFCFA] border border-[#E8ECE8] p-2 rounded-lg mt-2 relative">
+                <span class="absolute -top-2 -left-2 text-[10px]">✨</span>
+                <p class="text-[11px] text-[#7A8A7D] leading-relaxed line-clamp-2 pl-1">
+                    Lazygit 是一个基于终端的 Git 用户界面，支持通过快捷键快速完成暂存、提交、拉取等复杂 Git 操作，极大提升了命令行的工作效率。
+                </p>
+            </div>
+
+            <div class="flex flex-wrap gap-1.5 mt-2.5 pl-1">
+                <span class="text-[9px] bg-[#F4F7F4] text-[#7A8A7D] px-1.5 py-0.5 rounded border border-[#E8ECE8]">#开发工具</span>
+                <span class="text-[9px] bg-[#F4F7F4] text-[#7A8A7D] px-1.5 py-0.5 rounded border border-[#E8ECE8]">#git</span>
+                <span class="text-[9px] bg-[#F4F7F4] text-[#7A8A7D] px-1.5 py-0.5 rounded border border-[#E8ECE8]">#终端</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-2 mt-1">
+            <button class="w-full bg-[#6B8E73] hover:bg-[#5A7A61] text-white text-[13px] font-medium py-2.5 rounded-lg shadow-[0_2px_8px_rgba(107,142,115,0.2)] transition flex items-center justify-center gap-2">
+                <span>💬</span> 在侧边栏向 AI 提问
+            </button>
+            <div class="flex gap-2">
+                <button class="flex-1 bg-white hover:bg-[#F9FAF9] border border-[#E8ECE8] text-[#2A332C] text-xs font-medium py-2 rounded-lg transition">
+                    📝 编辑笔记
+                </button>
+                <button class="flex-1 bg-white hover:bg-[#F9FAF9] border border-[#E8ECE8] text-[#e63946] text-xs font-medium py-2 rounded-lg transition">
+                    🗑️ 取消收藏
+                </button>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

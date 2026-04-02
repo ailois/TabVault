@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabVault - Bulk Edit Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* 复选框自定义样式 */
+        input[type="checkbox"] {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #E8ECE8;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+            background-color: white;
+            transition: all 0.2s;
+        }
+        input[type="checkbox"]:checked {
+            background-color: #6B8E73;
+            border-color: #6B8E73;
+        }
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            color: white;
+            font-size: 12px;
+            position: absolute;
+            top: -1px;
+            left: 3px;
+        }
+    </style>
+</head>
+<body class="bg-[#F4F7F4] text-[#2A332C] font-sans antialiased h-screen flex overflow-hidden">
+
+    <aside class="w-64 bg-white border-r border-[#E8ECE8] flex flex-col z-10">
+        <div class="p-6">
+            <h1 class="font-bold text-xl flex items-center gap-2">
+                <div class="w-6 h-6 bg-[#6B8E73] rounded-md shadow-sm"></div>
+                TabVault
+            </h1>
+        </div>
+        <nav class="flex-1 px-4 space-y-1">
+            <p class="text-[11px] font-bold text-[#7A8A7D] mb-3 uppercase tracking-wider">状态筛选</p>
+            <ul class="space-y-1">
+                <li><a href="#" class="flex justify-between px-3 py-2 text-sm bg-[#F4F7F4] text-[#6B8E73] font-medium rounded-lg"><span>全部收藏</span> <span class="text-xs opacity-60">469</span></a></li>
+                <li><a href="#" class="flex justify-between px-3 py-2 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] rounded-lg"><span>✅ 分析成功</span> <span class="text-xs opacity-60">312</span></a></li>
+                <li><a href="#" class="flex justify-between px-3 py-2 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] rounded-lg font-medium text-[#c1121f]"><span>❌ 分析失败</span> <span class="text-xs opacity-60 text-[#c1121f]">10</span></a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="flex-1 flex flex-col border-r border-[#E8ECE8] bg-[#F4F7F4] max-w-xl">
+        <header class="p-4 bg-white border-b border-[#E8ECE8] flex justify-between items-center px-6">
+            <div class="flex items-center gap-3">
+                <input type="checkbox" checked title="全选">
+                <span class="text-sm font-bold text-[#2A332C]">已选中 3 项</span>
+            </div>
+            <div class="flex gap-2">
+                <button class="text-xs font-medium text-[#6B8E73] hover:bg-[#F4F7F4] px-3 py-1.5 rounded-md transition">🔄 批量分析</button>
+                <button class="text-xs font-medium text-[#e63946] hover:bg-[#fdf0f0] px-3 py-1.5 rounded-md transition">🗑️ 批量删除</button>
+            </div>
+        </header>
+        
+        <div class="flex-1 overflow-y-auto p-6 space-y-3 no-scrollbar">
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border-2 border-[#6B8E73] flex gap-4 transition-all">
+                <input type="checkbox" checked class="mt-1">
+                <div class="flex-1">
+                    <h3 class="font-semibold text-sm text-[#2A332C]">React 19 全新架构解析</h3>
+                    <p class="text-[11px] text-[#7A8A7D] mt-1">react.dev</p>
+                    <div class="flex gap-2 mt-2">
+                        <span class="text-[10px] bg-[#EBF0EC] text-[#6B8E73] px-1.5 py-0.5 rounded">#前端</span>
+                        <span class="text-[10px] bg-[#fdf0f0] text-[#c1121f] px-1.5 py-0.5 rounded font-medium">分析失败</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border-2 border-[#6B8E73] flex gap-4 transition-all">
+                <input type="checkbox" checked class="mt-1">
+                <div class="flex-1">
+                    <h3 class="font-semibold text-sm text-[#2A332C]">Vite v5.0 正式发布公告</h3>
+                    <p class="text-[11px] text-[#7A8A7D] mt-1">vitejs.dev</p>
+                    <div class="flex gap-2 mt-2">
+                        <span class="text-[10px] bg-[#EBF0EC] text-[#6B8E73] px-1.5 py-0.5 rounded">#工具</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border-2 border-[#6B8E73] flex gap-4 transition-all">
+                <input type="checkbox" checked class="mt-1">
+                <div class="flex-1">
+                    <h3 class="font-semibold text-sm text-[#2A332C]">Tailwind CSS 高级技巧集锦</h3>
+                    <p class="text-[11px] text-[#7A8A7D] mt-1">tailwindcss.com</p>
+                    <div class="flex gap-2 mt-2">
+                        <span class="text-[10px] bg-[#EBF0EC] text-[#6B8E73] px-1.5 py-0.5 rounded">#CSS</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <aside class="flex-1 bg-white flex flex-col">
+        <header class="p-8 pb-6 border-b border-[#E8ECE8]">
+            <h2 class="text-xl font-bold text-[#2A332C] mb-1">批量编辑工作台</h2>
+            <p class="text-xs text-[#7A8A7D]">您正在对 3 个书签进行统一修改</p>
+        </header>
+
+        <div class="p-8 space-y-10 overflow-y-auto flex-1 no-scrollbar">
+            
+            <section>
+                <h3 class="text-xs font-bold text-[#7A8A7D] uppercase tracking-wider mb-4">🏷️ 标签管理 (Bulk Tags)</h3>
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-medium text-[#2A332C] mb-2">追加标签至选中项：</label>
+                        <div class="flex flex-wrap gap-2 p-3 bg-[#F4F7F4] border border-[#E8ECE8] rounded-xl focus-within:border-[#6B8E73] transition">
+                            <span class="text-xs bg-[#6B8E73] text-white px-2 py-0.5 rounded flex items-center gap-1">#2024精选 <button class="text-xs hover:text-white/70">×</button></span>
+                            <input type="text" placeholder="输入并回车追加..." class="bg-transparent border-none focus:outline-none text-xs text-[#2A332C] flex-1">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-[#2A332C] mb-2">从选中项中统一移除：</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="text-xs border border-[#e63946] text-[#e63946] px-2 py-1 rounded-md hover:bg-[#e63946] hover:text-white transition">移除 #旧标签</button>
+                            <button class="text-xs border border-[#e63946] text-[#e63946] px-2 py-1 rounded-md hover:bg-[#e63946] hover:text-white transition">移除 #待整理</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3 class="text-xs font-bold text-[#7A8A7D] uppercase tracking-wider mb-4">📝 统一操作</h3>
+                <div class="space-y-3">
+                    <button class="w-full text-left p-4 rounded-xl border border-[#E8ECE8] hover:border-[#6B8E73] hover:bg-[#F4F7F4] transition group">
+                        <div class="font-medium text-sm text-[#2A332C] group-hover:text-[#6B8E73]">重新生成 AI 摘要</div>
+                        <div class="text-[10px] text-[#7A8A7D] mt-0.5">清空旧摘要，对选中项逐一发起新的分析请求</div>
+                    </button>
+                    <button class="w-full text-left p-4 rounded-xl border border-[#E8ECE8] hover:border-[#6B8E73] hover:bg-[#F4F7F4] transition group">
+                        <div class="font-medium text-sm text-[#2A332C] group-hover:text-[#6B8E73]">添加统一备注 (Comment)</div>
+                        <div class="text-[10px] text-[#7A8A7D] mt-0.5">在选中的所有书签备注末尾追加相同的内容</div>
+                    </button>
+                </div>
+            </section>
+
+            <section>
+                <h3 class="text-xs font-bold text-[#7A8A7D] uppercase tracking-wider mb-3">📄 选中清单</h3>
+                <div class="max-h-40 overflow-y-auto space-y-2 pr-2 no-scrollbar">
+                    <div class="text-[11px] text-[#7A8A7D] py-1 border-b border-[#F4F7F4] truncate">· React 19 全新架构解析</div>
+                    <div class="text-[11px] text-[#7A8A7D] py-1 border-b border-[#F4F7F4] truncate">· Vite v5.0 正式发布公告</div>
+                    <div class="text-[11px] text-[#7A8A7D] py-1 border-b border-[#F4F7F4] truncate">· Tailwind CSS 高级技巧集锦</div>
+                </div>
+            </section>
+
+        </div>
+
+        <footer class="p-6 border-t border-[#E8ECE8] bg-white flex gap-3">
+            <button class="flex-1 bg-[#6B8E73] hover:bg-[#5A7A61] text-white font-medium py-3 rounded-xl shadow-md transition">
+                确认并应用修改
+            </button>
+            <button class="px-6 bg-white border border-[#E8ECE8] text-[#7A8A7D] font-medium py-3 rounded-xl hover:bg-[#F4F7F4] transition">
+                取消
+            </button>
+        </footer>
+    </aside>
+
+</body>
+</html>

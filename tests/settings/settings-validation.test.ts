@@ -87,6 +87,7 @@ function createValidAppSettings(overrides: Partial<AppSettings> = {}): AppSettin
     summaryLanguage: "auto",
     autoRetryOnError: false,
     displayLanguage: "en",
+    theme: "sage",
     ...overrides
   }
 }

@@ -64,7 +64,7 @@ async function renderSidebar(bookmark: BookmarkRecord) {
 
   await act(async () => {
     root?.render(
-      <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+      <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
         <DashboardAiSidebar bookmark={bookmark} />
       </ThemeProvider>
     )

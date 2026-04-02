@@ -1,33 +1,42 @@
-type ChromeStorageRecord = Record<string, unknown>
+/// <reference types="chrome" />
 
-type ChromeStorageArea = {
-  get(key: string): Promise<ChromeStorageRecord>
-  set(items: ChromeStorageRecord): Promise<void>
-}
+declare namespace chrome {
+  namespace bookmarks {
+    type BookmarkTreeNode = {
+      id: string
+      title: string
+      url?: string
+      parentId?: string
+      syncing?: boolean
+      children?: BookmarkTreeNode[]
+    }
 
-type ChromeNamespace = {
-  storage: {
-    sync: ChromeStorageArea
+    type BookmarkCreateArg = BookmarkTreeNode
+
+    const onCreated: {
+      addListener(callback: (id: string, bookmark: BookmarkTreeNode) => void | Promise<void>): void
+    }
+
+    const onRemoved: {
+      addListener(callback: (id: string) => void | Promise<void>): void
+    }
+
+    const onChanged: {
+      addListener(callback: (id: string, changeInfo?: unknown) => void | Promise<void>): void
+    }
+
+    const onMoved: {
+      addListener(callback: (id: string, moveInfo?: unknown) => void | Promise<void>): void
+    }
   }
-  tabs?: {
-    query(queryInfo: { active?: boolean; currentWindow?: boolean }): Promise<ChromeTab[]>
+
+  namespace runtime {
+    const onStartup: {
+      addListener(callback: () => void): void
+    }
+
+    const onInstalled: {
+      addListener(callback: () => void): void
+    }
   }
-  scripting?: {
-    executeScript(input: {
-      target: { tabId: number }
-      func: () => string
-    }): Promise<Array<{ result?: unknown }>>
-  }
 }
-
-type ChromeTab = {
-  id?: number
-  title?: string
-  url?: string
-}
-
-declare global {
-  var chrome: ChromeNamespace
-}
-
-export {}

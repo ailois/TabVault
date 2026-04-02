@@ -129,7 +129,7 @@ async function renderDashboard(bookmarks: BookmarkRecord[], updateBookmark: (boo
 
   await act(async () => {
     root?.render(
-      <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+      <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
         <DashboardShell initialBookmarks={bookmarks} updateBookmark={updateBookmark} />
       </ThemeProvider>
     )

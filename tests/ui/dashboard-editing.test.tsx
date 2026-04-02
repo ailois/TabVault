@@ -124,7 +124,7 @@ async function renderSidebar(
 
   await act(async () => {
     root?.render(
-      <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+      <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
         <DashboardAiSidebar
           bookmark={bookmark}
           onSaveSummary={callbacks.onSaveSummary}

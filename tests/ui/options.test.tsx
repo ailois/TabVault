@@ -110,7 +110,8 @@ describe("Options", () => {
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
         autoRetryOnError: false,
-        displayLanguage: "zh" as const
+        displayLanguage: "zh" as const,
+        theme: "sage" as const
       })
     }
 

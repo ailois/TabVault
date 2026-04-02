@@ -333,7 +333,8 @@ describe("Options save state", () => {
           autoAnalyzeOnSave: false,
           summaryLanguage: "auto" as const,
           autoRetryOnError: false,
-          displayLanguage: "en" as const
+          displayLanguage: "en" as const,
+          theme: "sage" as const
         }),
         getProviders: async () => [
           {
@@ -532,7 +533,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto" as const,
       autoRetryOnError: false,
-      displayLanguage: "en" as const
+      displayLanguage: "en" as const,
+      theme: "sage" as const
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [],

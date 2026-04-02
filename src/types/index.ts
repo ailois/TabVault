@@ -1,1 +1,1 @@
-export type ProviderType = "openai" | "claude" | "gemini"
+/// <reference types="chrome" />

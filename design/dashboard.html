@@ -1,219 +1,186 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="dark">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TabVault - Dashboard (Editable)</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = { darkMode: 'class', theme: { extend: { colors: { bg: 'var(--bg-color)', surface: 'var(--surface-color)', border: 'var(--border-color)', primary: 'var(--primary-text)', secondary: 'var(--secondary-text)', accent: 'var(--accent-color)', accentHover: 'var(--accent-hover)' } } } }
-  </script>
-  <style>
-    :root { --bg-color: #F4F6F9; --surface-color: #FFFFFF; --border-color: #DEE2E6; --primary-text: #212529; --secondary-text: #6C757D; --accent-color: #5E6AD2; --accent-hover: #4A55A2; }
-  .dark { --bg-color: #1C1E23; --surface-color: #25282E; --border-color: #383C42; --primary-text: #E1E1E1; --secondary-text: #8A8F98; --accent-color: #7986CB; --accent-hover: #5C6BC0; }
-    body,.theme-transition { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
-  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-  .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 4px; }
-  </style>
-  <script>
-    // 主题切换逻辑
-    function toggleTheme() {
-      document.documentElement.classList.toggle('dark');
-    }
-
-    // --- 摘要编辑逻辑 (Summary Editing) ---
-    function toggleEditSummary() {
-      const display = document.getElementById('summary-display');
-      const edit = document.getElementById('summary-edit');
-      const textarea = document.getElementById('summary-textarea');
-      
-      if (edit.classList.contains('hidden')) {
-        // 进入编辑模式
-        textarea.value = display.innerText.trim();
-        display.classList.add('hidden');
-        edit.classList.remove('hidden');
-        textarea.focus();
-      } else {
-        // 取消编辑
-        display.classList.remove('hidden');
-        edit.classList.add('hidden');
-      }
-    }
-
-    function saveSummary() {
-      const display = document.getElementById('summary-display');
-      const edit = document.getElementById('summary-edit');
-      const textarea = document.getElementById('summary-textarea');
-      
-      display.innerText = textarea.value.trim();
-      display.classList.remove('hidden');
-      edit.classList.add('hidden');
-    }
-
-    // --- 标签编辑逻辑 (Tags Editing) ---
-    let currentTags = ['搜索引擎', '微软', 'AI Copilot'];
-    let isEditingTags = false;
-
-    function renderTags() {
-      const container = document.getElementById('tags-container');
-      container.innerHTML = '';
-      currentTags.forEach((tag, index) => {
-        const tagEl = document.createElement('span');
-        tagEl.className = 'text-[11px] text-primary bg-bg border border-border px-2.5 py-1 rounded-full theme-transition flex items-center';
-        // 如果处于编辑模式，渲染删除按钮 'x'
-        tagEl.innerHTML = `# ${tag} ` + (isEditingTags? `<button onclick="removeTag(${index})" class="ml-1.5 text-secondary hover:text-red-500 focus:outline-none transition-colors">&times;</button>` : '');
-        container.appendChild(tagEl);
-      });
-      // 控制添加标签输入框的显示与隐藏
-      document.getElementById('add-tag-container').style.display = isEditingTags? 'flex' : 'none';
-      document.getElementById('edit-tags-icon').style.color = isEditingTags? 'var(--accent-color)' : '';
-    }
-
-    function toggleEditTags() {
-      isEditingTags =!isEditingTags;
-      renderTags();
-      if(isEditingTags) document.getElementById('new-tag-input').focus();
-    }
-
-    function removeTag(index) {
-      currentTags.splice(index, 1);
-      renderTags();
-    }
-
-    function addTag() {
-      const input = document.getElementById('new-tag-input');
-      const val = input.value.trim();
-      if(val &&!currentTags.includes(val)) {
-        currentTags.push(val);
-        input.value = '';
-        renderTags();
-        input.focus();
-      }
-    }
-
-    // 监听回车键添加标签
-    function handleTagInput(e) {
-      if (e.key === 'Enter') addTag();
-    }
-
-    // 页面加载完成后初始化标签
-    document.addEventListener('DOMContentLoaded', () => {
-      renderTags();
-    });
-  </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabVault Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 隐藏滚动条但保留滚动功能，让工作台更清爽 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* 简单的多行文本截断 */
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    </style>
 </head>
-<body class="bg-bg text-primary font-sans h-screen flex overflow-hidden theme-transition">
-  
-  <div class="w-64 border-r border-border bg-surface flex flex-col shadow-sm z-10 shrink-0 theme-transition">
-    <div class="p-6 font-bold text-lg tracking-wider border-b border-border flex items-center justify-between">
-      <div class="flex items-center space-x-2">
-        <div class="w-3 h-3 bg-accent rounded-sm rotate-45"></div>
-        <span>TabVault</span>
-      </div>
-      <button onclick="toggleTheme()" class="text-secondary hover:text-accent transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-      </button>
-    </div>
-    <div class="p-4 flex-1 overflow-y-auto custom-scrollbar">
-      <div class="text-[10px] font-bold text-secondary tracking-wider uppercase mb-3 px-2 mt-4">语义空间 (Spaces)</div>
-      <ul class="space-y-1 text-sm">
-        <li class="px-2 py-1.5 bg-accent/10 text-accent font-medium rounded-md flex justify-between items-center cursor-pointer">
-          <span>AI & 开发资料</span> <span class="text-xs">124</span>
-        </li>
-        <li class="px-2 py-1.5 text-secondary hover:bg-bg rounded-md flex justify-between items-center cursor-pointer transition theme-transition">
-          <span>Rust 后端架构</span> <span class="text-xs">45</span>
-        </li>
-      </ul>
-    </div>
-  </div>
+<body class="bg-[#F4F7F4] text-[#2A332C] font-sans antialiased h-screen flex overflow-hidden">
 
-  <div class="flex-1 p-8 flex flex-col h-full overflow-hidden">
-    <div class="flex justify-between items-center mb-6">
-      <div class="relative w-96">
-        <svg class="absolute left-3 top-2.5 w-4 h-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-        <input type="text" placeholder="输入概念或描述进行语义搜索..." class="w-full bg-surface border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-accent text-primary placeholder-secondary shadow-sm theme-transition" />
-      </div>
-      <div class="flex space-x-3">
-        <button class="px-3 py-1.5 text-sm bg-surface border border-border rounded-md hover:border-accent transition shadow-sm theme-transition">导出库</button>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-12 grid-rows-3 gap-5 flex-1 min-h-[500px]">
-      
-      <div class="col-span-8 row-span-3 bg-surface border border-border rounded-2xl p-8 overflow-y-auto custom-scrollbar shadow-sm relative group theme-transition">
-        <h1 class="text-3xl font-bold mb-3 leading-tight text-primary">微软必应 (Bing) 首页：深度整合 Copilot 的搜索进化史</h1>
-        <div class="flex items-center space-x-4 mb-8 text-xs text-secondary border-b border-border pb-4 theme-transition">
-          <span class="flex items-center"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg> bing.com</span>
-          <span>存档时间：2026年3月22日</span>
-          <span class="bg-bg px-2 py-0.5 rounded border border-border theme-transition">DOM 快照提取</span>
+    <aside class="w-64 bg-white border-r border-[#E8ECE8] flex flex-col z-10 shadow-[2px_0_8px_rgba(0,0,0,0.02)]">
+        <div class="p-6">
+            <h1 class="font-bold text-xl flex items-center gap-2">
+                <div class="w-6 h-6 bg-[#6B8E73] rounded-md shadow-sm"></div>
+                TabVault
+            </h1>
         </div>
+        <nav class="flex-1 overflow-y-auto px-4 no-scrollbar">
+            <p class="text-[11px] font-bold text-[#7A8A7D] mb-3 uppercase tracking-wider">知识库 (Library)</p>
+            <ul class="space-y-1">
+                <li><a href="#" class="flex items-center gap-2 px-3 py-2 text-sm bg-[#F4F7F4] text-[#6B8E73] font-medium rounded-lg transition"><span>📚</span> 全部收藏</a></li>
+                <li><a href="#" class="flex items-center gap-2 px-3 py-2 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] hover:text-[#2A332C] rounded-lg transition"><span>📝</span> 我的笔记</a></li>
+                <li><a href="#" class="flex items-center gap-2 px-3 py-2 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] hover:text-[#2A332C] rounded-lg transition"><span>⭐</span> 星标内容</a></li>
+            </ul>
+
+            <p class="text-[11px] font-bold text-[#7A8A7D] mt-8 mb-3 uppercase tracking-wider">智能标签 (Tags)</p>
+            <ul class="space-y-1">
+                <li><a href="#" class="flex items-center justify-between px-3 py-2 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] hover:text-[#2A332C] rounded-lg transition"><span># 前端工程化</span> <span class="text-[10px] bg-[#E8ECE8] px-1.5 rounded-full">12</span></a></li>
+                <li><a href="#" class="flex items-center justify-between px-3 py-2 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] hover:text-[#2A332C] rounded-lg transition"><span># AI 教程</span> <span class="text-[10px] bg-[#E8ECE8] px-1.5 rounded-full">8</span></a></li>
+            </ul>
+        </nav>
         
-        <div class="text-sm text-secondary leading-relaxed space-y-4">
-          <p>必应（Bing）是一款由微软公司推出的网络搜索引擎。它不仅提供常规的网页、图片、视频和新闻搜索服务，其首页还以每日更新的高清优质壁纸著称。</p>
-          <p>随着 AI 时代的到来，必应已深度集成了 Copilot (原 Bing Chat) 功能，用户可以直接在搜索框中进行自然语言的 AI 问答对话，大幅提升了检索的智能化程度和信息获取效率...</p>
+        <div class="p-4 border-t border-[#E8ECE8]">
+            <a href="#" class="flex items-center gap-2 px-3 py-2 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] hover:text-[#2A332C] rounded-lg transition">⚙️ 架构设置</a>
         </div>
-        <div class="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-surface to-transparent rounded-b-2xl pointer-events-none theme-transition"></div>
-      </div>
+    </aside>
 
-      <div class="col-span-4 row-span-1 bg-gradient-to-br from-accent/10 to-transparent border border-accent/20 rounded-2xl p-5 flex flex-col bg-surface shadow-sm theme-transition">
-        <div class="flex justify-between items-start mb-3">
-          <h3 class="text-[10px] font-bold text-accent tracking-wider uppercase flex items-center">
-            <span class="w-1.5 h-1.5 rounded-full bg-accent mr-2 animate-pulse"></span> AI Summary
-          </h3>
-          <button onclick="toggleEditSummary()" class="text-secondary hover:text-accent transition" title="编辑摘要">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-          </button>
-        </div>
+    <main class="flex-1 flex flex-col border-r border-[#E8ECE8] bg-[#F4F7F4] max-w-md lg:max-w-lg xl:max-w-xl">
+        <header class="p-6 pb-2">
+            <h2 class="text-xl font-bold mb-4 text-[#2A332C]">全部收藏</h2>
+            <div class="relative group">
+                <input type="text" placeholder="搜索标题、全文、标签或你的笔记..." class="w-full bg-white border border-[#E8ECE8] shadow-[0_2px_8px_rgba(0,0,0,0.02)] rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-[#6B8E73] focus:border-[#6B8E73] transition">
+                <span class="absolute left-3 top-3.5 text-[#7A8A7D]">🔍</span>
+                <span class="absolute right-3 top-3.5 text-[10px] text-[#7A8A7D] border border-[#E8ECE8] px-1.5 rounded bg-[#F4F7F4]">⌘ K</span>
+            </div>
+        </header>
         
-        <div id="summary-display" class="text-sm leading-relaxed flex-1 text-primary custom-scrollbar overflow-y-auto">
-          本文详述了微软必应搜索引擎如何集成 Copilot 聊天功能，核心技术栈演进，以及每日高清壁纸背后的技术逻辑。
-        </div>
+        <div class="flex-1 overflow-y-auto p-6 pt-4 space-y-3 no-scrollbar">
+            
+            <div class="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(107,142,115,0.08)] border-2 border-[#6B8E73] cursor-pointer flex flex-col gap-2 relative transition-all">
+                <div class="absolute left-0 top-3 bottom-3 w-1 bg-[#6B8E73] rounded-r-md"></div>
+                
+                <div class="flex justify-between items-start pl-2">
+                    <h3 class="font-semibold text-[15px] leading-snug text-[#2A332C]">NuPhy 键盘快捷键使用指南 | 官方文档</h3>
+                    <button class="text-[#FBBF24]">⭐</button>
+                </div>
+                <p class="text-xs text-[#7A8A7D] line-clamp-2 pl-2">详细介绍了 Node75, Air60 等型号的快捷键组合，以及如何在 Mac 和 Windows 系统下切换布局...</p>
+                
+                <div class="flex items-center justify-between mt-2 pl-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[11px] font-medium text-[#7A8A7D]">nuphy.dev</span>
+                        <span class="w-1 h-1 rounded-full bg-[#E8ECE8]"></span>
+                        <span class="text-[10px] bg-[#EBF0EC] text-[#6B8E73] px-1.5 py-0.5 rounded font-medium">#外设</span>
+                    </div>
+                    <div class="flex items-center gap-1 text-[10px] text-[#6B8E73] bg-[#EBF0EC] px-1.5 py-0.5 rounded font-medium">
+                        <span>💬</span> 笔记
+                    </div>
+                </div>
+            </div>
 
-        <div id="summary-edit" class="hidden flex-1 flex flex-col">
-          <textarea id="summary-textarea" class="w-full flex-1 bg-bg border border-border rounded-lg p-2 text-sm focus:outline-none focus:border-accent text-primary custom-scrollbar resize-none theme-transition"></textarea>
-          <div class="flex justify-end mt-2 space-x-2">
-            <button onclick="toggleEditSummary()" class="text-[11px] px-2 py-1 text-secondary hover:text-primary transition">取消</button>
-            <button onclick="saveSummary()" class="text-[11px] bg-accent text-white px-3 py-1 rounded hover:bg-accentHover transition shadow-sm">保存修改</button>
-          </div>
+            <div class="bg-white p-4 rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.02)] border border-[#E8ECE8] hover:border-[#6B8E73]/50 cursor-pointer flex flex-col gap-2 transition-all group">
+                <div class="flex justify-between items-start">
+                    <h3 class="font-medium text-[15px] leading-snug text-[#2A332C] group-hover:text-[#6B8E73] transition-colors">Tailwind CSS v4.0 Alpha - What's new</h3>
+                    <button class="text-[#D0D6D1] hover:text-[#FBBF24] transition-colors">⭐</button>
+                </div>
+                <p class="text-xs text-[#7A8A7D] line-clamp-2">A first look at the next generation of Tailwind CSS, featuring an all-new high-performance engine...</p>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-[11px] text-[#7A8A7D]">tailwindcss.com</span>
+                    <span class="w-1 h-1 rounded-full bg-[#E8ECE8]"></span>
+                    <span class="text-[10px] bg-[#F4F7F4] text-[#7A8A7D] px-1.5 py-0.5 rounded">#css</span>
+                </div>
+            </div>
+            
         </div>
-      </div>
+    </main>
 
-      <div class="col-span-4 row-span-1 bg-surface border border-border rounded-2xl p-5 shadow-sm overflow-y-auto custom-scrollbar theme-transition flex flex-col">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="text-[10px] font-bold text-secondary tracking-wider uppercase">Smart Tags</h3>
-          <button onclick="toggleEditTags()" class="text-secondary hover:text-accent transition" title="编辑标签">
-            <svg id="edit-tags-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-          </button>
-        </div>
-
-        <div id="tags-container" class="flex flex-wrap gap-2">
-          </div>
-
-        <div id="add-tag-container" class="hidden mt-3 flex items-center">
-          <input type="text" id="new-tag-input" onkeydown="handleTagInput(event)" placeholder="输入标签名回车..." class="bg-bg border border-border rounded-l-md px-2.5 py-1.5 text-xs focus:outline-none focus:border-accent text-primary w-full theme-transition">
-          <button onclick="addTag()" class="bg-surface border border-l-0 border-border rounded-r-md px-3 py-1.5 text-xs hover:text-accent font-bold transition theme-transition">+</button>
-        </div>
+    <aside class="flex-1 bg-white flex flex-col z-10 min-w-[400px]">
         
-        <div class="text-xs text-secondary border-t border-border pt-3 mt-auto theme-transition">
-          <div class="font-medium mb-1">语义相似内容：</div>
-          <ul class="space-y-1">
-            <li class="truncate hover:text-accent cursor-pointer">↳ ChatGPT 与 Bing 的架构差异对比 (94%)</li>
-          </ul>
-        </div>
-      </div>
+        <header class="p-6 border-b border-[#E8ECE8] bg-white flex flex-col gap-3 flex-shrink-0">
+            <div class="flex justify-between items-start gap-4">
+                <h2 class="font-bold text-xl text-[#2A332C] leading-tight flex-1">NuPhy 键盘快捷键使用指南 | 官方文档</h2>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button class="p-1.5 text-[#7A8A7D] hover:text-[#2A332C] hover:bg-[#F4F7F4] rounded-md transition" title="在浏览器中打开">↗️</button>
+                    <button class="p-1.5 text-[#7A8A7D] hover:text-[#e63946] hover:bg-[#fdf0f0] rounded-md transition" title="删除">🗑️</button>
+                </div>
+            </div>
+            <a href="#" class="text-xs text-[#6B8E73] hover:underline flex items-center gap-1.5 w-max">
+                <img src="https://nuphy.com/cdn/shop/files/favicon_32x32.png" class="w-3 h-3 rounded-sm" alt="favicon">
+                https://nuphy.dev/manuals/air75-v2
+            </a>
+        </header>
 
-      <div class="col-span-4 row-span-1 bg-bg border border-border rounded-2xl p-5 flex flex-col relative shadow-inner theme-transition">
-        <h3 class="text-[10px] font-bold text-secondary tracking-wider uppercase mb-2">Ask Ghostreader</h3>
-        <p class="text-[11px] text-secondary mb-3">基于当前文档内容向 AI 提问...</p>
-        <div class="mt-auto relative">
-          <input type="text" placeholder="必应最新的 AI 功能是什么？" class="w-full bg-surface border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:border-accent text-primary placeholder-secondary shadow-sm theme-transition" />
-          <button class="absolute right-2 top-2 w-7 h-7 bg-accent text-white rounded flex items-center justify-center hover:opacity-90 transition">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"></path></svg>
-          </button>
+        <div class="flex border-b border-[#E8ECE8] bg-[#FAFCFA] px-6 pt-3 flex-shrink-0">
+            <button class="px-4 py-2 text-sm font-semibold text-[#6B8E73] border-b-2 border-[#6B8E73]">
+                📝 资料与笔记
+            </button>
+            <button class="px-4 py-2 text-sm font-medium text-[#7A8A7D] hover:text-[#2A332C] transition">
+                ✨ AI 伴读对话
+            </button>
         </div>
-      </div>
 
-    </div>
-  </div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar bg-white">
+            
+            <section class="group">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-[11px] font-bold text-[#7A8A7D] uppercase tracking-wider flex items-center gap-1">
+                        🏷️ 标签 (Tags)
+                    </h3>
+                </div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <span class="flex items-center gap-1 text-xs bg-[#EBF0EC] text-[#6B8E73] border border-[#6B8E73]/20 px-2.5 py-1 rounded-md font-medium group/tag">
+                        #外设
+                        <button class="text-[#6B8E73]/50 hover:text-[#6B8E73] opacity-0 group-hover/tag:opacity-100 transition">×</button>
+                    </span>
+                    <span class="flex items-center gap-1 text-xs bg-[#EBF0EC] text-[#6B8E73] border border-[#6B8E73]/20 px-2.5 py-1 rounded-md font-medium group/tag">
+                        #说明书
+                        <button class="text-[#6B8E73]/50 hover:text-[#6B8E73] opacity-0 group-hover/tag:opacity-100 transition">×</button>
+                    </span>
+                    <input type="text" placeholder="+ 添加标签..." class="text-xs bg-transparent border border-dashed border-[#E8ECE8] hover:border-[#6B8E73] text-[#2A332C] px-2.5 py-1 rounded-md focus:outline-none focus:border-solid focus:border-[#6B8E73] focus:ring-1 focus:ring-[#6B8E73] w-24 transition">
+                </div>
+            </section>
+
+            <section class="group">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-[11px] font-bold text-[#7A8A7D] uppercase tracking-wider flex items-center gap-1">
+                        ✨ AI 摘要 (Summary)
+                    </h3>
+                    <button class="text-[10px] text-[#6B8E73] opacity-0 group-hover:opacity-100 transition flex items-center gap-1">
+                        <span>重新生成</span> 🔄
+                    </button>
+                </div>
+                <div class="relative">
+                    <textarea rows="3" class="w-full text-sm text-[#2A332C] leading-relaxed resize-none bg-transparent border border-transparent hover:border-[#E8ECE8] focus:border-[#6B8E73] focus:bg-[#FAFCFA] p-2 -ml-2 rounded-lg focus:outline-none transition" placeholder="输入或生成摘要...">本文档是 NuPhy 机械键盘的官方快捷键指南。主要涵盖了背光灯效控制、多媒体功能键、以及 Win/Mac 系统布局切换的组合键用法。适用于 Air75 V2 等型号。</textarea>
+                </div>
+            </section>
+
+            <section class="flex flex-col h-full min-h-[200px]">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-[11px] font-bold text-[#7A8A7D] uppercase tracking-wider flex items-center gap-1">
+                        💬 个人笔记 (My Comments)
+                    </h3>
+                    <span class="text-[10px] text-[#7A8A7D] bg-[#F4F7F4] px-1.5 py-0.5 rounded">自动保存</span>
+                </div>
+                <div class="flex-1 border border-[#E8ECE8] rounded-xl focus-within:border-[#6B8E73] focus-within:ring-1 focus-within:ring-[#6B8E73] bg-[#FAFCFA] transition-all overflow-hidden flex flex-col">
+                    <textarea class="flex-1 w-full bg-transparent resize-none p-4 text-sm text-[#2A332C] leading-relaxed focus:outline-none placeholder-[#7A8A7D]/50" placeholder="写下你对这篇内容的思考、批注或待办事项... (支持 Markdown 语法)
+例如：
+- [ ] 晚上回家把键盘切换到 Mac 模式试一下 (Fn + M)
+- 重点关注第 3 节的自定义宏设置规则。">
+注意点：
+1. 切换 Mac 模式是 Fn + M，Win 是 Fn + W。
+2. 重置键盘需要长按 Fn + Tab + R 组合键。
+3. 晚上回去在主力机上重新刷一下最新的固件。</textarea>
+                    
+                    <div class="border-t border-[#E8ECE8] bg-[#F4F7F4] p-2 px-4 flex justify-between items-center">
+                        <div class="flex gap-3 text-[#7A8A7D]">
+                            <button class="hover:text-[#2A332C] text-sm font-bold" title="加粗">B</button>
+                            <button class="hover:text-[#2A332C] text-sm italic" title="斜体">I</button>
+                            <button class="hover:text-[#2A332C] text-sm" title="列表">•</button>
+                        </div>
+                        <span class="text-[10px] text-[#7A8A7D]">最后编辑于 10 分钟前</span>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </aside>
+
 </body>
 </html>

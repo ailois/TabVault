@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabVault Settings - Knowledge Base</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定义下拉箭头 */
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg fill='%237A8A7D' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+            background-repeat: no-repeat;
+            background-position-x: 98%;
+            background-position-y: 50%;
+        }
+    </style>
+</head>
+<body class="bg-[#F4F7F4] text-[#2A332C] font-sans antialiased flex h-screen">
+
+    <aside class="w-64 bg-white border-r border-[#E8ECE8] flex flex-col shadow-[2px_0_8px_rgba(0,0,0,0.02)] z-10">
+        <div class="p-6 mb-4">
+            <h1 class="font-bold text-xl flex items-center gap-2">
+                <div class="w-6 h-6 bg-[#6B8E73] rounded-md shadow-sm"></div>
+                TabVault
+            </h1>
+        </div>
+        <nav class="flex-1 px-4 space-y-1">
+            <a href="#" class="block px-4 py-2.5 text-sm text-[#7A8A7D] hover:bg-[#F9FAF9] hover:text-[#2A332C] font-medium rounded-lg transition">⚙️ 架构配置</a>
+            <a href="#" class="block px-4 py-2.5 text-sm bg-[#F4F7F4] text-[#6B8E73] font-medium rounded-lg transition">📚 知识库管理</a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-[#F4F7F4]">
+        <header class="p-8 pb-4 flex-shrink-0">
+            <h2 class="text-2xl font-bold mb-1">管理</h2>
+            <p class="text-sm text-[#7A8A7D]">管理本地书签数据、向量索引策略、存储空间及隐私规则。</p>
+        </header>
+
+        <div class="flex-1 overflow-y-auto px-8 py-4 space-y-8">
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 pb-12">
+                
+                <div class="space-y-6">
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-[#E8ECE8]">
+                        <h3 class="font-semibold text-base text-[#2A332C] mb-6">存储概览</h3>
+                        
+                        <div class="mb-6">
+                            <div class="flex justify-between items-end mb-2">
+                                <span class="text-sm font-medium text-[#2A332C]">本地数据库 (IndexedDB)</span>
+                                <span class="text-xs text-[#7A8A7D]">24.5 MB / 500 MB</span>
+                            </div>
+                            <div class="w-full bg-[#F4F7F4] rounded-full h-2 overflow-hidden border border-[#E8ECE8]">
+                                <div class="bg-[#6B8E73] h-2 rounded-full" style="width: 5%"></div>
+                            </div>
+                            <p class="text-[10px] text-[#7A8A7D] mt-2">包含 469 个书签、312 份页面摘要及 1,204 个向量块。</p>
+                        </div>
+
+                        <div class="space-y-4 pt-4 border-t border-[#E8ECE8]">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-[#2A332C]">备份与迁移</h4>
+                                    <p class="text-[10px] text-[#7A8A7D] mt-0.5">将所有书签及 AI 分析结果导出为 JSON 格式</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="bg-white border border-[#E8ECE8] text-[#2A332C] hover:bg-[#F9FAF9] text-xs font-medium px-4 py-2 rounded-lg transition">导入</button>
+                                    <button class="bg-[#6B8E73] hover:bg-[#5A7A61] text-white text-xs font-medium px-4 py-2 rounded-lg transition">导出数据</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-[#E8ECE8]">
+                        <h3 class="font-semibold text-base text-[#e63946] mb-4 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#e63946]"></span> 数据清理 (Danger Zone)
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center bg-[#fdf0f0] border border-[#facdcd] p-4 rounded-lg">
+                                <div>
+                                    <h4 class="text-sm font-medium text-[#c1121f]">清空失败分析记录</h4>
+                                    <p class="text-[10px] text-[#c1121f]/70 mt-0.5">移除所有因网络或超长截断导致的分析失败记录</p>
+                                </div>
+                                <button class="bg-white border border-[#facdcd] text-[#c1121f] hover:bg-[#c1121f] hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition">
+                                    清空失败记录
+                                </button>
+                            </div>
+
+                            <div class="flex justify-between items-center bg-[#fdf0f0] border border-[#facdcd] p-4 rounded-lg">
+                                <div>
+                                    <h4 class="text-sm font-medium text-[#c1121f]">清空全部 AI 分析缓存</h4>
+                                    <p class="text-[10px] text-[#c1121f]/70 mt-0.5">此操作不会删除书签，但会清空所有生成的摘要和向量，需重新分析</p>
+                                </div>
+                                <button class="bg-white border border-[#facdcd] text-[#c1121f] hover:bg-[#c1121f] hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition">
+                                    清空全部分析
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="space-y-6">
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-[#E8ECE8]">
+                        <h3 class="font-semibold text-base text-[#2A332C] mb-6">检索与向量架构</h3>
+
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-xs font-medium text-[#7A8A7D] mb-1.5">Embedding Model (向量嵌入模型)</label>
+                                <select class="w-full bg-[#F4F7F4] border border-[#E8ECE8] rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:border-[#6B8E73] text-[#2A332C] cursor-pointer transition">
+                                    <option>本地优先 (BGE-M3-Lite) - 推荐</option>
+                                    <option>OpenAI (text-embedding-3-small)</option>
+                                    <option>Gemini (text-embedding-004)</option>
+                                </select>
+                                <p class="text-[10px] text-[#7A8A7D] mt-1.5">本地模型速度快且完全免费；使用 API 模型会消耗相应的 Token 额度。</p>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-[#7A8A7D] mb-1.5">Chunk Size (分块长度)</label>
+                                    <input type="number" value="1000" class="w-full bg-[#F4F7F4] border border-[#E8ECE8] rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:border-[#6B8E73] transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-[#7A8A7D] mb-1.5">Overlap (重叠字符数)</label>
+                                    <input type="number" value="200" class="w-full bg-[#F4F7F4] border border-[#E8ECE8] rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:border-[#6B8E73] transition">
+                                </div>
+                            </div>
+
+                            <div class="bg-[#F4F7F4] border border-[#E8ECE8] p-3 rounded-lg flex gap-3 items-start mt-2">
+                                <span class="text-base">ℹ️</span>
+                                <div>
+                                    <p class="text-xs font-medium text-[#2A332C]">Reranking (重排) 尚未接入</p>
+                                    <p class="text-[10px] text-[#7A8A7D] mt-1 leading-relaxed">配置本地检索如何在已保存书签和当前页面上下文之间工作。Reranking 和架构路由相关控件将在后续版本中开放。</p>
+                                </div>
+                            </div>
+                            
+                            <button class="w-full bg-white border border-[#E8ECE8] text-[#2A332C] hover:bg-[#F4F7F4] text-sm font-medium px-4 py-2.5 rounded-lg transition mt-2">
+                                🔄 基于当前配置重建所有索引
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-[#E8ECE8]">
+                        <h3 class="font-semibold text-base text-[#2A332C] mb-6">隐私与过滤规则</h3>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-[#2A332C] mb-1">忽略域名列表 (Blocklist)</label>
+                                <p class="text-[10px] text-[#7A8A7D] mb-3">包含以下域名的网址将被插件直接跳过，既不保存书签，也不触发 AI 读取（每行一个）。</p>
+                                <textarea rows="5" class="w-full bg-[#F4F7F4] border border-[#E8ECE8] rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:border-[#6B8E73] text-[#2A332C] font-mono transition resize-none placeholder-[#7A8A7D]/50" placeholder="localhost&#10;127.0.0.1&#10;*.bank.com&#10;auth.alipay.com">localhost
+127.0.0.1
+192.168.*
+*.bank.com</textarea>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-2">
+                                <div>
+                                    <span class="block text-sm font-medium text-[#2A332C]">严格模式下隐藏敏感参数</span>
+                                    <span class="block text-[10px] text-[#7A8A7D] mt-0.5">在发送给云端大模型前，自动剔除 URL 中的 token、session 等参数</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                    <input type="checkbox" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-[#E8ECE8] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#E8ECE8] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#6B8E73]"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <footer class="bg-white border-t border-[#E8ECE8] p-4 px-8 flex justify-between items-center flex-shrink-0 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] z-20">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[#6B8E73] shadow-[0_0_4px_rgba(107,142,115,0.5)]"></span>
+                <span class="text-sm text-[#7A8A7D]">更改尚未保存</span>
+            </div>
+            <button class="bg-[#6B8E73] hover:bg-[#5A7A61] text-white font-medium px-8 py-2.5 rounded-lg shadow-[0_2px_8px_rgba(107,142,115,0.2)] transition flex items-center gap-2">
+                <span>保存知识库设置</span>
+            </button>
+        </footer>
+    </main>
+
+</body>
+</html>

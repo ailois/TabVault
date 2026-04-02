@@ -134,7 +134,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
       autoRetryOnError: false,
-      displayLanguage: "en"
+      displayLanguage: "en",
+      theme: "sage"
     })),
     saveAppSettings: vi.fn(async () => undefined),
     getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),
