@@ -1,31 +1,12 @@
 // @vitest-environment jsdom
 
-import React from "react"
+import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { act } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ThemeProvider } from "../../src/ui/theme-context"
-import { buildThemeFromOverride } from "../../src/ui/use-theme"
-import { ToggleSwitch } from "../../src/components/toggle-switch"
+import { ToggleSwitch } from "../../src/components/ui/switch"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
-
-globalThis.chrome = {
-  ...(globalThis.chrome ?? {}),
-  storage: {
-    ...((globalThis.chrome as any)?.storage ?? {}),
-    local: {
-      get: vi.fn(async () => ({})),
-      set: vi.fn(async () => {})
-    }
-  },
-  runtime: {
-    ...((globalThis.chrome as any)?.runtime ?? {}),
-    onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
-    sendMessage: vi.fn()
-  }
-} as any
 
 describe("ToggleSwitch", () => {
   let container: HTMLDivElement | null = null
@@ -48,48 +29,41 @@ describe("ToggleSwitch", () => {
     root = createRoot(container)
 
     await act(async () => {
-      root!.render(
-        <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
-          <ToggleSwitch checked={checked} onChange={onChange} label={label} />
-        </ThemeProvider>
-      )
+      root!.render(<ToggleSwitch checked={checked} onChange={onChange} label={label} />)
     })
   }
 
-  it("uses the prototype-sized track and thumb when unchecked", async () => {
+  it("renders semantic size classes when unchecked", async () => {
     await renderToggle(false, vi.fn())
 
     const toggle = container?.querySelector<HTMLElement>('[role="switch"]')
     const thumb = toggle?.querySelector<HTMLElement>("span")
-    expect(toggle?.style.width).toBe("40px")
-    expect(toggle?.style.height).toBe("24px")
-    expect(toggle?.style.backgroundColor).toBe("rgb(244, 247, 244)")
-    expect(thumb?.style.width).toBe("16px")
-    expect(thumb?.style.height).toBe("16px")
-    expect(thumb?.style.backgroundColor).toBe("rgb(122, 138, 125)")
+    expect(toggle?.className).toContain("h-6")
+    expect(toggle?.className).toContain("w-10")
+    expect(toggle?.className).toContain("bg-base")
+    expect(thumb?.className).toContain("h-4")
+    expect(thumb?.className).toContain("w-4")
   })
 
-  it("uses the prototype accent track and translated thumb when checked", async () => {
+  it("renders accent classes when checked", async () => {
     await renderToggle(true, vi.fn())
 
     const toggle = container?.querySelector<HTMLElement>('[role="switch"]')
     const thumb = toggle?.querySelector<HTMLElement>("span")
-    expect(toggle?.style.backgroundColor).toBe("rgb(107, 142, 115)")
-    expect(toggle?.style.borderColor).toBe("rgb(107, 142, 115)")
-    expect(thumb?.style.transform).toBe("translateX(16px)")
-    expect(thumb?.style.backgroundColor).toBe("rgb(255, 255, 255)")
+    expect(toggle?.className).toContain("bg-accent-primary")
+    expect(toggle?.className).toContain("border-accent-primary")
+    expect(thumb?.className).toContain("translate-x-4")
+    expect(thumb?.className).toContain("bg-white")
   })
 
   it("has aria-checked=false when unchecked", async () => {
     await renderToggle(false, vi.fn())
-
     const toggle = container?.querySelector('[role="switch"]')
     expect(toggle?.getAttribute("aria-checked")).toBe("false")
   })
 
   it("has aria-checked=true when checked", async () => {
     await renderToggle(true, vi.fn())
-
     const toggle = container?.querySelector('[role="switch"]')
     expect(toggle?.getAttribute("aria-checked")).toBe("true")
   })
@@ -99,7 +73,6 @@ describe("ToggleSwitch", () => {
     await renderToggle(false, onChange)
 
     const toggle = container?.querySelector('[role="switch"]') as HTMLButtonElement
-
     await act(async () => {
       toggle.click()
     })
@@ -112,7 +85,6 @@ describe("ToggleSwitch", () => {
     await renderToggle(true, onChange)
 
     const toggle = container?.querySelector('[role="switch"]') as HTMLButtonElement
-
     await act(async () => {
       toggle.click()
     })
@@ -122,7 +94,6 @@ describe("ToggleSwitch", () => {
 
   it("has aria-label set to the label prop", async () => {
     await renderToggle(false, vi.fn(), "Enable feature")
-
     const toggle = container?.querySelector('[role="switch"]')
     expect(toggle?.getAttribute("aria-label")).toBe("Enable feature")
   })
