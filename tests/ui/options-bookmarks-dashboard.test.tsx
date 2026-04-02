@@ -114,7 +114,8 @@ function makeSettingsRepository(): SettingsRepository {
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto" as const,
       autoRetryOnError: false,
-      displayLanguage: "en" as const
+      displayLanguage: "en" as const,
+      theme: "sage" as const
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [
@@ -164,18 +165,17 @@ function getBookmarkDetailsColumn(): HTMLElement | null {
   return container?.querySelector('[data-testid="bookmark-details-column"]') ?? null
 }
 
-describe("Options bookmarks dashboard", () => {
-  it("does not render a bookmarks workspace inside settings", async () => {
+describe("Options knowledge management panel", () => {
+  it("renders the knowledge base shell inside settings", async () => {
     await renderBookmarksTab([makeBookmarkRecord()])
 
     expect(container?.querySelector('[data-testid="options-dashboard-shell"]')).not.toBeNull()
-    expect(container?.querySelector('[data-testid="bookmarks-workspace"]')).toBeNull()
+    expect(container?.querySelector('[data-testid="settings-panel-knowledge"]')).not.toBeNull()
     expect(container?.querySelector('[data-testid="options-nav-bookmarks"]')).toBeNull()
-    expect(container?.textContent).not.toContain("YOUR FOLDERS")
-    expect(container?.textContent).not.toContain("DETAILS")
+    expect(container?.textContent).toContain("Knowledge Base")
   })
 
-  it("does not render the old bookmark list and details columns in settings", async () => {
+  it("keeps the old bookmark list and details columns out of settings", async () => {
     await renderBookmarksTab([makeBookmarkRecord()])
 
     expect(getBookmarkListColumn()).toBeNull()
