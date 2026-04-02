@@ -25,24 +25,25 @@ export function TrialBanner({ status, title, message, detail, ctaLabel, onCtaCli
 
   const statusPalette =
     status === "trial"
-      ? { background: theme.successSoft, text: theme.textSuccess }
-      : { background: theme.dangerSoft, text: theme.textDanger }
+      ? { title: theme.accent, border: "rgba(107, 142, 115, 0.3)" }
+      : { title: theme.textDanger, border: "rgba(239, 68, 68, 0.24)" }
 
   const containerStyle: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-    padding: `${spacing.sm} ${spacing.md}`,
-    borderRadius: radius.large,
-    border: `1px solid ${statusPalette.background}`,
-    backgroundColor: statusPalette.background
+    padding: "16px",
+    borderRadius: "12px",
+    border: `1px solid ${statusPalette.border}`,
+    backgroundColor: theme.surface,
+    boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
   }
 
   const contentStyle: React.CSSProperties = {
     minWidth: 0,
     display: "grid",
-    gap: spacing.xs,
+    gap: "4px",
     flex: "1 1 auto"
   }
 
@@ -50,32 +51,25 @@ export function TrialBanner({ status, title, message, detail, ctaLabel, onCtaCli
     margin: 0,
     fontSize: "0.875rem",
     fontWeight: 600,
-    color: statusPalette.text
+    color: statusPalette.title
   }
 
   const messageStyle: React.CSSProperties = {
     margin: 0,
-    fontSize: "0.8125rem",
-    lineHeight: 1.4,
-    color: theme.textPrimary
-  }
-
-  const detailStyle: React.CSSProperties = {
-    margin: 0,
     fontSize: "0.75rem",
-    lineHeight: 1.4,
-    color: theme.textSecondary
+    lineHeight: 1.5,
+    color: theme.textMuted
   }
 
   const ctaStyle: React.CSSProperties = {
     flexShrink: 0,
     border: "none",
-    borderRadius: radius.medium,
-    padding: `6px ${spacing.md}`,
+    borderRadius: "10px",
+    padding: `8px ${spacing.md}`,
     backgroundColor: theme.accent,
-    color: theme.surface,
-    fontSize: "0.8125rem",
-    fontWeight: 600,
+    color: "#ffffff",
+    fontSize: "0.875rem",
+    fontWeight: 500,
     cursor: isClickable ? "pointer" : "not-allowed",
     opacity: isClickable ? 1 : 0.6
   }
@@ -84,8 +78,7 @@ export function TrialBanner({ status, title, message, detail, ctaLabel, onCtaCli
     <section data-testid="trial-banner" data-trial-status={status} style={containerStyle}>
       <div style={contentStyle}>
         <h3 style={titleStyle}>{resolvedTitle}</h3>
-        <p style={messageStyle}>{message}</p>
-        {detail ? <p style={detailStyle}>{detail}</p> : null}
+        <p style={messageStyle}>{detail ?? message}</p>
       </div>
       <button
         data-testid="trial-banner-cta"

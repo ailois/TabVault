@@ -1,4 +1,4 @@
-﻿import "./styles/globals.css"
+import "./styles/globals.css"
 import React from "react"
 
 import ProviderSettingsForm from "./components/provider-settings-form"
@@ -17,7 +17,7 @@ import { useTrialStatus } from "./lib/trial/use-trial-status"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
-import type { ProviderConfig, ProviderType } from "./types/settings"
+import type { ProviderConfig, ProviderType, ThemeName } from "./types/settings"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
 import { getMessage } from "./lib/i18n/messages"
@@ -38,7 +38,6 @@ type OptionsServices = {
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
-type SettingsTab = "agent" | "retrieval"
 
 type LicenseEntryStateProps = {
   status: "trial" | "expired" | "licensed"
@@ -55,6 +54,23 @@ type LicenseEntryStateProps = {
   onLicenseEdit: () => void
 }
 
+type ProviderCardDefinition = {
+  id: ProviderType | "openai-response"
+  dataTestId: string
+  label: string
+  description: string
+  icon: string
+  accent: string
+}
+
+type ThemeCardDefinition = {
+  theme: ThemeName
+  label: string
+  chipColor: string
+  dark?: boolean
+  emoji?: string
+}
+
 const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
   settingsRepository: new ChromeSettingsRepository(),
   bookmarkRepository: new IndexedDbBookmarkRepository(),
@@ -67,6 +83,50 @@ const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
   },
   themeRepository: new ChromeThemeRepository()
 }
+
+const PROVIDER_CARDS: ProviderCardDefinition[] = [
+  {
+    id: "openai",
+    dataTestId: "provider-rail-openai",
+    label: "OpenAI Chat",
+    description: "/v1/chat/completions",
+    icon: "💬",
+    accent: "#6B8E73"
+  },
+  {
+    id: "openai-response",
+    dataTestId: "provider-rail-openai-response",
+    label: "OpenAI Response",
+    description: "/v1/responses",
+    icon: "📄",
+    accent: "#6B8E73"
+  },
+  {
+    id: "claude",
+    dataTestId: "provider-rail-claude",
+    label: "Claude",
+    description: "Anthropic Messages",
+    icon: "🧠",
+    accent: "#C08457"
+  },
+  {
+    id: "gemini",
+    dataTestId: "provider-rail-gemini",
+    label: "Gemini",
+    description: "Google AI Studio",
+    icon: "✨",
+    accent: "#5B7C99"
+  }
+]
+
+const THEME_CARDS: ThemeCardDefinition[] = [
+  { theme: "sage", label: "鼠尾草", chipColor: "#6B8E73" },
+  { theme: "breeze", label: "海风蓝", chipColor: "#5B7C99" },
+  { theme: "vanilla", label: "香草色", chipColor: "#D4A373" },
+  { theme: "cloud", label: "极简浅", chipColor: "#FAFAFA" },
+  { theme: "obsidian", label: "深邃暗", chipColor: "#121214", dark: true },
+  { theme: "taro", label: "自定义", chipColor: "#B07AA1", emoji: "🎨" }
+]
 
 export function applySingleProviderEnabledState(
   providers: ReturnType<typeof buildProviderFormState>,
@@ -87,7 +147,7 @@ function Options({ services }: OptionsProps) {
   const [appSettings, setAppSettings] = React.useState(DEFAULT_APP_SETTINGS)
   const [providers, setProviders] = React.useState(() => buildProviderFormState([]))
   const [providerEditorSelection, setProviderEditorSelection] = React.useState<ProviderType>(DEFAULT_APP_SETTINGS.defaultProvider)
-  const [activeTab, setActiveTab] = React.useState<SettingsTab>("agent")
+  const [selectedProtocolCard, setSelectedProtocolCard] = React.useState<ProviderType | "openai-response">(DEFAULT_APP_SETTINGS.defaultProvider)
   const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle")
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasLoadError, setHasLoadError] = React.useState(false)
@@ -122,10 +182,7 @@ function Options({ services }: OptionsProps) {
     setSaveStatus("saving")
 
     try {
-      const providersToSave = applySingleProviderEnabledState(
-        providers,
-        appSettings.defaultProvider
-      )
+      const providersToSave = applySingleProviderEnabledState(providers, appSettings.defaultProvider)
       await Promise.all([
         optionsServices.settingsRepository.saveAppSettings(appSettings),
         optionsServices.settingsRepository.saveProviders(providersToSave)
@@ -161,6 +218,7 @@ function Options({ services }: OptionsProps) {
         setAppSettings(normalizedAppSettings)
         setProviders(applySingleProviderEnabledState(buildProviderFormState(storedProviders), normalizedAppSettings.defaultProvider))
         setProviderEditorSelection(normalizedAppSettings.defaultProvider)
+        setSelectedProtocolCard(normalizedAppSettings.defaultProvider)
         setHasLoadError(false)
       } catch {
         if (isMounted) {
@@ -237,7 +295,7 @@ function Options({ services }: OptionsProps) {
         data-testid="options-dashboard-shell"
         style={{
           display: "grid",
-          gridTemplateColumns: "248px minmax(0, 1fr)",
+          gridTemplateColumns: "256px minmax(0, 1fr)",
           backgroundColor: theme.page,
           boxSizing: "border-box",
           minHeight: "100vh",
@@ -249,122 +307,59 @@ function Options({ services }: OptionsProps) {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: spacing.md,
-            padding: `${spacing.lg} ${spacing.md}`,
+            backgroundColor: theme.surface,
             borderRight: `1px solid ${theme.border}`,
-            backgroundColor: theme.isDark ? theme.page : theme.surface,
-            minWidth: 0
+            boxShadow: "2px 0 8px rgba(0,0,0,0.02)",
+            zIndex: 10
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: spacing.sm,
-              paddingBottom: spacing.md,
-              borderBottom: `1px solid ${theme.border}`
-            }}
-          >
-            <div style={{ display: "grid", gap: "6px", minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-                <div
-                  aria-hidden="true"
-                  style={{
-                    display: "grid",
-                    placeItems: "center",
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "10px",
-                    backgroundColor: theme.accent,
-                    color: "#ffffff",
-                    fontSize: "0.875rem",
-                    fontWeight: 700,
-                    flexShrink: 0
-                  }}
-                >
-                  ✦
-                </div>
-                <span style={{ fontSize: "1.125rem", fontWeight: 800, color: theme.textPrimary }}>
-                  TabVault
-                </span>
-              </div>
-              <p style={{ margin: 0, fontSize: "0.8125rem", color: theme.textMuted, lineHeight: 1.5 }}>
-                {t("settings.sidebar.tagline")}
-              </p>
-            </div>
-
-            <button
-              aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
-              data-testid="theme-toggle-button"
-              onClick={() => theme.toggle()}
-              style={{
-                display: "grid",
-                placeItems: "center",
-                width: "32px",
-                height: "32px",
-                backgroundColor: theme.surfaceElevated,
-                border: `1px solid ${theme.border}`,
-                borderRadius: radius.medium,
-                cursor: "pointer",
-                fontSize: "1rem",
-                color: theme.textMuted,
-                lineHeight: 1,
-                flexShrink: 0
-              }}
-              type="button"
-            >
-              {theme.isDark ? "☀️" : "🌙"}
-            </button>
+          <div style={{ padding: "24px 24px 16px", marginBottom: "16px" }}>
+            <h1 style={{ margin: 0, fontWeight: 700, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "10px", color: theme.textPrimary }}>
+              <span style={{ display: "inline-block", width: "24px", height: "24px", borderRadius: "6px", backgroundColor: theme.accent, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
+              TabVault
+            </h1>
           </div>
 
-          <nav style={{ display: "grid", gap: spacing.xs }}>
+          <nav style={{ display: "grid", gap: "4px", padding: "0 16px", flex: 1 }}>
             <button
               aria-current="page"
-              aria-pressed={true}
               data-testid="options-nav-settings"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                display: "block",
                 width: "100%",
-                padding: `${spacing.sm} ${spacing.md}`,
-                border: `1px solid ${theme.borderFocus}`,
-                borderRadius: "12px",
-                backgroundColor: theme.accentSoft,
-                color: theme.textPrimary,
+                textAlign: "left",
+                padding: "10px 16px",
+                border: "none",
+                borderRadius: "8px",
+                backgroundColor: theme.page,
+                color: theme.accent,
                 fontSize: "0.875rem",
-                fontWeight: 600,
-                cursor: "default",
-                transition: "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease"
+                fontWeight: 500,
+                cursor: "default"
               }}
               type="button"
             >
-              <span>{t("settings.nav.settings")}</span>
-              <span aria-hidden="true" style={{ color: theme.accent, fontSize: "0.75rem" }}>
-                ●
-              </span>
+              ⚙️ 架构配置
             </button>
             <button
               aria-current={undefined}
               data-testid="settings-nav-knowledge"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                display: "block",
                 width: "100%",
-                padding: `${spacing.sm} ${spacing.md}`,
-                border: `1px solid ${theme.border}`,
-                borderRadius: "12px",
-                backgroundColor: theme.surface,
+                textAlign: "left",
+                padding: "10px 16px",
+                border: "none",
+                borderRadius: "8px",
+                backgroundColor: "transparent",
                 color: theme.textMuted,
                 fontSize: "0.875rem",
-                fontWeight: 600,
+                fontWeight: 500,
                 cursor: "default"
               }}
               type="button"
             >
-              <span>Knowledge Base</span>
+              📚 知识库管理
             </button>
           </nav>
         </aside>
@@ -372,59 +367,60 @@ function Options({ services }: OptionsProps) {
         <div
           data-testid="options-main-content"
           style={{
-            padding: `${spacing.xl} ${spacing.xl} 80px`,
-            backgroundColor: theme.page,
-            boxSizing: "border-box",
-            minWidth: 0
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 0,
+            minHeight: "100vh",
+            backgroundColor: theme.page
           }}
         >
-          <div data-testid="settings-page-shell" style={{ width: "100%", minWidth: 0, display: "grid", gap: spacing.lg }}>
-              <header data-testid="settings-page-header" style={{ display: "grid", gap: "4px" }}>
-                <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: theme.textPrimary }}>{t("settings.title")}</h1>
-                <p data-testid="settings-page-description" style={{ margin: 0, color: theme.textMuted, fontSize: "0.875rem" }}>
-                  {t("settings.subtitle")}
-                </p>
-              </header>
+          <header data-testid="settings-page-header" style={{ padding: "32px 32px 16px", flexShrink: 0 }}>
+            <h2 style={{ margin: "0 0 4px", fontSize: "1.5rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.title")}</h2>
+            <p data-testid="settings-page-description" style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted }}>
+              配置大语言模型 (LLM) 接口协议、体验外观和自动化行为。
+            </p>
+          </header>
 
-              <SettingsTabContent
-                activeTab={activeTab}
-                appSettings={appSettings}
-                handleSave={handleSave}
-                hasLoadError={hasLoadError}
-                isLoading={isLoading}
-                optionsServices={optionsServices}
-                providers={providers}
-                providerEditorSelection={providerEditorSelection}
-                saveStatus={saveStatus}
-                setActiveTab={setActiveTab}
-                setAppSettings={setAppSettings}
-                setProviders={setProviders}
-                setProviderEditorSelection={setProviderEditorSelection}
-                theme={theme}
-                validation={validation}
-                buildProviderConfig={buildProviderConfig}
-                trialStateProps={trial.status ? {
-                  analysisUsed: trial.state?.analysisUsed,
-                  installedAt: trial.state?.installedAt,
-                  isActivationExpanded,
-                  isSubmittingLicense,
-                  licenseError,
-                  licenseInput,
-                  onExpandActivation: () => setIsActivationExpanded(true),
-                  onLicenseEdit: () => {
-                    setLicenseError(null)
-                    setIsActivationExpanded(true)
-                    setOptimisticLicensedKey(null)
-                    setLicenseInput(trial.state?.licenseKey ?? licenseInput)
-                  },
-                  onLicenseInputChange: setLicenseInput,
-                  onLicenseSubmit: handleLicenseSubmit,
-                  storedLicenseKey: optimisticLicensedKey ?? trial.state?.licenseKey,
-                  status: optimisticLicensedKey ? "licensed" : trial.status
-                } : null}
-                t={t}
-              />
-            </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 32px 32px", boxSizing: "border-box" }}>
+            <SettingsContent
+              appSettings={appSettings}
+              buildProviderConfig={buildProviderConfig}
+              handleSave={handleSave}
+              hasLoadError={hasLoadError}
+              isLoading={isLoading}
+              optionsServices={optionsServices}
+              providerEditorSelection={providerEditorSelection}
+              providers={providers}
+              saveStatus={saveStatus}
+              selectedProtocolCard={selectedProtocolCard}
+              setAppSettings={setAppSettings}
+              setProviderEditorSelection={setProviderEditorSelection}
+              setProviders={setProviders}
+              setSelectedProtocolCard={setSelectedProtocolCard}
+              theme={theme}
+              trialStateProps={trial.status ? {
+                analysisUsed: trial.state?.analysisUsed,
+                installedAt: trial.state?.installedAt,
+                isActivationExpanded,
+                isSubmittingLicense,
+                licenseError,
+                licenseInput,
+                onExpandActivation: () => setIsActivationExpanded(true),
+                onLicenseEdit: () => {
+                  setLicenseError(null)
+                  setIsActivationExpanded(true)
+                  setOptimisticLicensedKey(null)
+                  setLicenseInput(trial.state?.licenseKey ?? licenseInput)
+                },
+                onLicenseInputChange: setLicenseInput,
+                onLicenseSubmit: handleLicenseSubmit,
+                storedLicenseKey: optimisticLicensedKey ?? trial.state?.licenseKey,
+                status: optimisticLicensedKey ? "licensed" : trial.status
+              } : null}
+              validation={validation}
+              t={t}
+            />
+          </div>
         </div>
       </main>
     </ThemeProvider>
@@ -538,61 +534,53 @@ function getSaveStatusMessage(
   }
 }
 
-type SettingsTabContentProps = {
-  activeTab: SettingsTab
+type SettingsContentProps = {
   appSettings: typeof DEFAULT_APP_SETTINGS
+  buildProviderConfig: (formState: ReturnType<typeof buildProviderFormState>[0]) => ProviderConfig
   handleSave: () => Promise<void>
   hasLoadError: boolean
   isLoading: boolean
   optionsServices: OptionsServices
-  providers: ReturnType<typeof buildProviderFormState>
   providerEditorSelection: ProviderType
+  providers: ReturnType<typeof buildProviderFormState>
   saveStatus: SaveStatus
-  setActiveTab: React.Dispatch<React.SetStateAction<SettingsTab>>
+  selectedProtocolCard: ProviderType | "openai-response"
   setAppSettings: React.Dispatch<React.SetStateAction<typeof DEFAULT_APP_SETTINGS>>
-  setProviders: React.Dispatch<React.SetStateAction<ReturnType<typeof buildProviderFormState>>>
   setProviderEditorSelection: React.Dispatch<React.SetStateAction<ProviderType>>
+  setProviders: React.Dispatch<React.SetStateAction<ReturnType<typeof buildProviderFormState>>>
+  setSelectedProtocolCard: React.Dispatch<React.SetStateAction<ProviderType | "openai-response">>
   theme: ReturnType<typeof useTheme>
-  validation: ReturnType<typeof validateSettingsForm>
-  buildProviderConfig: (formState: ReturnType<typeof buildProviderFormState>[0]) => ProviderConfig
   trialStateProps: LicenseEntryStateProps | null
+  validation: ReturnType<typeof validateSettingsForm>
   t: (key: Parameters<typeof getMessage>[1]) => string
 }
 
-function SettingsTabContent({
-  activeTab,
-  appSettings, handleSave, hasLoadError, isLoading, optionsServices,
-  providers, providerEditorSelection, saveStatus, setActiveTab, setAppSettings, setProviders,
-  setProviderEditorSelection, theme, validation, buildProviderConfig, trialStateProps, t
-}: SettingsTabContentProps) {
-  async function handleClearAll() {
-    if (!window.confirm("Clear all analysis results? This cannot be undone.")) return
-    await optionsServices.bookmarkRepository.clearAllAnalysis()
-  }
-
-  async function handleClearErrors() {
-    if (!window.confirm("Clear all failed analysis results? This cannot be undone.")) return
-    await optionsServices.bookmarkRepository.clearErrorAnalysis()
-  }
-
-  const providerLabels: Record<ProviderType, string> = {
-    openai: "OpenAI-compatible",
-    claude: "Claude",
-    gemini: "Gemini"
-  }
-
+function SettingsContent({
+  appSettings,
+  buildProviderConfig,
+  handleSave,
+  hasLoadError,
+  isLoading,
+  optionsServices,
+  providerEditorSelection,
+  providers,
+  saveStatus,
+  selectedProtocolCard,
+  setAppSettings,
+  setProviderEditorSelection,
+  setProviders,
+  setSelectedProtocolCard,
+  theme,
+  trialStateProps,
+  validation,
+  t
+}: SettingsContentProps) {
   const cardStyle: React.CSSProperties = {
-    border: `1px solid ${theme.border}`,
-    borderRadius: "16px",
-    overflow: "hidden",
     backgroundColor: theme.surface,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
-  }
-
-  const cardHeaderStyle: React.CSSProperties = {
-    padding: `${spacing.sm} ${spacing.md}`,
-    borderBottom: `1px solid ${theme.borderMuted}`,
-    backgroundColor: theme.surfaceElevated
+    border: `1px solid ${theme.border}`,
+    borderRadius: "12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+    padding: "24px"
   }
 
   const selectStyle: React.CSSProperties = {
@@ -600,368 +588,269 @@ function SettingsTabContent({
     boxSizing: "border-box",
     padding: `${spacing.sm} ${spacing.md}`,
     border: `1px solid ${theme.border}`,
-    borderRadius: radius.medium,
-    backgroundColor: theme.surfaceSubtle,
+    borderRadius: "10px",
+    backgroundColor: theme.page,
     color: theme.textPrimary,
-    fontSize: "0.875rem"
+    fontSize: "0.875rem",
+    appearance: "none",
+    backgroundImage:
+      "url(\"data:image/svg+xml;utf8,<svg fill='%237A8A7D' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>\")",
+    backgroundRepeat: "no-repeat",
+    backgroundPositionX: "98%",
+    backgroundPositionY: "50%"
   }
 
-  const toggleRowStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: `${spacing.sm} ${spacing.md}`,
-    borderRadius: radius.medium,
-    backgroundColor: theme.surfaceSubtle
+  const selectedProvider = providers.find((provider) => provider.provider === providerEditorSelection)
+
+  function selectProvider(provider: ProviderType): void {
+    setAppSettings((currentSettings) => ({
+      ...currentSettings,
+      defaultProvider: provider
+    }))
+    setProviders((currentProviders) => applySingleProviderEnabledState(currentProviders, provider))
+    setProviderEditorSelection(provider)
+    setSelectedProtocolCard(provider)
   }
-
-  const panelStyle = (isActive: boolean): React.CSSProperties => ({
-    display: isActive ? "grid" : "none",
-    gap: spacing.lg
-  })
-
-  const providerPanel = (
-    <div style={{ display: "grid", gap: spacing.md, minWidth: 0 }}>
-      {providers
-        .map((provider, originalIndex) => ({ provider, originalIndex }))
-        .filter(({ provider }) => provider.provider === providerEditorSelection)
-        .map(({ provider, originalIndex }) => {
-          const isDefault = provider.provider === appSettings.defaultProvider
-
-          return (
-            <div
-              data-testid="settings-section-card"
-              key={provider.provider}
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "16px",
-                overflow: "hidden",
-                backgroundColor: theme.surface,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                position: "relative"
-              }}
-            >
-              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "4px", backgroundColor: theme.accent, borderRadius: "16px 0 0 16px" }} />
-              <div style={{ padding: `${spacing.sm} ${spacing.md}`, paddingLeft: "20px", borderBottom: `1px solid ${theme.borderMuted}`, backgroundColor: theme.surfaceElevated, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>
-                  {providerLabels[provider.provider]}
-                </span>
-                {isDefault ? (
-                  <span style={{ fontSize: "0.625rem", fontWeight: 800, backgroundColor: theme.accentSoft, color: theme.accent, border: `1px solid ${theme.border}`, padding: "2px 8px", borderRadius: "9999px" }}>
-                    DEFAULT
-                  </span>
-                ) : null}
-              </div>
-              <div style={{ padding: "20px" }}>
-                <ProviderSettingsForm
-                  onChange={(nextValue) => {
-                    setProviders((currentProviders) =>
-                      currentProviders.map((currentProvider, currentIndex) =>
-                        currentIndex === originalIndex ? nextValue : currentProvider
-                      )
-                    )
-                  }}
-                  fieldErrors={validation.providers[provider.provider]}
-                  onTestConnection={async (formValue) => {
-                    try {
-                      await optionsServices.testConnection(buildProviderConfig(formValue))
-                      return "ok"
-                    } catch (error) {
-                      return error instanceof Error ? error.message : "Connection failed"
-                    }
-                  }}
-                  value={provider}
-                />
-              </div>
-            </div>
-          )
-        })}
-    </div>
-  )
 
   return (
-    <>
-      <div style={{ display: "grid", gap: spacing.lg }}>
-        <div
-          role="tablist"
-          aria-label="Settings sections"
-          style={{ display: "flex", gap: spacing.lg, borderBottom: `1px solid ${theme.border}`, paddingBottom: spacing.sm }}
-        >
-          <button
-            aria-selected={activeTab === "agent"}
-            data-testid="settings-tab-agent"
-            onClick={() => setActiveTab("agent")}
-            role="tab"
-            style={{
-              padding: `0 0 ${spacing.xs}`,
-              border: "none",
-              borderBottom: `2px solid ${activeTab === "agent" ? theme.accent : "transparent"}`,
-              backgroundColor: "transparent",
-              color: activeTab === "agent" ? theme.textPrimary : theme.textMuted,
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              cursor: "pointer"
-            }}
-            type="button"
-          >
-            {t("settings.tab.agent")}
-          </button>
-          <button
-            aria-selected={activeTab === "retrieval"}
-            data-testid="settings-tab-retrieval"
-            onClick={() => setActiveTab("retrieval")}
-            role="tab"
-            style={{
-              padding: `0 0 ${spacing.xs}`,
-              border: "none",
-              borderBottom: `2px solid ${activeTab === "retrieval" ? theme.accent : "transparent"}`,
-              backgroundColor: "transparent",
-              color: activeTab === "retrieval" ? theme.textPrimary : theme.textMuted,
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              cursor: "pointer"
-            }}
-            type="button"
-          >
-            {t("settings.tab.retrieval")}
-          </button>
+    <div data-testid="settings-page-shell" style={{ display: "grid", gap: "32px", minWidth: 0 }}>
+      {trialStateProps?.status === "trial" ? (
+        <div>
+          <TrialBanner
+            ctaLabel="Activate now"
+            detail={getTrialBannerDetail(trialStateProps.installedAt, trialStateProps.analysisUsed)}
+            message="Try TabVault free for 3 days."
+            onCtaClick={trialStateProps.onExpandActivation}
+            status="trial"
+          />
+        </div>
+      ) : null}
+
+      <div data-testid="settings-workspace" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "32px", alignItems: "start", paddingBottom: "48px" }}>
+        <div style={{ display: "grid", gap: "24px" }}>
+          <section data-testid="settings-section-card" style={cardStyle}>
+            <h3 style={{ margin: "0 0 16px", fontWeight: 600, fontSize: "1rem", color: theme.textPrimary }}>伴读引擎协议 (Provider)</h3>
+            <div data-testid="provider-rail" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", marginBottom: "24px" }}>
+              {PROVIDER_CARDS.map((provider) => {
+                const isSelected = selectedProtocolCard === provider.id
+                const isStorageBacked = provider.id === "openai" || provider.id === "claude" || provider.id === "gemini"
+                const isDefault = isStorageBacked && appSettings.defaultProvider === provider.id
+
+                return (
+                  <button
+                    key={provider.id}
+                    aria-pressed={isSelected}
+                    data-testid={provider.dataTestId}
+                    onClick={() => {
+                      if (provider.id === "openai-response") {
+                        setSelectedProtocolCard("openai-response")
+                        return
+                      }
+
+                      selectProvider(provider.id)
+                    }}
+                    style={{
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: `2px solid ${isSelected ? theme.accent : theme.border}`,
+                      backgroundColor: isSelected ? theme.page : theme.surface,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background-color 0.15s ease, border-color 0.15s ease"
+                    }}
+                    type="button"
+                  >
+                    <span style={{ width: "32px", height: "32px", borderRadius: "999px", backgroundColor: theme.surface, display: "grid", placeItems: "center", fontSize: "1rem", border: `1px solid ${theme.border}`, boxShadow: "0 1px 2px rgba(0,0,0,0.04)", flexShrink: 0 }}>
+                      {provider.icon}
+                    </span>
+                    <span style={{ display: "grid", minWidth: 0 }}>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: theme.textPrimary }}>{provider.label}</span>
+                      <span style={{ fontSize: "0.625rem", color: theme.textMuted, lineHeight: 1.4 }}>{provider.description}</span>
+                    </span>
+                    {isSelected ? (
+                      <span aria-hidden="true" style={{ position: "absolute", top: "8px", right: "8px", width: "8px", height: "8px", borderRadius: "999px", backgroundColor: provider.accent }} />
+                    ) : null}
+                    {isDefault ? (
+                      <span style={{ position: "absolute", bottom: "8px", right: "8px", fontSize: "0.625rem", color: theme.accent, fontWeight: 700 }}>
+                        默认
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })}
+            </div>
+
+            {selectedProtocolCard === "openai-response" ? (
+              <section style={{ display: "grid", gap: "12px", paddingTop: "16px", borderTop: `1px solid ${theme.border}` }}>
+                <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 600, color: theme.textPrimary }}>OpenAI Response</h2>
+                <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted, lineHeight: 1.6 }}>
+                  当前版本先保留这个协议入口的设计位，实际配置与保存逻辑仍复用现有 OpenAI-compatible provider。
+                </p>
+              </section>
+            ) : selectedProvider ? (
+              <ProviderSettingsForm
+                fieldErrors={validation.providers[selectedProvider.provider]}
+                onChange={(nextValue) => {
+                  setProviders((currentProviders) =>
+                    currentProviders.map((currentProvider) =>
+                      currentProvider.provider === nextValue.provider ? nextValue : currentProvider
+                    )
+                  )
+                }}
+                onTestConnection={async (formValue) => {
+                  try {
+                    await optionsServices.testConnection(buildProviderConfig(formValue))
+                    return "ok"
+                  } catch (error) {
+                    return error instanceof Error ? error.message : "Connection failed"
+                  }
+                }}
+                value={selectedProvider}
+              />
+            ) : null}
+          </section>
         </div>
 
-        <section data-testid="settings-panel-architecture" style={panelStyle(activeTab === "agent")}>
-          <div data-testid="settings-workspace" style={{ display: "grid", gap: spacing.lg }}>
-          <div
-            data-testid="settings-workspace"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(320px, 380px) minmax(0, 1fr)",
-              gap: spacing.lg,
-              alignItems: "start"
-            }}
-          >
-            <section data-testid="settings-section-card" style={cardStyle}>
-              <div style={cardHeaderStyle}>
-                <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.provider")}</h2>
-              </div>
-              <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
-                <div style={{ display: "grid", gap: spacing.sm }}>
-                  <label htmlFor="default-provider" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-                    {t("settings.defaultProvider.label")}
-                  </label>
-                  <select
-                    aria-describedby={validation.defaultProvider ? "default-provider-error" : undefined}
-                    aria-invalid={validation.defaultProvider ? true : undefined}
-                    id="default-provider"
-                    onChange={(event) => {
-                      const newProvider = event.target.value as typeof appSettings.defaultProvider
-                      setAppSettings((currentSettings) => ({
-                        ...currentSettings,
-                        defaultProvider: newProvider
-                      }))
-                      setProviders((currentProviders) => applySingleProviderEnabledState(currentProviders, newProvider))
-                      setProviderEditorSelection(newProvider)
-                    }}
-                    style={selectStyle}
-                    value={appSettings.defaultProvider}
-                  >
-                    <option value="openai">OpenAI-compatible</option>
-                    <option value="claude">Claude</option>
-                    <option value="gemini">Gemini</option>
-                  </select>
-                  {validation.defaultProvider ? (
-                    <p aria-live="polite" id="default-provider-error" role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
-                      {validation.defaultProvider}
-                    </p>
-                  ) : null}
-                </div>
+        <div style={{ display: "grid", gap: "24px" }}>
+          <section data-testid="settings-experience-card" style={cardStyle}>
+            <h3 style={{ margin: "0 0 24px", fontWeight: 600, fontSize: "1rem", color: theme.textPrimary }}>体验与自动化</h3>
 
-                <div
-                  data-testid="provider-rail"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                    gap: spacing.sm
-                  }}
-                >
-                  {providers.map((provider) => {
-                    const isActive = providerEditorSelection === provider.provider
-                    const isDefault = appSettings.defaultProvider === provider.provider
-
+            <div style={{ display: "grid", gap: "24px" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "12px", fontSize: "0.75rem", fontWeight: 500, color: theme.textMuted }}>界面主题 (Theme)</label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" }}>
+                  {THEME_CARDS.map((themeOption) => {
+                    const isSelected = appSettings.theme === themeOption.theme
                     return (
                       <button
-                        key={provider.provider}
-                        aria-pressed={isActive}
-                        data-testid={`provider-rail-${provider.provider}`}
-                        onClick={() => setProviderEditorSelection(provider.provider)}
+                        key={themeOption.theme}
+                        data-testid={`theme-card-${themeOption.theme}`}
+                        onClick={() =>
+                          setAppSettings((currentSettings) => ({
+                            ...currentSettings,
+                            theme: themeOption.theme
+                          }))
+                        }
                         style={{
-                          display: "grid",
-                          gap: "4px",
-                          textAlign: "left",
-                          padding: `${spacing.md} ${spacing.md}`,
-                          border: `1px solid ${isActive ? theme.borderFocus : theme.border}`,
-                          borderRadius: "14px",
-                          backgroundColor: isActive ? theme.accentSoft : theme.surface,
-                          color: theme.textPrimary,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          minHeight: "40px",
+                          borderRadius: "10px",
+                          border: `2px solid ${isSelected ? theme.accent : theme.border}`,
+                          backgroundColor: themeOption.dark ? "#1C1C1F" : theme.surface,
+                          color: themeOption.dark ? (isSelected ? "#8BA1B7" : "#909096") : isSelected ? theme.accent : theme.textMuted,
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
                           cursor: "pointer",
-                          minWidth: 0
+                          boxShadow: isSelected ? "0 1px 2px rgba(0,0,0,0.04)" : "none"
                         }}
                         type="button"
                       >
-                        <span style={{ fontSize: "0.875rem", fontWeight: isActive ? 700 : 600, color: theme.textPrimary }}>
-                          {providerLabels[provider.provider]}
-                        </span>
-                        {isDefault ? (
-                          <span style={{ fontSize: "0.75rem", color: isActive ? theme.accent : theme.textMuted }}>
-                            {t("settings.defaultProvider.badge")}
-                          </span>
-                        ) : null}
+                        {themeOption.emoji ? <span>{themeOption.emoji}</span> : <span style={{ width: "12px", height: "12px", borderRadius: "999px", backgroundColor: themeOption.chipColor, border: themeOption.theme === "cloud" ? "1px solid #D1D5DB" : "none" }} />}
+                        <span>{themeOption.label}</span>
                       </button>
                     )
                   })}
                 </div>
               </div>
-            </section>
 
-            {providerPanel}
-          </div>
-        </div>
-        </section>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" }}>
+                <div>
+                  <label htmlFor="display-language" style={{ display: "block", marginBottom: "6px", fontSize: "0.75rem", fontWeight: 500, color: theme.textMuted }}>
+                    {t("settings.displayLanguage.label")}
+                  </label>
+                  <select
+                    id="display-language"
+                    onChange={(event) =>
+                      setAppSettings((currentSettings) => ({
+                        ...currentSettings,
+                        displayLanguage: event.target.value as typeof currentSettings.displayLanguage
+                      }))
+                    }
+                    style={selectStyle}
+                    value={appSettings.displayLanguage}
+                  >
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
 
-        <section data-testid="settings-panel-knowledge" hidden style={panelStyle(false)}>
-          <section data-testid="settings-section-card" style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>Knowledge Base</h2>
-            </div>
-            <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
-              <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted, lineHeight: 1.6 }}>
-                Manage local bookmark storage, retrieval strategy, and privacy rules.
-              </p>
-            </div>
-          </section>
-        </section>
-
-        <section data-testid="settings-tab-panel-retrieval" style={panelStyle(activeTab === "retrieval")}>
-          <section data-testid="settings-section-card" style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.retrieval")}</h2>
-            </div>
-            <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
-              <p style={{ margin: 0, fontSize: "0.875rem", lineHeight: 1.6, color: theme.textMuted }}>
-                {t("settings.retrieval.description")}
-              </p>
-              <div style={{ padding: `${spacing.sm} ${spacing.md}`, borderRadius: radius.medium, backgroundColor: theme.surfaceSubtle, color: theme.textMuted, fontSize: "0.8125rem", lineHeight: 1.6 }}>
-                {t("settings.retrieval.placeholder")}
-              </div>
-              <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap" }}>
-                <button
-                  data-testid="clear-all-analysis-btn"
-                  onClick={() => void handleClearAll()}
-                  style={{ padding: `${spacing.xs} ${spacing.md}`, border: `1px solid ${theme.borderMuted}`, borderRadius: radius.medium, backgroundColor: "transparent", color: theme.textDanger, fontSize: "0.8125rem", fontWeight: 500, cursor: "pointer" }}
-                  type="button"
-                >
-                  {t("settings.retrieval.clearAll")}
-                </button>
-                <button
-                  data-testid="clear-error-analysis-btn"
-                  onClick={() => void handleClearErrors()}
-                  style={{ padding: `${spacing.xs} ${spacing.md}`, border: `1px solid ${theme.borderMuted}`, borderRadius: radius.medium, backgroundColor: "transparent", color: theme.textDanger, fontSize: "0.8125rem", fontWeight: 500, cursor: "pointer" }}
-                  type="button"
-                >
-                  {t("settings.retrieval.clearErrors")}
-                </button>
-              </div>
-            </div>
-          </section>
-        </section>
-
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: spacing.lg, alignItems: "start" }}>
-          <section data-testid="settings-experience-card" style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.experience")}</h2>
-            </div>
-            <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
-              <div style={{ display: "grid", gap: spacing.sm }}>
-                <label htmlFor="display-language" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-                  {t("settings.displayLanguage.label")}
-                </label>
-                <select
-                  id="display-language"
-                  onChange={(event) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      displayLanguage: event.target.value as typeof currentSettings.displayLanguage
-                    }))
-                  }
-                  style={selectStyle}
-                  value={appSettings.displayLanguage}
-                >
-                  <option value="en">{t("settings.displayLanguage.option.en")}</option>
-                  <option value="zh">{t("settings.displayLanguage.option.zh")}</option>
-                </select>
+                <div>
+                  <label htmlFor="summary-language" style={{ display: "block", marginBottom: "6px", fontSize: "0.75rem", fontWeight: 500, color: theme.textMuted }}>
+                    {t("settings.summaryLanguage.label")}
+                  </label>
+                  <select
+                    id="summary-language"
+                    onChange={(event) =>
+                      setAppSettings((currentSettings) => ({
+                        ...currentSettings,
+                        summaryLanguage: event.target.value as typeof currentSettings.summaryLanguage
+                      }))
+                    }
+                    style={selectStyle}
+                    value={appSettings.summaryLanguage ?? "auto"}
+                  >
+                    <option value="auto">{t("settings.summaryLanguage.option.auto")}</option>
+                    <option value="zh">{t("settings.summaryLanguage.option.zh")}</option>
+                    <option value="en">{t("settings.summaryLanguage.option.en")}</option>
+                    <option value="ja">{t("settings.summaryLanguage.option.ja")}</option>
+                    <option value="ko">{t("settings.summaryLanguage.option.ko")}</option>
+                    <option value="fr">{t("settings.summaryLanguage.option.fr")}</option>
+                    <option value="de">{t("settings.summaryLanguage.option.de")}</option>
+                    <option value="es">{t("settings.summaryLanguage.option.es")}</option>
+                  </select>
+                </div>
               </div>
 
-              <div style={{ display: "grid", gap: spacing.sm }}>
-                <label htmlFor="summary-language" style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-                  {t("settings.summaryLanguage.label")}
-                </label>
-                <select
-                  id="summary-language"
-                  onChange={(event) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      summaryLanguage: event.target.value as typeof currentSettings.summaryLanguage
-                    }))
-                  }
-                  style={selectStyle}
-                  value={appSettings.summaryLanguage ?? "auto"}
-                >
-                  <option value="auto">{t("settings.summaryLanguage.option.auto")}</option>
-                  <option value="zh">{t("settings.summaryLanguage.option.zh")}</option>
-                  <option value="en">{t("settings.summaryLanguage.option.en")}</option>
-                  <option value="ja">{t("settings.summaryLanguage.option.ja")}</option>
-                  <option value="ko">{t("settings.summaryLanguage.option.ko")}</option>
-                  <option value="fr">{t("settings.summaryLanguage.option.fr")}</option>
-                  <option value="de">{t("settings.summaryLanguage.option.de")}</option>
-                  <option value="es">{t("settings.summaryLanguage.option.es")}</option>
-                </select>
-              </div>
+              <div style={{ display: "grid", gap: "20px", paddingTop: "24px", borderTop: `1px solid ${theme.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 500, color: theme.textPrimary }}>{t("settings.autoAnalyzeOnSave.label")}</span>
+                  <ToggleSwitch
+                    checked={appSettings.autoAnalyzeOnSave}
+                    label={t("settings.autoAnalyzeOnSave.label")}
+                    onChange={(next) =>
+                      setAppSettings((currentSettings) => ({
+                        ...currentSettings,
+                        autoAnalyzeOnSave: next
+                      }))
+                    }
+                  />
+                </div>
 
-              <div style={toggleRowStyle}>
-                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>{t("settings.autoAnalyzeOnSave.label")}</span>
-                <ToggleSwitch
-                  checked={appSettings.autoAnalyzeOnSave}
-                  label={t("settings.autoAnalyzeOnSave.label")}
-                  onChange={(next) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      autoAnalyzeOnSave: next
-                    }))
-                  }
-                />
-              </div>
-
-              <div style={toggleRowStyle}>
-                <span style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textPrimary }}>{t("settings.autoRetryOnError.label")}</span>
-                <ToggleSwitch
-                  checked={appSettings.autoRetryOnError}
-                  label={t("settings.autoRetryOnError.label")}
-                  onChange={(next) =>
-                    setAppSettings((currentSettings) => ({
-                      ...currentSettings,
-                      autoRetryOnError: next
-                    }))
-                  }
-                />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 500, color: theme.textPrimary }}>{t("settings.autoRetryOnError.label")}</span>
+                  <ToggleSwitch
+                    checked={appSettings.autoRetryOnError}
+                    label={t("settings.autoRetryOnError.label")}
+                    onChange={(next) =>
+                      setAppSettings((currentSettings) => ({
+                        ...currentSettings,
+                        autoRetryOnError: next
+                      }))
+                    }
+                  />
+                </div>
               </div>
             </div>
           </section>
 
           <section data-testid="settings-section-card" style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.section.license")}</h2>
-            </div>
-            <div style={{ padding: "20px" }}>
-              {trialStateProps ? <OptionsLicenseEntry {...trialStateProps} /> : null}
-            </div>
+            <h3 style={{ margin: "0 0 16px", fontWeight: 600, fontSize: "1rem", color: theme.textPrimary }}>知识库管理</h3>
+            <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted, lineHeight: 1.6 }}>
+              管理本地书签知识、同步来源与后续检索能力。当前页先保留结构入口，详细功能将在后续迭代补齐。
+            </p>
+          </section>
+
+          <section data-testid="settings-license-card" style={cardStyle}>
+            <h3 style={{ margin: "0 0 16px", fontWeight: 600, fontSize: "1rem", color: theme.textPrimary }}>试用与许可证</h3>
+            {trialStateProps ? <OptionsLicenseEntry {...trialStateProps} /> : <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted }}>当前许可证状态不可用。</p>}
           </section>
         </div>
       </div>
@@ -969,22 +858,19 @@ function SettingsTabContent({
       <section
         data-testid="settings-save-actions"
         style={{
-          position: "sticky",
-          bottom: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: spacing.md,
-          marginTop: spacing.lg,
-          padding: `${spacing.md} ${spacing.lg}`,
-          borderTop: `1px solid ${theme.borderMuted}`,
-          backgroundColor: theme.page,
-          boxShadow: theme.shadow
+          padding: "16px 32px",
+          borderTop: `1px solid ${theme.border}`,
+          backgroundColor: theme.surface,
+          boxShadow: "0 -2px 10px rgba(0,0,0,0.02)"
         }}
       >
-        <div style={{ display: "grid", gap: "4px" }}>
-          <h2 style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: theme.textPrimary }}>{t("settings.save.title")}</h2>
-          <p aria-live="polite" data-testid="save-status" role="status" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textMuted }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: saveStatus === "error" ? theme.textDanger : theme.accent, boxShadow: saveStatus === "error" ? `0 0 4px ${theme.textDanger}` : "0 0 4px rgba(107,142,115,0.5)" }} />
+          <p aria-live="polite" data-testid="save-status" role="status" style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted }}>
             {getSaveStatusMessage(saveStatus, isLoading, hasLoadError, t)}
           </p>
         </div>
@@ -993,23 +879,25 @@ function SettingsTabContent({
           disabled={isLoading || hasLoadError || saveStatus === "saving" || validation.hasErrors}
           onClick={() => void handleSave()}
           style={{
-            padding: `${spacing.sm} ${spacing.lg}`,
+            padding: "10px 32px",
             border: "none",
-            borderRadius: radius.medium,
-            backgroundColor: theme.isDark ? theme.textPrimary : "#18181B",
-            color: theme.isDark ? theme.page : "#ffffff",
-            fontWeight: 600,
+            borderRadius: "10px",
+            backgroundColor: theme.accent,
+            color: "#ffffff",
+            fontWeight: 500,
             fontSize: "0.875rem",
             cursor: "pointer",
-            whiteSpace: "nowrap",
-            boxShadow: theme.isDark ? "0 4px 12px rgba(0,0,0,0.32)" : "0 4px 12px rgba(15,23,42,0.14)"
+            boxShadow: "0 2px 8px rgba(107,142,115,0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
           }}
           type="button"
         >
-          {t("settings.save.button")}
+          <span>{t("settings.save.button")}</span>
         </button>
       </section>
-    </>
+    </div>
   )
 }
 

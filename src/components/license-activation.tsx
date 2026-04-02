@@ -49,10 +49,11 @@ export function LicenseActivation({
   const cardStyle: React.CSSProperties = {
     display: "grid",
     gap: spacing.md,
-    padding: spacing.md,
+    padding: "20px",
     border: `1px solid ${theme.border}`,
-    borderRadius: radius.large,
-    backgroundColor: theme.surface
+    borderRadius: "12px",
+    backgroundColor: theme.surface,
+    boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
   }
 
   const headingStyle: React.CSSProperties = {
@@ -64,9 +65,9 @@ export function LicenseActivation({
 
   const descriptionStyle: React.CSSProperties = {
     margin: 0,
-    fontSize: "0.875rem",
+    fontSize: "0.8125rem",
     lineHeight: 1.5,
-    color: theme.textSecondary
+    color: theme.textMuted
   }
 
   const inputStyle: React.CSSProperties = {
@@ -74,26 +75,26 @@ export function LicenseActivation({
     boxSizing: "border-box",
     padding: `${spacing.sm} ${spacing.md}`,
     border: `1px solid ${theme.border}`,
-    borderRadius: radius.small,
-    backgroundColor: theme.surfaceElevated,
+    borderRadius: "10px",
+    backgroundColor: theme.page,
     color: theme.textPrimary,
     fontSize: "0.875rem"
   }
 
   const primaryButtonStyle: React.CSSProperties = {
-    padding: `${spacing.sm} ${spacing.md}`,
-    borderRadius: radius.medium,
+    padding: `10px ${spacing.md}`,
+    borderRadius: "10px",
     border: "none",
     backgroundColor: theme.accent,
-    color: theme.surface,
+    color: "#ffffff",
     fontSize: "0.875rem",
     fontWeight: 600,
     cursor: "pointer"
   }
 
   const secondaryButtonStyle: React.CSSProperties = {
-    padding: `${spacing.sm} ${spacing.md}`,
-    borderRadius: radius.medium,
+    padding: `10px ${spacing.md}`,
+    borderRadius: "10px",
     border: `1px solid ${theme.border}`,
     backgroundColor: "transparent",
     color: theme.textPrimary,
@@ -128,7 +129,7 @@ export function LicenseActivation({
       <p style={descriptionStyle}>Enter your license key to unlock premium features.</p>
 
       <div style={{ display: "grid", gap: spacing.xs }}>
-        <label htmlFor="license-key-input" style={{ fontSize: "0.875rem", color: theme.textSecondary }}>
+        <label htmlFor="license-key-input" style={{ fontSize: "0.75rem", color: theme.textMuted, fontWeight: 500 }}>
           License Key
         </label>
         <input

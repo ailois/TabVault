@@ -13,21 +13,21 @@ type ProviderSettingsFormProps = {
 }
 
 const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
-  openai: "OpenAI-compatible",
+  openai: "OpenAI Chat",
   claude: "Claude",
   gemini: "Gemini"
 }
 
 const PROVIDER_DESCRIPTIONS: Record<ProviderFormState["provider"], string> = {
-  openai: "Use any OpenAI-compatible endpoint by providing an API key, model, and base URL.",
-  claude: "Use your Anthropic API key and preferred Claude model for analysis.",
-  gemini: "Use your Google AI Studio API key and Gemini model for analysis."
+  openai: "/v1/chat/completions",
+  claude: "Anthropic Messages",
+  gemini: "Google AI Studio"
 }
 
 const PROVIDER_COLORS: Record<ProviderFormState["provider"], string> = {
-  openai: "#10a37f",
-  claude: "#d97706",
-  gemini: "#4285f4"
+  openai: "#6B8E73",
+  claude: "#C08457",
+  gemini: "#5B7C99"
 }
 
 const PROVIDER_BASE_URL_DEFAULTS: Partial<Record<ProviderFormState["provider"], string>> = {
@@ -78,15 +78,26 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
     boxSizing: "border-box",
     padding: `${spacing.sm} ${spacing.md}`,
     border: `1px solid ${theme.border}`,
-    borderRadius: radius.small,
-    backgroundColor: theme.surfaceElevated,
+    borderRadius: radius.medium,
+    backgroundColor: theme.page,
     fontSize: "0.875rem",
     color: theme.textPrimary,
     transition: "background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease"
   }
 
+  const labelStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    fontWeight: 500,
+    fontSize: "0.75rem",
+    color: theme.textMuted,
+    marginBottom: "6px"
+  }
+
   return (
-    <section style={{ display: "grid", gap: spacing.md }}>
+    <section style={{ display: "grid", gap: spacing.lg }}>
       <div style={{ display: "grid", gap: "4px" }}>
         <h2
           style={{
@@ -112,92 +123,110 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
           />
           {providerLabel}
         </h2>
-        <p data-testid="provider-description" style={{ margin: 0, color: theme.textMuted, fontSize: "0.8125rem", lineHeight: 1.5, maxWidth: "60ch" }}>
+        <p data-testid="provider-description" style={{ margin: 0, color: theme.textMuted, fontSize: "0.75rem", lineHeight: 1.5 }}>
           {providerDescription}
         </p>
       </div>
 
-      <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
-        <label htmlFor={`${value.provider}-api-key`} style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-          API key
-        </label>
-        <input
-          aria-describedby={fieldErrors?.apiKey ? apiKeyErrorId : undefined}
-          aria-invalid={fieldErrors?.apiKey ? true : undefined}
-          id={`${value.provider}-api-key`}
-          onChange={(event) => updateField("apiKey", event.target.value)}
-          style={fieldStyle}
-          type="password"
-          value={value.apiKey}
-        />
-        {fieldErrors?.apiKey ? (
-          <p aria-live="polite" id={apiKeyErrorId} role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
-            {fieldErrors.apiKey}
-          </p>
-        ) : null}
-      </div>
-
-      <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
-        <label htmlFor={`${value.provider}-model`} style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-          Model
-        </label>
-        <input
-          aria-describedby={fieldErrors?.model ? modelErrorId : undefined}
-          aria-invalid={fieldErrors?.model ? true : undefined}
-          id={`${value.provider}-model`}
-          onChange={(event) => updateField("model", event.target.value)}
-          style={fieldStyle}
-          type="text"
-          value={value.model}
-        />
-        {fieldErrors?.model ? (
-          <p aria-live="polite" id={modelErrorId} role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
-            {fieldErrors.model}
-          </p>
-        ) : null}
-      </div>
-
-      <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
-        <label htmlFor={`${value.provider}-base-url`} style={{ fontWeight: 500, fontSize: "0.875rem", color: theme.textSecondary }}>
-          Base URL
-          {value.provider !== "openai" ? (
-            <span style={{ fontWeight: 400, color: theme.textMuted, marginLeft: "0.5em" }}>
-              (optional, defaults to {PROVIDER_BASE_URL_DEFAULTS[value.provider]})
-            </span>
+      <div style={{ display: "grid", gap: spacing.md, paddingTop: spacing.md, borderTop: `1px solid ${theme.border}` }}>
+        <div data-testid="provider-field-stack" style={{ display: "grid" }}>
+          <label htmlFor={`${value.provider}-api-key`} style={labelStyle}>
+            <span>API Key</span>
+            <span style={{ color: theme.textDanger, opacity: 0.8 }}>必填</span>
+          </label>
+          <input
+            aria-describedby={fieldErrors?.apiKey ? apiKeyErrorId : undefined}
+            aria-invalid={fieldErrors?.apiKey ? true : undefined}
+            id={`${value.provider}-api-key`}
+            onChange={(event) => updateField("apiKey", event.target.value)}
+            placeholder="sk-..."
+            style={fieldStyle}
+            type="password"
+            value={value.apiKey}
+          />
+          {fieldErrors?.apiKey ? (
+            <p aria-live="polite" id={apiKeyErrorId} role="alert" style={{ margin: "6px 0 0", fontSize: "0.8125rem", color: theme.textDanger }}>
+              {fieldErrors.apiKey}
+            </p>
           ) : null}
-        </label>
-        <input
-          aria-describedby={fieldErrors?.baseUrl ? baseUrlErrorId : undefined}
-          aria-invalid={fieldErrors?.baseUrl ? true : undefined}
-          id={`${value.provider}-base-url`}
-          onChange={(event) => updateField("baseUrl", event.target.value)}
-          placeholder={PROVIDER_BASE_URL_DEFAULTS[value.provider]}
-          style={fieldStyle}
-          type="url"
-          value={value.baseUrl ?? ""}
-        />
-        {fieldErrors?.baseUrl ? (
-          <p aria-live="polite" id={baseUrlErrorId} role="alert" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
-            {fieldErrors.baseUrl}
-          </p>
-        ) : null}
+        </div>
+
+        <div data-testid="provider-field-stack" style={{ display: "grid" }}>
+          <label htmlFor={`${value.provider}-model`} style={labelStyle}>
+            <span>Model (模型名称)</span>
+            <span style={{ color: theme.textDanger, opacity: 0.8 }}>必填</span>
+          </label>
+          <input
+            aria-describedby={fieldErrors?.model ? modelErrorId : undefined}
+            aria-invalid={fieldErrors?.model ? true : undefined}
+            id={`${value.provider}-model`}
+            onChange={(event) => updateField("model", event.target.value)}
+            style={fieldStyle}
+            type="text"
+            value={value.model}
+          />
+          {fieldErrors?.model ? (
+            <p aria-live="polite" id={modelErrorId} role="alert" style={{ margin: "6px 0 0", fontSize: "0.8125rem", color: theme.textDanger }}>
+              {fieldErrors.model}
+            </p>
+          ) : null}
+        </div>
+
+        <div data-testid="provider-field-stack" style={{ display: "grid" }}>
+          <label htmlFor={`${value.provider}-base-url`} style={{ ...labelStyle, justifyContent: "flex-start" }}>
+            <span>
+              Base URL
+              {value.provider !== "openai" ? (
+                <span style={{ fontWeight: 400, color: theme.textMuted, marginLeft: "0.5em" }}>
+                  (optional, defaults to {PROVIDER_BASE_URL_DEFAULTS[value.provider]})
+                </span>
+              ) : null}
+            </span>
+          </label>
+          <input
+            aria-describedby={fieldErrors?.baseUrl ? baseUrlErrorId : undefined}
+            aria-invalid={fieldErrors?.baseUrl ? true : undefined}
+            id={`${value.provider}-base-url`}
+            onChange={(event) => updateField("baseUrl", event.target.value)}
+            placeholder={PROVIDER_BASE_URL_DEFAULTS[value.provider]}
+            style={fieldStyle}
+            type="url"
+            value={value.baseUrl ?? ""}
+          />
+          {fieldErrors?.baseUrl ? (
+            <p aria-live="polite" id={baseUrlErrorId} role="alert" style={{ margin: "6px 0 0", fontSize: "0.8125rem", color: theme.textDanger }}>
+              {fieldErrors.baseUrl}
+            </p>
+          ) : null}
+        </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+      <div style={{ marginTop: "4px", paddingTop: spacing.md, borderTop: `1px solid ${theme.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
+        <span style={{ fontSize: "0.75rem", color: testStatus === "ok" ? theme.textSuccess : theme.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: testStatus === "ok" ? theme.textSuccess : testStatus !== "idle" && testStatus !== "testing" ? theme.textDanger : "#D1D5DB" }} />
+          {testStatus === "idle" || testStatus === "testing"
+            ? "尚未测试连通性"
+            : testStatus === "ok"
+              ? "连接成功"
+              : testStatus}
+        </span>
         <button
           data-testid="provider-test-button"
           disabled={!canTest || testStatus === "testing"}
           onClick={() => void handleTestConnection()}
-          style={{ padding: `6px ${spacing.md}`, border: "none", borderRadius: radius.medium, backgroundColor: "transparent", color: theme.accent, fontSize: "0.875rem", fontWeight: 500, cursor: "pointer" }}
+          style={{
+            padding: 0,
+            border: "none",
+            backgroundColor: "transparent",
+            color: theme.accent,
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            cursor: "pointer"
+          }}
           type="button"
         >
-          {testStatus === "testing" ? "Testing..." : "Test connection"}
+          {testStatus === "testing" ? "测试中..." : "测试连接 (Test)"}
         </button>
-        {testStatus !== "idle" && testStatus !== "testing" ? (
-          <span data-testid="connection-test-result" style={{ fontSize: "0.8125rem", color: testStatus === "ok" ? theme.textSuccess : theme.textDanger }}>
-            {testStatus === "ok" ? "Connected" : testStatus}
-          </span>
-        ) : null}
       </div>
     </section>
   )

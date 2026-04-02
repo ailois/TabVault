@@ -111,7 +111,7 @@ describe("Options save state", () => {
     ])
   })
 
-  it("editing a non-default provider through provider rail does not change what gets saved as enabled", async () => {
+  it("selecting a provider card updates which provider gets saved as enabled", async () => {
     const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
 
     const settingsRepository: SettingsRepository = {
@@ -150,20 +150,20 @@ describe("Options save state", () => {
 
     await renderOptions(settingsRepository)
 
-    // Switch provider rail to openai without changing defaultProvider
+    // New card interaction also changes defaultProvider.
     await clickProviderRail("openai")
     await changeInputValue("openai-api-key", "new-openai-key")
 
     await clickSave()
     await flushPromises()
 
-    // Only claude should be enabled (it's the defaultProvider)
+    // OpenAI should now be enabled because selecting the card updates the default provider.
     const savedProviders = saveProviders.mock.calls[0][0]
     const claudeProvider = savedProviders.find((p: ProviderConfig) => p.provider === "claude")
     const openaiProvider = savedProviders.find((p: ProviderConfig) => p.provider === "openai")
     const geminiProvider = savedProviders.find((p: ProviderConfig) => p.provider === "gemini")
-    expect(claudeProvider?.enabled).toBe(true)
-    expect(openaiProvider?.enabled).toBe(false)
+    expect(claudeProvider?.enabled).toBe(false)
+    expect(openaiProvider?.enabled).toBe(true)
     expect(geminiProvider?.enabled).toBe(false)
     expect(openaiProvider?.apiKey).toBe("new-openai-key")
   })
@@ -202,13 +202,18 @@ describe("Options save state", () => {
     expect(getSaveButton()?.disabled).toBe(false)
   })
 
-  it("renders save controls inside a dedicated bottom action area", async () => {
+  it("renders settings page sections closer to design layout", async () => {
     await renderOptions(createSettingsRepository())
 
     const actionArea = getSaveActionArea()
 
+    expect(container?.querySelector('[data-testid="settings-workspace"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="provider-rail-openai-response"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="theme-card-sage"]')?.textContent).toContain("鼠尾草")
+    expect(container?.querySelector('[data-testid="settings-license-card"]')).not.toBeNull()
+    expect(container?.textContent).toContain("知识库管理")
+    expect(container?.textContent).toContain("OpenAI Response")
     expect(actionArea).toBeDefined()
-    expect(actionArea?.textContent).toContain("Save settings")
     expect(actionArea?.querySelector("button")?.textContent).toBe("Save settings")
     expect(actionArea?.querySelector('[data-testid="save-status"]')?.textContent).toBe("Ready")
   })
@@ -273,7 +278,7 @@ describe("Options save state", () => {
     await clickSave()
 
     expect(getSaveButton()?.disabled).toBe(true)
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("Base URL must be a valid URL")
+    expect(getSectionByHeading("OpenAI Chat")?.textContent).toContain("Base URL must be a valid URL")
     expect(saveAppSettings).not.toHaveBeenCalled()
     expect(saveProviders).not.toHaveBeenCalled()
   })
@@ -314,7 +319,7 @@ describe("Options save state", () => {
     await clickSave()
 
     expect(getSaveButton()?.disabled).toBe(true)
-    expect(getSectionByHeading("OpenAI-compatible")?.textContent).toContain("API key is required")
+    expect(getSectionByHeading("OpenAI Chat")?.textContent).toContain("API key is required")
     expect(saveAppSettings).not.toHaveBeenCalled()
     expect(saveProviders).not.toHaveBeenCalled()
   })
