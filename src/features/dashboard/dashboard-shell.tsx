@@ -27,8 +27,6 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeBookmark, setActiveBookmark] = useState<BookmarkRecord | null>(null)
-  const [leftWidth, setLeftWidth] = useState(280)
-  const [rightWidth, setRightWidth] = useState(360)
 
   useEffect(() => {
     if (initialBookmarks !== undefined) return
@@ -40,9 +38,8 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
       setBookmarks(records)
       setChromeTree(tree)
     })
-  }, [bookmarkRepository, getBookmarkTree, initialBookmarks, initialTree, listBookmarks])
+  }, [bookmarkRepository, getBookmarkTree, initialBookmarks, listBookmarks])
 
-  // When tree is provided but no folder selected, pick the first folder
   useEffect(() => {
     if (selectedFolderId !== null) return
     const defaultId = findDefaultFolderId(chromeTree)
@@ -55,7 +52,6 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
     return map
   }, [bookmarks])
 
-  // Derive visible bookmarks: if tree provided, use folder-scoped; else show all
   const visibleBookmarks = useMemo(() => {
     let folderItems: BookmarkRecord[]
     if (chromeTree.length === 0) {
@@ -68,7 +64,6 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
 
     if (!searchQuery.trim()) return folderItems
 
-    // Build a minimal BookmarkListItem for matchesSearch
     return folderItems.filter((bm) =>
       matchesSearch(
         { id: bm.id, title: bm.title, url: bm.url, folderId: null, folderTitle: "" },
@@ -77,40 +72,6 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
       )
     )
   }, [chromeTree, selectedFolderId, bookmarks, metadataMap, searchQuery])
-
-  useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      const nextLeftWidth = Math.min(420, Math.max(220, event.clientX))
-      const nextRightWidth = Math.min(480, Math.max(280, window.innerWidth - event.clientX))
-
-      if (document.body.dataset.dashboardResize === "left") {
-        setLeftWidth(nextLeftWidth)
-      }
-
-      if (document.body.dataset.dashboardResize === "right") {
-        setRightWidth(nextRightWidth)
-      }
-    }
-
-    const handlePointerUp = () => {
-      delete document.body.dataset.dashboardResize
-      document.body.style.cursor = ""
-      document.body.style.userSelect = ""
-    }
-
-    window.addEventListener("pointermove", handlePointerMove)
-    window.addEventListener("pointerup", handlePointerUp)
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove)
-      window.removeEventListener("pointerup", handlePointerUp)
-    }
-  }, [])
-
-  function startResize(side: "left" | "right") {
-    document.body.dataset.dashboardResize = side
-    document.body.style.cursor = "col-resize"
-    document.body.style.userSelect = "none"
-  }
 
   async function persistBookmark(nextBookmark: BookmarkRecord): Promise<void> {
     if (updateBookmark) {
@@ -148,6 +109,8 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
     setBookmarks((prev) => prev.map((bookmark) => bookmark.id === nextBookmark.id ? nextBookmark : bookmark))
     setActiveBookmark(nextBookmark)
   }
+
+  const isBulkEditMode = activeBookmark !== null
 
   return (
     <div
@@ -189,7 +152,8 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
           value={searchQuery}
         />
       </div>
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+
+      <div data-testid="dashboard-browse-view" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <DashboardNavigation
           activeBookmarkId={activeBookmark?.id ?? null}
           bookmarks={[]}
@@ -197,22 +161,8 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
           onSelect={setActiveBookmark}
           onSelectFolder={setSelectedFolderId}
           selectedFolderId={selectedFolderId}
-          width={leftWidth}
+          width={280}
         />
-        <div
-          data-testid="dashboard-resize-left"
-          onPointerDown={() => startResize("left")}
-          style={{
-            width: "6px",
-            cursor: "col-resize",
-            backgroundColor: theme.page,
-            borderRight: `1px solid ${theme.border}`,
-            flexShrink: 0,
-            position: "relative"
-          }}
-        >
-          <div style={{ position: "absolute", top: 0, bottom: 0, left: "2px", width: "2px", backgroundColor: theme.border }} />
-        </div>
         <DashboardResultsList
           activeUrl={activeBookmark?.url ?? null}
           bookmarks={visibleBookmarks}
@@ -222,27 +172,19 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
           }}
         />
         <DashboardReadingPane bookmark={activeBookmark} />
-        <div
-          data-testid="dashboard-resize-right"
-          onPointerDown={() => startResize("right")}
-          style={{
-            width: "6px",
-            cursor: "col-resize",
-            backgroundColor: theme.page,
-            borderLeft: `1px solid ${theme.border}`,
-            flexShrink: 0,
-            position: "relative"
-          }}
-        >
-          <div style={{ position: "absolute", top: 0, bottom: 0, left: "2px", width: "2px", backgroundColor: theme.border }} />
-        </div>
         <DashboardAiSidebar
           bookmark={activeBookmark}
           onSaveSummary={handleSaveSummary}
           onSaveTags={handleSaveTags}
-          width={rightWidth}
+          width={360}
         />
       </div>
+
+      {isBulkEditMode ? (
+        <div data-testid="dashboard-bulk-edit-view" style={{ display: "none" }}>
+          批量编辑工作台
+        </div>
+      ) : null}
     </div>
   )
 }

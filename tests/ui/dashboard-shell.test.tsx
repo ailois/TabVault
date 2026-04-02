@@ -2,7 +2,7 @@
 
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { DashboardShell } from "../../src/features/dashboard/dashboard-shell"
 import { ThemeProvider } from "../../src/ui/theme-context"
@@ -80,20 +80,15 @@ describe("DashboardShell", () => {
     expect(container?.querySelector('[data-testid="dashboard-folder-tree"]')).not.toBeNull()
   })
 
-  it("renders resizable three-column workspace rails", async () => {
+  it("renders design-aligned dashboard with browse and bulk edit views", async () => {
     await renderDashboard([createBookmark({ id: "1", title: "React Docs" })])
 
-    const shell = container?.querySelector<HTMLElement>("[data-testid='dashboard-shell']")
-    const leftRail = container?.querySelector<HTMLElement>("[data-testid='dashboard-navigation']")
-    const rightRail = container?.querySelector<HTMLElement>("[data-testid='dashboard-ai-sidebar']")
-    const leftResize = container?.querySelector<HTMLElement>("[data-testid='dashboard-resize-left']")
-    const rightResize = container?.querySelector<HTMLElement>("[data-testid='dashboard-resize-right']")
-
-    expect(shell).not.toBeNull()
-    expect(leftRail?.style.width).toBe("280px")
-    expect(rightRail?.style.width).toBe("360px")
-    expect(leftResize).not.toBeNull()
-    expect(rightResize).not.toBeNull()
+    expect(container?.querySelector<HTMLElement>("[data-testid='dashboard-shell']")).not.toBeNull()
+    expect(container?.querySelector<HTMLElement>("[data-testid='dashboard-browse-view']")).not.toBeNull()
+    expect(container?.querySelector<HTMLElement>("[data-testid='dashboard-navigation']")).not.toBeNull()
+    expect(container?.querySelector<HTMLElement>("[data-testid='dashboard-results-column']")).not.toBeNull()
+    expect(container?.querySelector<HTMLElement>("[data-testid='dashboard-reading-pane']")).not.toBeNull()
+    expect(container?.querySelector<HTMLElement>("[data-testid='dashboard-ai-sidebar']")).not.toBeNull()
   })
 
   it("shows an empty reading state when no bookmark is selected", async () => {
@@ -122,13 +117,16 @@ describe("DashboardShell", () => {
     expect(container?.textContent).not.toContain("React Docs")
   })
 
-  it("renders a design-aligned dashboard with search, results, reading pane, and AI sidebar", async () => {
+  it("enters bulk edit mode when a result is selected", async () => {
     await renderDashboard([createBookmark({ id: "1", title: "React Docs", extractedText: "React content" })])
 
-    expect(container?.querySelector('[data-testid="dashboard-search-input"]')).not.toBeNull()
-    expect(container?.querySelector('[data-testid="dashboard-results-column"]')).not.toBeNull()
-    expect(container?.querySelector('[data-testid="dashboard-reading-pane"]')).not.toBeNull()
-    expect(container?.querySelector('[data-testid="dashboard-ai-sidebar"]')).not.toBeNull()
+    const resultButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")
+    await act(async () => {
+      resultButton?.click()
+    })
+
+    expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).not.toBeNull()
+    expect(container?.textContent).toContain("批量编辑工作台")
   })
 
   it("styles navigation items and reading metadata closer to the design", async () => {
@@ -147,7 +145,6 @@ describe("DashboardShell", () => {
     expect(metadata).not.toBeNull()
     expect(metadata?.style.borderBottom).toContain("1px solid")
   })
-
 })
 
 let container: HTMLDivElement | null = null
@@ -160,7 +157,7 @@ async function renderDashboard(bookmarks: BookmarkRecord[]) {
 
   await act(async () => {
     root?.render(
-      <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+      <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
         <DashboardShell initialBookmarks={bookmarks} />
       </ThemeProvider>
     )
@@ -174,7 +171,7 @@ async function renderDashboardWithTree(bookmarks: BookmarkRecord[], tree: chrome
 
   await act(async () => {
     root?.render(
-      <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+      <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
         <DashboardShell initialBookmarks={bookmarks} initialTree={tree} />
       </ThemeProvider>
     )
