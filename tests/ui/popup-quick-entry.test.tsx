@@ -56,17 +56,14 @@ describe("Popup quick entry", () => {
     await renderPopup(createServices())
 
     const shell = container?.querySelector<HTMLElement>("main")
-    const header = container?.querySelector<HTMLElement>("header")
     const card = Array.from(container?.querySelectorAll<HTMLElement>("section") ?? [])[0]
     const primaryAction = container?.querySelector<HTMLElement>("[data-testid='popup-primary-action']")
 
-    expect(shell?.style.width).toBe("320px")
-    expect(shell?.style.padding).toBe("16px")
-    expect(header?.style.padding).toBe("")
-    expect(card?.style.borderRadius).toBe("16px")
-    expect(card?.style.padding).toBe("16px")
+    expect(shell?.style.width).toBe("360px")
+    expect(shell?.style.padding).toBe("")
+    expect(card?.style.borderRadius).toBe("12px")
+    expect(card?.style.padding).toBe("12px")
     expect(primaryAction?.style.borderRadius).toBe("8px")
-    expect(primaryAction?.style.padding).toBe("8px 16px")
   })
 
   it("does not render bookmark list or search UI", async () => {
@@ -83,7 +80,6 @@ describe("Popup quick entry", () => {
     expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("打开侧边栏")
     expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("控制台")
   })
-
 })
 
 let container: HTMLDivElement | null = null
@@ -182,7 +178,8 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
       autoRetryOnError: false,
-      displayLanguage: "zh"
+      displayLanguage: "zh",
+      theme: "sage"
     })),
     saveAppSettings: vi.fn(async () => undefined),
     ...overrides

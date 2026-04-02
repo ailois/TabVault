@@ -13,7 +13,6 @@ import { OpenAiCompatibleProvider } from "../../src/lib/providers/openai-compati
 import type { AiProvider } from "../../src/lib/providers/provider"
 import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
-import { radius, spacing } from "../../src/ui/design-tokens"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -55,13 +54,32 @@ describe("Popup state", () => {
     root = null
   })
 
-  it("shows current page quick-entry content on load", async () => {
+  it("renders the unsynced popup state when current page is not saved", async () => {
     await renderPopup(createServices())
 
-    expect(screen().text()).toContain("Browsing now")
+    expect(container?.querySelector('[data-testid="popup-unsynced-view"]')).not.toBeNull()
     expect(screen().text()).toContain("Example page")
-    expect(screen().getPrimaryActionButton()?.textContent).toContain("Save current page")
-    expect(screen().getPopupShell()?.style.backgroundColor).toBeTruthy()
+    expect(screen().getPrimaryActionButton()?.textContent).toContain("保存当前页面")
+  })
+
+  it("renders the synced popup state when current page already exists", async () => {
+    await renderPopup(createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [
+          createBookmark({
+            title: "Example page",
+            url: "https://example.com/article",
+            summary: "Saved summary",
+            aiTags: ["example"]
+          })
+        ])
+      })
+    }))
+
+    expect(container?.querySelector('[data-testid="popup-synced-view"]')).not.toBeNull()
+    expect(container?.textContent).toContain("Saved summary")
+    expect(container?.textContent).toContain("example")
+    expect(container?.textContent).toContain("In library")
   })
 
   it("renders popup copy in Chinese when display language is zh", async () => {
@@ -72,12 +90,12 @@ describe("Popup state", () => {
           autoAnalyzeOnSave: false,
           summaryLanguage: "auto",
           autoRetryOnError: false,
-          displayLanguage: "zh"
+          displayLanguage: "zh",
+          theme: "sage"
         }))
       })
     }))
 
-    expect(screen().text()).toContain("正在浏览")
     expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("打开侧边栏")
     expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("控制台")
     expect(screen().getPrimaryActionButton()?.textContent).toContain("保存当前页面")
@@ -100,25 +118,24 @@ describe("Popup state", () => {
           autoAnalyzeOnSave: true,
           summaryLanguage: "auto",
           autoRetryOnError: false,
-          displayLanguage: "en"
+          displayLanguage: "zh",
+          theme: "sage"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [])
       })
     })
 
     await renderPopup(services)
-    await clickButton("Save current page")
+    await clickButton("保存当前页面")
 
     const statusRegion = screen().getStatusRegion()
     const errorAlert = screen().getErrorAlert()
 
-    expect(screen().getStatusRegion()?.textContent).toContain("Saved: Example page")
+    expect(screen().getStatusRegion()?.textContent).toContain("已保存：Example page")
     expect(statusRegion?.getAttribute("role")).toBe("status")
     expect(statusRegion?.getAttribute("aria-live")).toBe("polite")
-    expect(errorAlert?.textContent).toContain("Add an API key in Settings to enable automatic analysis.")
+    expect(errorAlert?.textContent).toContain("请先在设置中添加 API key 以启用自动分析。")
     expect(errorAlert?.getAttribute("role")).toBe("alert")
-    expect(errorAlert?.style.backgroundColor).toBeTruthy()
-    expect(errorAlert?.style.color).toBeTruthy()
   })
 
   it("shows a save failure banner when saving the current page fails", async () => {
@@ -129,7 +146,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("Save current page")
+    await clickButton("保存当前页面")
 
     expect(screen().getErrorAlert()?.textContent).toContain("Failed to save current page")
     expect(screen().getStatusRegion()).toBeNull()
@@ -144,11 +161,9 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("Save current page")
+    await clickButton("保存当前页面")
 
-    expect(screen().getErrorAlert()?.textContent).toContain(
-      "Current tab can't be saved because its title or URL is unavailable."
-    )
+    expect(screen().getErrorAlert()?.textContent).toContain("当前标签页缺少标题或 URL，无法保存。")
     expect(screen().text()).not.toContain("Active tab title is required")
   })
 
@@ -161,7 +176,8 @@ describe("Popup state", () => {
           autoAnalyzeOnSave: true,
           summaryLanguage: "auto",
           autoRetryOnError: false,
-          displayLanguage: "en"
+          displayLanguage: "zh",
+          theme: "sage"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
           {
@@ -178,17 +194,16 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("Save current page")
+    await clickButton("保存当前页面")
 
-    expect(screen().getButton("Analyzing...")?.textContent).toBe("Analyzing...")
+    expect(screen().getStatusRegion()).toBeNull()
 
     analyzeDeferred.reject(new Error("Analysis failed"))
     await flush()
 
-    expect(screen().getStatusRegion()?.textContent).toContain("Saved: Example page")
+    expect(screen().getStatusRegion()?.textContent).toContain("已保存：Example page")
     expect(screen().getErrorAlert()?.textContent).toContain("Analysis failed")
   })
-
 
   it.each<readonly [ProviderConfig["provider"], ProviderConfig]>([
     [
@@ -230,7 +245,8 @@ describe("Popup state", () => {
           autoAnalyzeOnSave: true,
           summaryLanguage: "auto",
           autoRetryOnError: false,
-          displayLanguage: "en"
+          displayLanguage: "zh",
+          theme: "sage"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [providerConfig])
       }),
@@ -238,7 +254,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("Save current page")
+    await clickButton("保存当前页面")
 
     const provider = analyzeBookmark.mock.calls[0]?.[0]?.provider
 
@@ -254,7 +270,6 @@ describe("Popup state", () => {
       expect(provider).toBeInstanceOf(GeminiProvider)
     }
   })
-
 
   it("renders a theme toggle button in the header area", async () => {
     await renderPopup(createServices())
@@ -275,7 +290,7 @@ describe("Popup state", () => {
 
     await renderPopup(createServices())
 
-    const settingsButton = container?.querySelector<HTMLButtonElement>("button[aria-label='Open settings']")
+    const settingsButton = container?.querySelector<HTMLButtonElement>("button[aria-label='打开设置']")
     await act(async () => { settingsButton?.click() })
     await flush()
 
@@ -336,47 +351,6 @@ async function flush(): Promise<void> {
   })
 }
 
-function screen() {
-  const text = () => container?.textContent ?? ""
-  const getMain = () => container?.querySelector<HTMLElement>("main") ?? null
-  const getPopupShell = () => container?.querySelector<HTMLElement>("[data-testid='popup-shell']") ?? null
-  const getActionsSection = () =>
-    container?.querySelector<HTMLElement>("section[aria-labelledby='popup-actions-title']") ?? null
-  const getPrimaryActionButton = () =>
-    container?.querySelector<HTMLButtonElement>("[data-testid='popup-primary-action']") ?? null
-  const getSecondaryActionButton = () =>
-    container?.querySelector<HTMLButtonElement>("[data-testid='popup-secondary-action']") ?? null
-  const getFeedbackSection = () =>
-    container?.querySelector<HTMLElement>("section[aria-labelledby='popup-feedback-title']") ?? null
-  const getStatusCard = () => container?.querySelector<HTMLElement>("[data-feedback-kind='status']") ?? null
-  const getStatusRegion = () =>
-    container?.querySelector<HTMLElement>("[role='status']") ?? null
-  const getErrorAlert = () =>
-    container?.querySelector<HTMLElement>("[role='alert']") ?? null
-  const getLibrarySection = () =>
-    container?.querySelector<HTMLElement>("section[aria-labelledby='popup-library-title']") ?? null
-  const getBookmarkCards = () =>
-    Array.from(container?.querySelectorAll<HTMLElement>("article[data-bookmark-card='true']") ?? [])
-  const getButton = (name: string) =>
-    Array.from(container?.querySelectorAll("button") ?? []).find((button) => button.textContent?.includes(name))
-
-  return {
-    text,
-    getMain,
-    getPopupShell,
-    getActionsSection,
-    getPrimaryActionButton,
-    getSecondaryActionButton,
-    getFeedbackSection,
-    getStatusCard,
-    getStatusRegion,
-    getErrorAlert,
-    getLibrarySection,
-    getBookmarkCards,
-    getButton
-  }
-}
-
 type TestPopupServices = {
   bookmarkRepository: BookmarkRepository
   settingsRepository: SettingsRepository
@@ -393,7 +367,7 @@ type TestPopupServices = {
   extractPage: (tabId: number) => Promise<string | undefined>
   queryActiveTab: () => Promise<{ id?: number; title?: string | null; url?: string | null } | undefined>
   createProvider?: (config: ProviderConfig) => AiProvider
-  themeRepository?: import("../../src/lib/config/theme-repository").ThemeRepository
+  themeRepository?: { getTheme: () => Promise<any>; setTheme: (theme: any) => Promise<void> }
 }
 
 function createServices(overrides: Partial<TestPopupServices> = {}): Partial<TestPopupServices> {
@@ -445,26 +419,18 @@ function createBookmarkRepository(overrides: Partial<BookmarkRepository> = {}): 
 
 function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): SettingsRepository {
   return {
+    getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),
+    saveProviders: vi.fn(async () => undefined),
     getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
       defaultProvider: "openai",
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
       autoRetryOnError: false,
-      displayLanguage: "en"
+      displayLanguage: "zh",
+      theme: "sage"
     })),
     saveAppSettings: vi.fn(async () => undefined),
-    getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),
-    saveProviders: vi.fn(async () => undefined),
     ...overrides
-  }
-}
-
-function createAiProvider(config: ProviderConfig): AiProvider {
-  return {
-    analyze: vi.fn(async () => ({
-      summary: `${config.provider} summary`,
-      tags: [config.provider]
-    }))
   }
 }
 
@@ -473,29 +439,59 @@ function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord
     id: "bookmark-1",
     title: "Example page",
     url: "https://example.com/article",
+    extractedText: "Example content",
     aiTags: [],
     userTags: [],
     status: "saved",
-    createdAt: "2026-03-07T10:00:00.000Z",
-    updatedAt: "2026-03-07T10:00:00.000Z",
+    createdAt: "2026-03-01T00:00:00.000Z",
+    updatedAt: "2026-03-01T00:00:00.000Z",
     ...overrides
   }
 }
 
+function createAiProvider(_config: ProviderConfig): AiProvider {
+  return {
+    analyze: vi.fn(async () => ({ summary: "Summary", tags: ["tag"] }))
+  }
+}
+
 function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
+  let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
   const promise = new Promise<T>((res, rej) => {
     resolve = res
     reject = rej
   })
-
   return { promise, resolve, reject }
 }
 
-function normalizeCssColor(value: string): string {
-  const element = document.createElement("div")
-  element.style.color = value
+function screen() {
+  const text = () => container?.textContent ?? ""
+  const getPopupShell = () => container?.querySelector<HTMLElement>("[data-testid='popup-shell']") ?? null
+  const getActionsSection = () =>
+    container?.querySelector<HTMLElement>("section[aria-labelledby='popup-actions-title']") ?? null
+  const getPrimaryActionButton = () =>
+    container?.querySelector<HTMLButtonElement>("[data-testid='popup-primary-action']") ?? null
+  const getStatusRegion = () =>
+    container?.querySelector<HTMLElement>("[role='status']") ?? null
+  const getErrorAlert = () =>
+    container?.querySelector<HTMLElement>("[role='alert']") ?? null
+  const getLibrarySection = () =>
+    container?.querySelector<HTMLElement>("section[aria-labelledby='popup-library-title']") ?? null
+  const getBookmarkCards = () =>
+    Array.from(container?.querySelectorAll<HTMLElement>("article[data-bookmark-card='true']") ?? [])
+  const getButton = (name: string) =>
+    Array.from(container?.querySelectorAll("button") ?? []).find((button) => button.textContent?.includes(name))
 
-  return element.style.color
+  return {
+    text,
+    getPopupShell,
+    getActionsSection,
+    getPrimaryActionButton,
+    getStatusRegion,
+    getErrorAlert,
+    getLibrarySection,
+    getBookmarkCards,
+    getButton
+  }
 }

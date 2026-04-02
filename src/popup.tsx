@@ -17,7 +17,6 @@ import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-re
 import { openCurrentTabSidePanel, openDashboardTab, openSettingsPage } from "./lib/utils/navigation"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
-import { radius, spacing } from "./ui/design-tokens"
 import { ThemeProvider } from "./ui/theme-context"
 import { useGlobalStyles } from "./ui/use-global-styles"
 import { useTheme } from "./ui/use-theme"
@@ -35,10 +34,6 @@ type PopupServices = {
   queryActiveTab: () => Promise<ChromeTab | undefined>
   createProvider: (config: ProviderConfig) => AiProvider
   themeRepository: ThemeRepository
-}
-
-function formatSavedStatus(title: string, t: (key: Parameters<typeof getMessage>[1]) => string): string {
-  return `${t("popup.status.savedPrefix")}${title}`
 }
 
 type ChromeTab = {
@@ -65,6 +60,10 @@ const DEFAULT_POPUP_SERVICES: PopupServices = {
   themeRepository: new ChromeThemeRepository()
 }
 
+function formatSavedStatus(title: string, t: (key: Parameters<typeof getMessage>[1]) => string): string {
+  return `${t("popup.status.savedPrefix")}${title}`
+}
+
 function Popup({ services }: PopupProps) {
   const popupServices = useMemo(() => ({ ...DEFAULT_POPUP_SERVICES, ...services }), [services])
   const theme = useTheme(popupServices.themeRepository)
@@ -79,6 +78,7 @@ function Popup({ services }: PopupProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [currentPageTitle, setCurrentPageTitle] = useState(() => getMessage("en", "popup.currentPage.loading"))
   const [currentPageUrl, setCurrentPageUrl] = useState<string | null>(null)
+  const [savedBookmark, setSavedBookmark] = useState<BookmarkRecord | null>(null)
 
   useEffect(() => {
     void popupServices.settingsRepository.getAppSettings().then((settings) => {
@@ -91,16 +91,28 @@ function Popup({ services }: PopupProps) {
     async function loadCurrentPage(): Promise<void> {
       try {
         const activeTab = await popupServices.queryActiveTab()
-        setCurrentPageTitle(activeTab?.title?.trim() || t("popup.currentPage.unavailable"))
-        setCurrentPageUrl(activeTab?.url?.trim() || null)
+        const title = activeTab?.title?.trim() || t("popup.currentPage.unavailable")
+        const url = activeTab?.url?.trim() || null
+        setCurrentPageTitle(title)
+        setCurrentPageUrl(url)
+
+        if (!url) {
+          setSavedBookmark(null)
+          return
+        }
+
+        const bookmarks = await popupServices.bookmarkRepository.list()
+        const match = bookmarks.find((bookmark) => bookmark.url === url) ?? null
+        setSavedBookmark(match)
       } catch {
         setCurrentPageTitle(t("popup.currentPage.unavailable"))
         setCurrentPageUrl(null)
+        setSavedBookmark(null)
       }
     }
 
     void loadCurrentPage()
-  }, [popupServices])
+  }, [popupServices, t])
 
   async function handleSaveCurrentPage(): Promise<void> {
     setIsSaving(true)
@@ -114,17 +126,18 @@ function Popup({ services }: PopupProps) {
       const extractedText = typeof activeTab?.id === "number"
         ? await popupServices.extractPage(activeTab.id)
         : undefined
-      const savedBookmark = await popupServices.saveCurrentPage({
+      const saved = await popupServices.saveCurrentPage({
         activeTab: activeTab ?? {},
         extractedText,
         bookmarkRepository: popupServices.bookmarkRepository
       })
 
-      setCurrentPageTitle(savedBookmark.title)
-      setCurrentPageUrl(savedBookmark.url)
+      setCurrentPageTitle(saved.title)
+      setCurrentPageUrl(saved.url)
+      setSavedBookmark(saved)
       setStatusTone("success")
-      setStatusMessage(formatSavedStatus(savedBookmark.title, t))
-      await maybeAnalyzeBookmark(savedBookmark)
+      setStatusMessage(formatSavedStatus(saved.title, t))
+      await maybeAnalyzeBookmark(saved)
     } catch (error) {
       setErrorMessage(getSaveErrorMessage(error, t))
       setStatusTone("info")
@@ -156,11 +169,12 @@ function Popup({ services }: PopupProps) {
     setStatusMessage(t("popup.status.analyzing"))
 
     try {
-      await popupServices.analyzeBookmark({
+      const analyzedBookmark = await popupServices.analyzeBookmark({
         bookmark,
         provider: popupServices.createProvider(selectedProvider),
         bookmarkRepository: popupServices.bookmarkRepository
       })
+      setSavedBookmark(analyzedBookmark)
       setStatusTone("success")
       setStatusMessage(formatSavedStatus(bookmark.title, t))
     } catch (error) {
@@ -172,107 +186,63 @@ function Popup({ services }: PopupProps) {
     }
   }
 
-  const pageStyle: React.CSSProperties = {
-    width: "320px",
-    minHeight: "320px",
-    overflow: "hidden",
+  const rootStyle: React.CSSProperties = {
+    width: "360px",
+    border: `1px solid ${theme.border}`,
     backgroundColor: theme.page,
-    boxSizing: "border-box",
+    color: theme.textPrimary,
     display: "flex",
     flexDirection: "column",
-    padding: spacing.md
+    minHeight: "100%"
   }
 
-  const shellStyle: React.CSSProperties = {
+  const headerStyle: React.CSSProperties = {
     display: "flex",
-    flexDirection: "column",
-    minHeight: "100%",
-    backgroundColor: theme.page,
-    gap: spacing.md
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "16px",
+    paddingBottom: "12px",
+    backgroundColor: theme.surface,
+    borderBottom: `1px solid ${theme.border}`
   }
 
   const iconButtonStyle: React.CSSProperties = {
-    background: "none",
+    width: "28px",
+    height: "28px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "6px",
     border: "none",
-    cursor: "pointer",
-    fontSize: "1rem",
-    color: theme.textMuted,
-    padding: "4px",
-    borderRadius: radius.small,
-    lineHeight: 1,
-    transition: "color 0.15s ease"
-  }
-
-  const currentPageCardStyle: React.CSSProperties = {
-    padding: spacing.md,
-    backgroundColor: theme.surface,
-    border: `1px solid ${theme.border}`,
-    borderRadius: radius.xl,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    marginBottom: spacing.sm
-  }
-
-  const launchButtonStyle: React.CSSProperties = {
-    border: `1px solid ${theme.border}`,
-    borderRadius: radius.medium,
-    backgroundColor: theme.surface,
+    backgroundColor: theme.page,
     color: theme.textSecondary,
-    fontSize: "0.875rem",
-    padding: `${spacing.sm} ${spacing.md}`,
-    cursor: "pointer",
-    minHeight: "40px"
+    cursor: "pointer"
   }
 
-  const statusTextStyle: React.CSSProperties = {
-    margin: 0,
-    fontSize: "0.8125rem",
-    color: theme.textSuccess,
-    paddingBottom: spacing.xs
-  }
-
-  const stickyFooterStyle: React.CSSProperties = {
-    marginTop: "auto"
-  }
-
-  const primaryActionButtonStyle: React.CSSProperties = {
+  const primaryButtonStyle: React.CSSProperties = {
     width: "100%",
-    padding: `${spacing.sm} ${spacing.md}`,
     border: "none",
-    borderRadius: radius.medium,
+    borderRadius: "8px",
     backgroundColor: theme.accent,
     color: "#ffffff",
+    fontSize: "13px",
     fontWeight: 500,
-    fontSize: "0.875rem",
-    cursor: "pointer",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    minHeight: "40px"
+    padding: "10px 16px",
+    cursor: "pointer"
   }
 
   return (
     <ThemeProvider theme={theme}>
-      <main aria-labelledby="popup-title" style={pageStyle}>
-        <div data-testid="popup-shell" style={shellStyle}>
-          <header style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: spacing.xs
-          }}>
-            <h1 id="popup-title" style={{ margin: 0, fontSize: "0.875rem", fontWeight: 700, color: theme.textPrimary, display: "flex", alignItems: "center", gap: "8px" }}>
-              <span
-                aria-hidden="true"
-                style={{
-                  width: "12px",
-                  height: "12px",
-                  backgroundColor: theme.accent,
-                  borderRadius: radius.small,
-                  transform: "rotate(45deg)",
-                  display: "inline-block"
-                }}
-              />
-              TabVault
-            </h1>
-            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+      <main aria-labelledby="popup-title" style={rootStyle}>
+        <div data-testid="popup-shell">
+          <header style={headerStyle}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ width: "20px", height: "20px", borderRadius: "4px", backgroundColor: theme.accent, color: "#fff", fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                ✦
+              </div>
+              <span id="popup-title" style={{ fontWeight: 700, fontSize: "14px" }}>TabVault</span>
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
                 data-testid="theme-toggle-button"
@@ -293,58 +263,167 @@ function Popup({ services }: PopupProps) {
             </div>
           </header>
 
-          <section style={currentPageCardStyle}>
-            <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginBottom: "4px" }}>
-              {t("popup.currentPage.label")}
-            </div>
-            <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: theme.textPrimary, lineHeight: 1.4, marginBottom: currentPageUrl ? "4px" : 0 }}>
-              {currentPageTitle}
-            </div>
-            {currentPageUrl ? (
-              <div style={{ fontSize: "0.75rem", color: theme.textSecondary, lineHeight: 1.4, wordBreak: "break-all" }}>
-                {currentPageUrl}
-              </div>
-            ) : null}
-          </section>
+          {savedBookmark ? (
+            <PopupSyncedView
+              bookmark={savedBookmark}
+              errorMessage={errorMessage}
+              onOpenDashboard={() => void openDashboardTab()}
+              onOpenSidepanel={() => void openCurrentTabSidePanel()}
+              theme={theme}
+              t={t}
+            />
+          ) : (
+            <PopupUnsyncedView
+              currentPageTitle={currentPageTitle}
+              currentPageUrl={currentPageUrl}
+              errorMessage={errorMessage}
+              isAnalyzing={isAnalyzing}
+              isSaving={isSaving}
+              onOpenDashboard={() => void openDashboardTab()}
+              onOpenSidepanel={() => void openCurrentTabSidePanel()}
+              onSave={() => void handleSaveCurrentPage()}
+              theme={theme}
+              t={t}
+            />
+          )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.sm, marginBottom: spacing.sm }}>
-            <button
-              data-testid="popup-open-sidepanel"
-              onClick={() => void openCurrentTabSidePanel()}
-              style={launchButtonStyle}
-              type="button"
-            >
-              {t("popup.actions.openSidepanel")}
-            </button>
-            <button
-              data-testid="popup-open-dashboard"
-              onClick={() => void openDashboardTab()}
-              style={launchButtonStyle}
-              type="button"
-            >
-              {t("popup.actions.openDashboard")}
-            </button>
-          </div>
-
-          {errorMessage ? <div style={{ paddingBottom: spacing.sm }}><ErrorBanner message={errorMessage} /></div> : null}
           {statusTone === "success" ? (
-            <p aria-live="polite" role="status" style={statusTextStyle}>{statusMessage}</p>
+            <p aria-live="polite" role="status" style={{ margin: 0, padding: "0 16px 12px", fontSize: "12px", color: theme.textSuccess }}>
+              {statusMessage}
+            </p>
           ) : null}
-
-          <footer style={stickyFooterStyle}>
-            <button
-              data-testid="popup-primary-action"
-              disabled={isSaving || isAnalyzing}
-              onClick={() => void handleSaveCurrentPage()}
-              style={primaryActionButtonStyle}
-              type="button"
-            >
-              {isAnalyzing ? t("popup.primary.analyzing") : isSaving ? t("popup.primary.saving") : t("popup.primary.save")}
-            </button>
-          </footer>
         </div>
       </main>
     </ThemeProvider>
+  )
+}
+
+type PopupViewProps = {
+  theme: ReturnType<typeof useTheme>
+  t: (key: Parameters<typeof getMessage>[1]) => string
+}
+
+function PopupUnsyncedView({
+  currentPageTitle,
+  currentPageUrl,
+  errorMessage,
+  isAnalyzing,
+  isSaving,
+  onOpenDashboard,
+  onOpenSidepanel,
+  onSave,
+  theme,
+  t
+}: PopupViewProps & {
+  currentPageTitle: string
+  currentPageUrl: string | null
+  errorMessage: string | null
+  isAnalyzing: boolean
+  isSaving: boolean
+  onOpenDashboard: () => void
+  onOpenSidepanel: () => void
+  onSave: () => void
+}) {
+  return (
+    <div data-testid="popup-unsynced-view">
+      <div style={{ padding: "16px", display: "grid", gap: "12px" }}>
+        <section style={{ borderRadius: "12px", backgroundColor: theme.surface, border: `1px solid ${theme.border}`, padding: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: theme.textSecondary, textTransform: "uppercase" }}>{t("popup.currentPage.label")}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 8px", borderRadius: "9999px", border: `1px solid ${theme.border}`, fontSize: "10px", color: theme.textSecondary }}>
+              <span style={{ width: "6px", height: "6px", borderRadius: "9999px", border: `1px solid ${theme.textSecondary}` }} />
+              尚未收录
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: "4px" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600 }}>{currentPageTitle}</div>
+            <div style={{ fontSize: "10px", color: theme.textSecondary }}>{currentPageUrl}</div>
+          </div>
+        </section>
+
+        <section style={{ borderRadius: "12px", backgroundColor: theme.surface, border: `1px solid ${theme.border}`, padding: "12px" }}>
+          <div style={{ border: `1px dashed ${theme.accent}`, borderRadius: "8px", padding: "20px 12px", backgroundColor: theme.surfaceSubtle, textAlign: "center" }}>
+            <div style={{ fontSize: "20px", marginBottom: "8px" }}>✨</div>
+            <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px" }}>让 AI 帮你阅读这篇文章</div>
+            <div style={{ fontSize: "10px", color: theme.textSecondary, lineHeight: 1.6 }}>
+              点击下方按钮，TabVault 将自动提取核心要点并生成智能标签，存入你的数字大脑。
+            </div>
+          </div>
+        </section>
+
+        <div style={{ display: "grid", gap: "8px" }}>
+          <button data-testid="popup-primary-action" onClick={onSave} style={{ width: "100%", border: "none", borderRadius: "8px", backgroundColor: theme.accent, color: "#fff", padding: "10px 16px", fontSize: "13px", fontWeight: 500, cursor: "pointer" }} type="button">
+            {isAnalyzing ? t("popup.primary.analyzing") : isSaving ? t("popup.primary.saving") : t("popup.primary.save")}
+          </button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <button data-testid="popup-open-sidepanel" onClick={onOpenSidepanel} style={{ borderRadius: "8px", border: `1px solid ${theme.border}`, backgroundColor: theme.surface, padding: "8px 12px", fontSize: "12px", color: theme.textPrimary }} type="button">{t("popup.actions.openSidepanel")}</button>
+            <button data-testid="popup-open-dashboard" onClick={onOpenDashboard} style={{ borderRadius: "8px", border: `1px solid ${theme.border}`, backgroundColor: theme.surface, padding: "8px 12px", fontSize: "12px", color: theme.textPrimary }} type="button">{t("popup.actions.openDashboard")}</button>
+          </div>
+        </div>
+
+        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+      </div>
+    </div>
+  )
+}
+
+function PopupSyncedView({
+  bookmark,
+  errorMessage,
+  onOpenDashboard,
+  onOpenSidepanel,
+  theme,
+  t
+}: PopupViewProps & {
+  bookmark: BookmarkRecord
+  errorMessage: string | null
+  onOpenDashboard: () => void
+  onOpenSidepanel: () => void
+}) {
+  return (
+    <div data-testid="popup-synced-view">
+      <div style={{ padding: "16px", display: "grid", gap: "12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: theme.textSecondary, textTransform: "uppercase" }}>{t("popup.currentPage.label")}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 8px", borderRadius: "9999px", backgroundColor: theme.accentSoft, color: theme.accent, fontSize: "10px", fontWeight: 600 }}>
+            <span style={{ width: "6px", height: "6px", borderRadius: "9999px", backgroundColor: theme.accent }} />
+            In library
+          </div>
+        </div>
+
+        <section style={{ borderRadius: "12px", backgroundColor: theme.surface, border: `1px solid ${theme.border}`, padding: "12px" }}>
+          <div style={{ display: "grid", gap: "4px" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600 }}>{bookmark.title}</div>
+            <div style={{ fontSize: "10px", color: theme.textSecondary }}>{bookmark.url}</div>
+          </div>
+          {bookmark.summary ? (
+            <div style={{ marginTop: "12px", borderRadius: "8px", backgroundColor: theme.surfaceSubtle, border: `1px solid ${theme.border}`, padding: "8px 10px", fontSize: "11px", color: theme.textSecondary, lineHeight: 1.6 }}>
+              {bookmark.summary}
+            </div>
+          ) : null}
+          {bookmark.aiTags.length > 0 || bookmark.userTags.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "10px" }}>
+              {[...bookmark.aiTags, ...bookmark.userTags].map((tag) => (
+                <span key={tag} style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "6px", backgroundColor: theme.page, color: theme.textSecondary, border: `1px solid ${theme.border}` }}>
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <div style={{ display: "grid", gap: "8px" }}>
+          <button data-testid="popup-primary-action" onClick={onOpenSidepanel} style={{ width: "100%", border: "none", borderRadius: "8px", backgroundColor: theme.accent, color: "#fff", padding: "10px 16px", fontSize: "13px", fontWeight: 500, cursor: "pointer" }} type="button">
+            💬 {t("popup.actions.openSidepanel")}
+          </button>
+          <button data-testid="popup-open-dashboard" onClick={onOpenDashboard} style={{ width: "100%", borderRadius: "8px", border: `1px solid ${theme.border}`, backgroundColor: theme.surface, padding: "8px 12px", fontSize: "12px", color: theme.textPrimary }} type="button">
+            {t("popup.actions.openDashboard")}
+          </button>
+        </div>
+
+        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+      </div>
+    </div>
   )
 }
 
