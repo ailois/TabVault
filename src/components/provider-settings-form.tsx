@@ -14,24 +14,28 @@ type ProviderSettingsFormProps = {
 
 const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
   openai: "OpenAI Chat",
+  "openai-response": "OpenAI Response",
   claude: "Claude",
   gemini: "Gemini"
 }
 
 const PROVIDER_DESCRIPTIONS: Record<ProviderFormState["provider"], string> = {
   openai: "/v1/chat/completions",
+  "openai-response": "/v1/responses",
   claude: "Anthropic Messages",
   gemini: "Google AI Studio"
 }
 
 const PROVIDER_COLORS: Record<ProviderFormState["provider"], string> = {
   openai: "#6B8E73",
+  "openai-response": "#6B8E73",
   claude: "#C08457",
   gemini: "#5B7C99"
 }
 
 const PROVIDER_BASE_URL_DEFAULTS: Partial<Record<ProviderFormState["provider"], string>> = {
   openai: "https://api.openai.com/v1",
+  "openai-response": "https://api.openai.com/v1",
   claude: "https://api.anthropic.com/v1",
   gemini: "https://generativelanguage.googleapis.com/v1beta/models"
 }
@@ -61,7 +65,7 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
   const canTest =
     value.apiKey.trim().length > 0 &&
     value.model.trim().length > 0 &&
-    (value.provider !== "openai" || (value.baseUrl ?? "").trim().length > 0)
+    (value.provider !== "openai" && value.provider !== "openai-response" || (value.baseUrl ?? "").trim().length > 0)
 
   async function handleTestConnection(): Promise<void> {
     setTestStatus("testing")
@@ -176,7 +180,7 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
           <label htmlFor={`${value.provider}-base-url`} style={{ ...labelStyle, justifyContent: "flex-start" }}>
             <span>
               Base URL
-              {value.provider !== "openai" ? (
+              {value.provider !== "openai" && value.provider !== "openai-response" ? (
                 <span style={{ fontWeight: 400, color: theme.textMuted, marginLeft: "0.5em" }}>
                   (optional, defaults to {PROVIDER_BASE_URL_DEFAULTS[value.provider]})
                 </span>

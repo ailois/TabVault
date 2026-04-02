@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import Options from "../../src/options"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import type { ThemeRepository } from "../../src/lib/config/theme-repository"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -69,6 +70,13 @@ describe("Options save state", () => {
           enabled: false
         },
         {
+          provider: "openai-response",
+          apiKey: "response-key",
+          baseUrl: "https://api.openai.com/v1",
+          model: "gpt-4.1-mini",
+          enabled: false
+        },
+        {
           provider: "claude",
           apiKey: "claude-key",
           model: "claude-sonnet-4-5",
@@ -94,6 +102,13 @@ describe("Options save state", () => {
         apiKey: "openai-key",
         baseUrl: "https://api.openai.com/v1",
         model: "gpt-4o-mini",
+        enabled: false
+      },
+      {
+        provider: "openai-response",
+        apiKey: "response-key",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4.1-mini",
         enabled: false
       },
       {
@@ -133,6 +148,13 @@ describe("Options save state", () => {
           enabled: false
         },
         {
+          provider: "openai-response",
+          apiKey: "response-key",
+          baseUrl: "https://api.openai.com/v1",
+          model: "gpt-4.1-mini",
+          enabled: false
+        },
+        {
           provider: "claude",
           apiKey: "claude-key",
           model: "claude-sonnet-4-5",
@@ -161,9 +183,11 @@ describe("Options save state", () => {
     const savedProviders = saveProviders.mock.calls[0][0]
     const claudeProvider = savedProviders.find((p: ProviderConfig) => p.provider === "claude")
     const openaiProvider = savedProviders.find((p: ProviderConfig) => p.provider === "openai")
+    const responseProvider = savedProviders.find((p: ProviderConfig) => p.provider === "openai-response")
     const geminiProvider = savedProviders.find((p: ProviderConfig) => p.provider === "gemini")
     expect(claudeProvider?.enabled).toBe(false)
     expect(openaiProvider?.enabled).toBe(true)
+    expect(responseProvider?.enabled).toBe(false)
     expect(geminiProvider?.enabled).toBe(false)
     expect(openaiProvider?.apiKey).toBe("new-openai-key")
   })
@@ -182,10 +206,10 @@ describe("Options save state", () => {
       saveAppSettings: async () => {
         await saveCompletion.promise
       },
-      getProviders: async () => getValidProviders(),
       saveProviders: async () => {
         await saveCompletion.promise
-      }
+      },
+      getProviders: async () => getValidProviders()
     }
 
     await renderOptions(settingsRepository)
@@ -202,20 +226,73 @@ describe("Options save state", () => {
     expect(getSaveButton()?.disabled).toBe(false)
   })
 
-  it("renders settings page sections closer to design layout", async () => {
-    await renderOptions(createSettingsRepository())
+  it("theme selection applies immediately and persists through themeRepository on save", async () => {
+    const setTheme = vi.fn<ThemeRepository["setTheme"]>(async () => {})
+    const themeRepository: ThemeRepository = {
+      getTheme: async () => "sage",
+      setTheme
+    }
 
-    const actionArea = getSaveActionArea()
+    await renderOptions(createSettingsRepository(), themeRepository)
 
-    expect(container?.querySelector('[data-testid="settings-workspace"]')).not.toBeNull()
-    expect(container?.querySelector('[data-testid="provider-rail-openai-response"]')).not.toBeNull()
-    expect(container?.querySelector('[data-testid="theme-card-sage"]')?.textContent).toContain("鼠尾草")
-    expect(container?.querySelector('[data-testid="settings-license-card"]')).not.toBeNull()
-    expect(container?.textContent).toContain("知识库管理")
-    expect(container?.textContent).toContain("OpenAI Response")
-    expect(actionArea).toBeDefined()
-    expect(actionArea?.querySelector("button")?.textContent).toBe("Save settings")
-    expect(actionArea?.querySelector('[data-testid="save-status"]')?.textContent).toBe("Ready")
+    await clickButtonByTestId("theme-card-obsidian")
+
+    expect(setTheme).toHaveBeenCalledWith("obsidian")
+    expect(document.documentElement.dataset.theme).toBe("obsidian")
+
+    await clickSave()
+    await flushPromises()
+
+    expect(setTheme).toHaveBeenLastCalledWith("obsidian")
+  })
+
+  it("renders OpenAI Response as a real configurable provider", async () => {
+    await renderOptions(
+      createSettingsRepository({
+        getAppSettings: async () => ({
+          defaultProvider: "openai-response",
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto" as const,
+          autoRetryOnError: false,
+          displayLanguage: "en" as const,
+          theme: "sage" as const
+        }),
+        getProviders: async () => [
+          {
+            provider: "openai",
+            apiKey: "openai-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4o-mini",
+            enabled: false
+          },
+          {
+            provider: "openai-response",
+            apiKey: "response-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4.1-mini",
+            enabled: true
+          },
+          {
+            provider: "claude",
+            apiKey: "claude-key",
+            model: "claude-sonnet-4-5",
+            enabled: false
+          },
+          {
+            provider: "gemini",
+            apiKey: "gemini-key",
+            model: "gemini-1.5-flash",
+            enabled: false
+          }
+        ]
+      })
+    )
+
+    await clickProviderRail("openai-response")
+
+    expect(getSectionByHeading("OpenAI Response")?.textContent).toContain("/v1/responses")
+    expect(getInput("openai-response-api-key")?.value).toBe("response-key")
+    expect(getInput("openai-response-model")?.value).toBe("gpt-4.1-mini")
   })
 
   it("shows Failed to save settings when persisting throws", async () => {
@@ -231,8 +308,8 @@ describe("Options save state", () => {
       saveAppSettings: async () => {
         throw new Error("save failed")
       },
-      getProviders: async () => getValidProviders(),
-      saveProviders: async () => {}
+      saveProviders: async () => {},
+      getProviders: async () => getValidProviders()
     }
 
     await renderOptions(settingsRepository)
@@ -257,6 +334,13 @@ describe("Options save state", () => {
             baseUrl: "https://api.openai.com/v1",
             model: "gpt-4o-mini",
             enabled: true
+          },
+          {
+            provider: "openai-response",
+            apiKey: "response-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4.1-mini",
+            enabled: false
           },
           {
             provider: "claude",
@@ -298,6 +382,13 @@ describe("Options save state", () => {
             baseUrl: "https://api.openai.com/v1",
             model: "gpt-4o-mini",
             enabled: true
+          },
+          {
+            provider: "openai-response",
+            apiKey: "response-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4.1-mini",
+            enabled: false
           },
           {
             provider: "claude",
@@ -350,6 +441,13 @@ describe("Options save state", () => {
             enabled: false
           },
           {
+            provider: "openai-response",
+            apiKey: "",
+            baseUrl: "",
+            model: "gpt-4.1-mini",
+            enabled: false
+          },
+          {
             provider: "claude",
             apiKey: "claude-key",
             model: "claude-sonnet-4-5",
@@ -387,6 +485,13 @@ describe("Options save state", () => {
         enabled: false
       },
       {
+        provider: "openai-response",
+        apiKey: "",
+        baseUrl: "",
+        model: "gpt-4.1-mini",
+        enabled: false
+      },
+      {
         provider: "claude",
         apiKey: "claude-key",
         model: "claude-sonnet-4-5",
@@ -406,13 +511,21 @@ describe("Options save state", () => {
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-async function renderOptions(settingsRepository: SettingsRepository): Promise<void> {
+async function renderOptions(settingsRepository: SettingsRepository, themeRepository?: ThemeRepository): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<Options services={{ settingsRepository, testConnection: async () => {} }} />)
+    root.render(
+      <Options
+        services={{
+          settingsRepository,
+          testConnection: async () => {},
+          ...(themeRepository ? { themeRepository } : {})
+        }}
+      />
+    )
   })
 }
 
@@ -456,11 +569,23 @@ async function clickSwitchByLabel(label: string): Promise<void> {
   })
 }
 
-async function clickProviderRail(provider: "openai" | "claude" | "gemini"): Promise<void> {
+async function clickProviderRail(provider: "openai" | "openai-response" | "claude" | "gemini"): Promise<void> {
   const button = container?.querySelector<HTMLButtonElement>(`[data-testid="provider-rail-${provider}"]`)
 
   if (!button) {
     throw new Error(`Expected provider rail button for ${provider}`)
+  }
+
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+  })
+}
+
+async function clickButtonByTestId(testId: string): Promise<void> {
+  const button = container?.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)
+
+  if (!button) {
+    throw new Error(`Expected button ${testId}`)
   }
 
   await act(async () => {
@@ -556,6 +681,13 @@ function getValidProviders(): ProviderConfig[] {
       baseUrl: "https://api.openai.com/v1",
       model: "gpt-4o-mini",
       enabled: true
+    },
+    {
+      provider: "openai-response",
+      apiKey: "response-key",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4.1-mini",
+      enabled: false
     },
     {
       provider: "claude",

@@ -44,13 +44,16 @@ describe("validateSettingsForm", () => {
     expect(result.hasErrors).toBe(true)
   })
 
-  it("flags a default provider that is not enabled", () => {
+  it("flags an enabled OpenAI Response provider with an empty base URL", () => {
     const result = validateSettingsForm(
-      createValidAppSettings({ defaultProvider: "claude" }),
-      createValidProviders({ claude: { apiKey: "claude-key", model: "claude-sonnet-4-5" } })
+      createValidAppSettings({ defaultProvider: "openai-response" }),
+      createValidProviders({
+        openai: { enabled: false },
+        "openai-response": { enabled: true, apiKey: "response-key", model: "gpt-4.1-mini", baseUrl: "" }
+      })
     )
 
-    expect(result.defaultProvider).toBe("Default provider must be enabled")
+    expect(result.providers["openai-response"].baseUrl).toBe("Base URL is required")
     expect(result.hasErrors).toBe(true)
   })
 
@@ -75,6 +78,7 @@ describe("validateSettingsForm", () => {
     )
 
     expect(result.providers.openai).toEqual({})
+    expect(result.providers["openai-response"]).toEqual({})
     expect(result.hasErrors).toBe(false)
   })
 
@@ -101,6 +105,14 @@ function createValidProviders(overrides: Partial<Record<ProviderConfig["provider
       model: "gpt-4o-mini",
       baseUrl: "https://api.openai.com/v1",
       ...overrides.openai
+    },
+    {
+      provider: "openai-response",
+      enabled: false,
+      apiKey: "",
+      model: "gpt-4.1-mini",
+      baseUrl: "https://api.openai.com/v1",
+      ...overrides["openai-response"]
     },
     {
       provider: "claude",

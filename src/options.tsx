@@ -55,7 +55,7 @@ type LicenseEntryStateProps = {
 }
 
 type ProviderCardDefinition = {
-  id: ProviderType | "openai-response"
+  id: ProviderType
   dataTestId: string
   label: string
   description: string
@@ -147,7 +147,7 @@ function Options({ services }: OptionsProps) {
   const [appSettings, setAppSettings] = React.useState(DEFAULT_APP_SETTINGS)
   const [providers, setProviders] = React.useState(() => buildProviderFormState([]))
   const [providerEditorSelection, setProviderEditorSelection] = React.useState<ProviderType>(DEFAULT_APP_SETTINGS.defaultProvider)
-  const [selectedProtocolCard, setSelectedProtocolCard] = React.useState<ProviderType | "openai-response">(DEFAULT_APP_SETTINGS.defaultProvider)
+  const [selectedProtocolCard, setSelectedProtocolCard] = React.useState<ProviderType>(DEFAULT_APP_SETTINGS.defaultProvider)
   const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle")
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasLoadError, setHasLoadError] = React.useState(false)
@@ -185,7 +185,8 @@ function Options({ services }: OptionsProps) {
       const providersToSave = applySingleProviderEnabledState(providers, appSettings.defaultProvider)
       await Promise.all([
         optionsServices.settingsRepository.saveAppSettings(appSettings),
-        optionsServices.settingsRepository.saveProviders(providersToSave)
+        optionsServices.settingsRepository.saveProviders(providersToSave),
+        optionsServices.themeRepository.setTheme(appSettings.theme)
       ])
 
       setSaveStatus("saved")
@@ -201,9 +202,10 @@ function Options({ services }: OptionsProps) {
 
     void (async () => {
       try {
-        const [storedAppSettings, storedProviders] = await Promise.all([
+        const [storedAppSettings, storedProviders, storedTheme] = await Promise.all([
           optionsServices.settingsRepository.getAppSettings(),
-          optionsServices.settingsRepository.getProviders()
+          optionsServices.settingsRepository.getProviders(),
+          optionsServices.themeRepository.getTheme()
         ])
 
         if (!isMounted) {
@@ -212,7 +214,8 @@ function Options({ services }: OptionsProps) {
 
         const normalizedAppSettings = {
           ...DEFAULT_APP_SETTINGS,
-          ...storedAppSettings
+          ...storedAppSettings,
+          theme: storedTheme ?? storedAppSettings.theme ?? DEFAULT_APP_SETTINGS.theme
         }
 
         setAppSettings(normalizedAppSettings)
@@ -544,11 +547,11 @@ type SettingsContentProps = {
   providerEditorSelection: ProviderType
   providers: ReturnType<typeof buildProviderFormState>
   saveStatus: SaveStatus
-  selectedProtocolCard: ProviderType | "openai-response"
+  selectedProtocolCard: ProviderType
   setAppSettings: React.Dispatch<React.SetStateAction<typeof DEFAULT_APP_SETTINGS>>
   setProviderEditorSelection: React.Dispatch<React.SetStateAction<ProviderType>>
   setProviders: React.Dispatch<React.SetStateAction<ReturnType<typeof buildProviderFormState>>>
-  setSelectedProtocolCard: React.Dispatch<React.SetStateAction<ProviderType | "openai-response">>
+  setSelectedProtocolCard: React.Dispatch<React.SetStateAction<ProviderType>>
   theme: ReturnType<typeof useTheme>
   trialStateProps: LicenseEntryStateProps | null
   validation: ReturnType<typeof validateSettingsForm>
@@ -633,7 +636,7 @@ function SettingsContent({
             <div data-testid="provider-rail" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", marginBottom: "24px" }}>
               {PROVIDER_CARDS.map((provider) => {
                 const isSelected = selectedProtocolCard === provider.id
-                const isStorageBacked = provider.id === "openai" || provider.id === "claude" || provider.id === "gemini"
+                const isStorageBacked = true
                 const isDefault = isStorageBacked && appSettings.defaultProvider === provider.id
 
                 return (
@@ -642,11 +645,6 @@ function SettingsContent({
                     aria-pressed={isSelected}
                     data-testid={provider.dataTestId}
                     onClick={() => {
-                      if (provider.id === "openai-response") {
-                        setSelectedProtocolCard("openai-response")
-                        return
-                      }
-
                       selectProvider(provider.id)
                     }}
                     style={{
@@ -685,14 +683,7 @@ function SettingsContent({
               })}
             </div>
 
-            {selectedProtocolCard === "openai-response" ? (
-              <section style={{ display: "grid", gap: "12px", paddingTop: "16px", borderTop: `1px solid ${theme.border}` }}>
-                <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 600, color: theme.textPrimary }}>OpenAI Response</h2>
-                <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted, lineHeight: 1.6 }}>
-                  当前版本先保留这个协议入口的设计位，实际配置与保存逻辑仍复用现有 OpenAI-compatible provider。
-                </p>
-              </section>
-            ) : selectedProvider ? (
+            {selectedProvider ? (
               <ProviderSettingsForm
                 fieldErrors={validation.providers[selectedProvider.provider]}
                 onChange={(nextValue) => {
@@ -730,12 +721,13 @@ function SettingsContent({
                       <button
                         key={themeOption.theme}
                         data-testid={`theme-card-${themeOption.theme}`}
-                        onClick={() =>
+                        onClick={() => {
                           setAppSettings((currentSettings) => ({
                             ...currentSettings,
                             theme: themeOption.theme
                           }))
-                        }
+                          theme.setTheme(themeOption.theme)
+                        }}
                         style={{
                           display: "flex",
                           alignItems: "center",

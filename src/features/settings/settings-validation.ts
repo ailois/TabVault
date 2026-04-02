@@ -12,12 +12,13 @@ export type SettingsValidation = {
   hasErrors: boolean
 }
 
-const PROVIDERS: ProviderType[] = ["openai", "claude", "gemini"]
+const PROVIDERS: ProviderType[] = ["openai", "openai-response", "claude", "gemini"]
 
 export function validateSettingsForm(appSettings: AppSettings, providers: ProviderConfig[]): SettingsValidation {
   const validation: SettingsValidation = {
     providers: {
       openai: {},
+      "openai-response": {},
       claude: {},
       gemini: {}
     },
@@ -41,8 +42,8 @@ export function validateSettingsForm(appSettings: AppSettings, providers: Provid
       validation.providers[providerType].model = "Model is required"
     }
 
-    if (providerType === "openai") {
-      validateOpenAiBaseUrl(provider, validation.providers.openai)
+    if (providerType === "openai" || providerType === "openai-response") {
+      validateOpenAiBaseUrl(provider, validation.providers[providerType])
     }
   }
 

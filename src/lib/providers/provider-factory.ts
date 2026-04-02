@@ -10,6 +10,7 @@ const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
 export function createProvider(config: ProviderConfig): AiProvider {
   switch (config.provider) {
     case "openai":
+    case "openai-response":
       return new OpenAiCompatibleProvider({
         apiKey: config.apiKey,
         baseUrl: config.baseUrl ?? OPENAI_DEFAULT_BASE_URL,
