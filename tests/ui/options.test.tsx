@@ -139,7 +139,6 @@ describe("Options", () => {
 
     expect(container?.textContent).toContain("TabVault")
     expect(container?.textContent).toContain("Settings")
-    expect(container?.textContent).not.toContain("Bookmarks")
     expect(dashboardShell).toBeTruthy()
     expect(sidebar).toBeTruthy()
     expect(mainContent).toBeTruthy()

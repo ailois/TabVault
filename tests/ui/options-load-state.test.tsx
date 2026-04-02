@@ -52,7 +52,8 @@ describe("Options load state", () => {
         autoAnalyzeOnSave: true,
         summaryLanguage: "auto" as const,
         autoRetryOnError: false,
-        displayLanguage: "en" as const
+        displayLanguage: "en" as const,
+        theme: "sage" as const
       }),
       saveAppSettings: async () => {},
       getProviders: async () => [

@@ -320,6 +320,7 @@ function Options({ services }: OptionsProps) {
 
           <nav style={{ display: "grid", gap: spacing.xs }}>
             <button
+              aria-current="page"
               aria-pressed={true}
               data-testid="options-nav-settings"
               style={{
@@ -343,6 +344,27 @@ function Options({ services }: OptionsProps) {
               <span aria-hidden="true" style={{ color: theme.accent, fontSize: "0.75rem" }}>
                 ●
               </span>
+            </button>
+            <button
+              aria-current={undefined}
+              data-testid="settings-nav-knowledge"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                padding: `${spacing.sm} ${spacing.md}`,
+                border: `1px solid ${theme.border}`,
+                borderRadius: "12px",
+                backgroundColor: theme.surface,
+                color: theme.textMuted,
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "default"
+              }}
+              type="button"
+            >
+              <span>Knowledge Base</span>
             </button>
           </nav>
         </aside>
@@ -705,7 +727,8 @@ function SettingsTabContent({
           </button>
         </div>
 
-        <section data-testid="settings-tab-panel-agent" style={panelStyle(activeTab === "agent")}>
+        <section data-testid="settings-panel-architecture" style={panelStyle(activeTab === "agent")}>
+          <div data-testid="settings-workspace" style={{ display: "grid", gap: spacing.lg }}>
           <div
             data-testid="settings-workspace"
             style={{
@@ -800,6 +823,20 @@ function SettingsTabContent({
 
             {providerPanel}
           </div>
+        </div>
+        </section>
+
+        <section data-testid="settings-panel-knowledge" hidden style={panelStyle(false)}>
+          <section data-testid="settings-section-card" style={cardStyle}>
+            <div style={cardHeaderStyle}>
+              <h2 style={{ margin: 0, fontSize: "0.8125rem", fontWeight: 700, color: theme.textPrimary }}>Knowledge Base</h2>
+            </div>
+            <div style={{ padding: "20px", display: "grid", gap: spacing.md }}>
+              <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted, lineHeight: 1.6 }}>
+                Manage local bookmark storage, retrieval strategy, and privacy rules.
+              </p>
+            </div>
+          </section>
         </section>
 
         <section data-testid="settings-tab-panel-retrieval" style={panelStyle(activeTab === "retrieval")}>
