@@ -8,13 +8,11 @@ import Popup from "../../src/popup"
 import SidePanel from "../../src/sidepanel"
 import Options from "../../src/options"
 import { DashboardShell } from "../../src/features/dashboard/dashboard-shell"
-import { ThemeProvider } from "../../src/ui/theme-context"
-import { buildThemeFromOverride } from "../../src/ui/use-theme"
 import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { BookmarkRepository } from "../../src/lib/storage/bookmark-repository"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
 import type { ThemeRepository } from "../../src/lib/config/theme-repository"
-import type { AppSettings, ProviderConfig } from "../../src/types/settings"
+import type { AppSettings, ProviderConfig, ThemeName } from "../../src/types/settings"
 import type { AiProvider } from "../../src/lib/providers/provider"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -67,14 +65,12 @@ describe("Cross-surface cohesion smoke", () => {
 
   it("renders popup, sidepanel, dashboard, and settings with shared shell language", async () => {
     await renderSurface(
-      <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
-        <div>
-          <Popup services={createPopupServices()} />
-          <SidePanel services={createSidePanelServices()} />
-          <DashboardShell initialBookmarks={[createBookmark({ id: "1", title: "React Docs" })]} />
-          <Options services={{ settingsRepository: createSettingsRepository(), bookmarkRepository: createBookmarkRepository(), testConnection: async () => {} }} />
-        </div>
-      </ThemeProvider>
+      <div>
+        <Popup services={createPopupServices()} />
+        <SidePanel services={createSidePanelServices()} />
+        <DashboardShell initialBookmarks={[createBookmark({ id: "1", title: "React Docs" })]} />
+        <Options services={{ settingsRepository: createSettingsRepository(), bookmarkRepository: createBookmarkRepository(), testConnection: async () => {} }} />
+      </div>
     )
 
     expect(container?.querySelector("[data-testid='popup-shell']")).not.toBeNull()
@@ -150,7 +146,7 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
 function createThemeRepository(overrides: Partial<ThemeRepository> = {}): ThemeRepository {
   return {
     getTheme: vi.fn(async () => undefined),
-    setTheme: vi.fn(async () => undefined),
+    setTheme: vi.fn(async (_theme: ThemeName) => undefined),
     ...overrides
   }
 }

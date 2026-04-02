@@ -11,4 +11,8 @@ describe("DEFAULT_APP_SETTINGS", () => {
   it("defaults display language to English", () => {
     expect(DEFAULT_APP_SETTINGS.displayLanguage).toBe("en")
   })
+
+  it("defaults the selected named theme to sage", () => {
+    expect(DEFAULT_APP_SETTINGS.theme).toBe("sage")
+  })
 })

@@ -56,7 +56,8 @@ describe("Options save state", () => {
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
         autoRetryOnError: false,
-        displayLanguage: "en" as const
+        displayLanguage: "en" as const,
+        theme: "sage" as const
       }),
       saveAppSettings,
       getProviders: async () => [
@@ -119,7 +120,8 @@ describe("Options save state", () => {
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
         autoRetryOnError: false,
-        displayLanguage: "en" as const
+        displayLanguage: "en" as const,
+        theme: "sage" as const
       }),
       saveAppSettings: async () => {},
       getProviders: async () => [
@@ -174,7 +176,8 @@ describe("Options save state", () => {
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
         autoRetryOnError: false,
-        displayLanguage: "en" as const
+        displayLanguage: "en" as const,
+        theme: "sage" as const
       }),
       saveAppSettings: async () => {
         await saveCompletion.promise
@@ -217,7 +220,8 @@ describe("Options save state", () => {
         autoAnalyzeOnSave: false,
         summaryLanguage: "auto" as const,
         autoRetryOnError: false,
-        displayLanguage: "en" as const
+        displayLanguage: "en" as const,
+        theme: "sage" as const
       }),
       saveAppSettings: async () => {
         throw new Error("save failed")
@@ -365,7 +369,8 @@ describe("Options save state", () => {
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
       autoRetryOnError: false,
-      displayLanguage: "en"
+      displayLanguage: "en",
+      theme: "sage"
     })
     expect(saveProviders).toHaveBeenCalledWith([
       {

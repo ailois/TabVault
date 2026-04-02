@@ -240,7 +240,7 @@ describe("SidePanel", () => {
       await Promise.resolve()
     })
 
-    expect(setTheme).toHaveBeenCalledWith(expect.stringMatching(/dark|light/))
+    expect(setTheme).toHaveBeenCalledWith(expect.stringMatching(/obsidian|sage/))
   })
 
   it("renders a list of bookmarks in search mode", async () => {

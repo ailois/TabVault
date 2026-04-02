@@ -4,8 +4,10 @@ import { lightTokens, shadow } from "./design-tokens"
 
 const fallbackTheme: ThemeWithToggle = {
   ...lightTokens,
+  name: "sage",
   shadow: shadow.light,
   isDark: false,
+  setTheme: () => {},
   toggle: () => {}
 }
 

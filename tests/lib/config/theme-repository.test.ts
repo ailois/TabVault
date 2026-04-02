@@ -19,15 +19,15 @@ describe("ChromeThemeRepository", () => {
     expect(result).toBeUndefined()
   })
 
-  it("returns the stored theme override", async () => {
-    ;(chrome.storage.local.get as any).mockResolvedValue({ themeOverride: "dark" })
+  it("returns a stored named design theme", async () => {
+    ;(chrome.storage.local.get as any).mockResolvedValue({ themeOverride: "obsidian" })
     const repo = new ChromeThemeRepository()
-    expect(await repo.getTheme()).toBe("dark")
+    expect(await repo.getTheme()).toBe("obsidian")
   })
 
-  it("writes theme override to chrome.storage.local", async () => {
+  it("writes named design theme values to chrome.storage.local", async () => {
     const repo = new ChromeThemeRepository()
-    await repo.setTheme("light")
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({ themeOverride: "light" })
+    await repo.setTheme("sage")
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({ themeOverride: "sage" })
   })
 })

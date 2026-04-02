@@ -49,7 +49,7 @@ describe("ToggleSwitch", () => {
 
     await act(async () => {
       root!.render(
-        <ThemeProvider theme={{ ...buildThemeFromOverride("light"), toggle: () => {} }}>
+        <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
           <ToggleSwitch checked={checked} onChange={onChange} label={label} />
         </ThemeProvider>
       )
@@ -63,10 +63,10 @@ describe("ToggleSwitch", () => {
     const thumb = toggle?.querySelector<HTMLElement>("span")
     expect(toggle?.style.width).toBe("40px")
     expect(toggle?.style.height).toBe("24px")
-    expect(toggle?.style.backgroundColor).toBe("rgb(244, 246, 249)")
+    expect(toggle?.style.backgroundColor).toBe("rgb(244, 247, 244)")
     expect(thumb?.style.width).toBe("16px")
     expect(thumb?.style.height).toBe("16px")
-    expect(thumb?.style.backgroundColor).toBe("rgb(108, 117, 125)")
+    expect(thumb?.style.backgroundColor).toBe("rgb(122, 138, 125)")
   })
 
   it("uses the prototype accent track and translated thumb when checked", async () => {
@@ -74,8 +74,8 @@ describe("ToggleSwitch", () => {
 
     const toggle = container?.querySelector<HTMLElement>('[role="switch"]')
     const thumb = toggle?.querySelector<HTMLElement>("span")
-    expect(toggle?.style.backgroundColor).toBe("rgb(94, 106, 210)")
-    expect(toggle?.style.borderColor).toBe("rgb(94, 106, 210)")
+    expect(toggle?.style.backgroundColor).toBe("rgb(107, 142, 115)")
+    expect(toggle?.style.borderColor).toBe("rgb(107, 142, 115)")
     expect(thumb?.style.transform).toBe("translateX(16px)")
     expect(thumb?.style.backgroundColor).toBe("rgb(255, 255, 255)")
   })

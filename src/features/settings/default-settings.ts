@@ -5,5 +5,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   autoAnalyzeOnSave: false,
   summaryLanguage: "auto",
   autoRetryOnError: false,
-  displayLanguage: "en"
+  displayLanguage: "en",
+  theme: "sage"
 }

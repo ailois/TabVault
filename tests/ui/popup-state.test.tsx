@@ -296,7 +296,7 @@ describe("Popup state", () => {
     await act(async () => { btn?.click() })
     await flush()
 
-    expect(setTheme).toHaveBeenCalledWith(expect.stringMatching(/dark|light/))
+    expect(setTheme).toHaveBeenCalledWith(expect.stringMatching(/obsidian|sage/))
     expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "THEME_CHANGED" }))
   })
 })

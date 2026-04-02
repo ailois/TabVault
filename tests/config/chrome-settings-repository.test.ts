@@ -35,7 +35,8 @@ describe("ChromeSettingsRepository", () => {
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto",
       autoRetryOnError: false,
-      displayLanguage: "en"
+      displayLanguage: "en",
+      theme: "sage"
     })
   })
 
@@ -45,7 +46,8 @@ describe("ChromeSettingsRepository", () => {
       autoAnalyzeOnSave: true,
       summaryLanguage: "auto",
       autoRetryOnError: false,
-      displayLanguage: "zh"
+      displayLanguage: "zh",
+      theme: "obsidian"
     }
 
     await repository.saveAppSettings(settings)
@@ -67,6 +69,7 @@ describe("ChromeSettingsRepository", () => {
     const result = await repository.getAppSettings()
 
     expect(result.displayLanguage).toBe("en")
+    expect(result.theme).toBe("sage")
     expect(result.defaultProvider).toBe("claude")
     expect(result.autoAnalyzeOnSave).toBe(true)
   })
