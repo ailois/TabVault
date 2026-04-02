@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* 1. ☁️ 极简白 (Cloud Light) — 默认主题 */
+  :root,
+  [data-theme="cloud"] {
+    --bg-base: #FAFAFA;
+    --bg-surface: #FFFFFF;
+    --text-primary: #18181B;
+    --text-secondary: #71717A;
+    --border-subtle: #E4E4E7;
+    --accent-primary: #475569;
+    --accent-hover: #334155;
+    --accent-muted: #F1F5F9;
+  }
+
+  /* 2. 🌌 深邃黑 (Obsidian Dark) */
+  [data-theme="obsidian"] {
+    --bg-base: #121214;
+    --bg-surface: #1C1C1F;
+    --text-primary: #EDEDF0;
+    --text-secondary: #909096;
+    --border-subtle: #2C2C2F;
+    --accent-primary: #8BA1B7;
+    --accent-hover: #A5B8CE;
+    --accent-muted: #27272A;
+  }
+
+  /* 3. 🌿 鼠尾草绿 (Sage Green) */
+  [data-theme="sage"] {
+    --bg-base: #F4F7F4;
+    --bg-surface: #FFFFFF;
+    --text-primary: #2A332C;
+    --text-secondary: #7A8A7D;
+    --border-subtle: #E8ECE8;
+    --accent-primary: #6B8E73;
+    --accent-hover: #5A7A61;
+    --accent-muted: #EBF0EC;
+  }
+
+  /* 4. 🌊 海风蓝 (Breeze Blue) */
+  [data-theme="breeze"] {
+    --bg-base: #F4F6F9;
+    --bg-surface: #FFFFFF;
+    --text-primary: #2C353D;
+    --text-secondary: #798A9C;
+    --border-subtle: #E2E8F0;
+    --accent-primary: #5B7C99;
+    --accent-hover: #4A6782;
+    --accent-muted: #EBF0F5;
+  }
+
+  /* 5. 🍠 芋泥紫 (Taro Purple) */
+  [data-theme="taro"] {
+    --bg-base: #F8F6F9;
+    --bg-surface: #FFFFFF;
+    --text-primary: #352E3D;
+    --text-secondary: #8D7B9C;
+    --border-subtle: #EAE6EE;
+    --accent-primary: #9D8CBA;
+    --accent-hover: #8573A1;
+    --accent-muted: #F0EBF5;
+  }
+
+  /* 6. 🍦 香草焦糖 (Vanilla) */
+  [data-theme="vanilla"] {
+    --bg-base: #FDFBF7;
+    --bg-surface: #FFFFFF;
+    --text-primary: #3A3530;
+    --text-secondary: #8C857E;
+    --border-subtle: #F5F2E9;
+    --accent-primary: #D4A373;
+    --accent-hover: #C39362;
+    --accent-muted: #F8F3ED;
+  }
+
+  html,
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}

@@ -12,10 +12,13 @@ export type SummaryLanguage = "auto" | "zh" | "en" | "ja" | "ko" | "fr" | "de" |
 
 export type DisplayLanguage = "en" | "zh"
 
+export type ThemeName = "cloud" | "obsidian" | "sage" | "breeze" | "taro" | "vanilla"
+
 export type AppSettings = {
   defaultProvider: ProviderType
   autoAnalyzeOnSave: boolean
   summaryLanguage: SummaryLanguage
   autoRetryOnError: boolean
   displayLanguage: DisplayLanguage
+  theme: ThemeName
 }

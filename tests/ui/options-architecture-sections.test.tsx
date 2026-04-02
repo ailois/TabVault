@@ -45,26 +45,20 @@ describe("Options architecture sections", () => {
     root = null
   })
 
-  it("renders design-aligned header tabs and a separate experience card", async () => {
+  it("renders settings sidebar navigation and both content panels", async () => {
     await renderOptions(createSettingsRepository())
 
-    const agentTab = container?.querySelector<HTMLButtonElement>('[data-testid="settings-tab-agent"]')
-    const retrievalTab = container?.querySelector<HTMLButtonElement>('[data-testid="settings-tab-retrieval"]')
-    const experienceCard = container?.querySelector('[data-testid="settings-experience-card"]')
-
-    const agentPanel = container?.querySelector<HTMLElement>('[data-testid="settings-tab-panel-agent"]')
-    const retrievalPanel = container?.querySelector<HTMLElement>('[data-testid="settings-tab-panel-retrieval"]')
+    const architectureNav = container?.querySelector<HTMLElement>('[data-testid="options-nav-settings"]')
+    const knowledgeNav = container?.querySelector<HTMLElement>('[data-testid="settings-nav-knowledge"]')
+    const architecturePanel = container?.querySelector<HTMLElement>('[data-testid="settings-panel-architecture"]')
+    const knowledgePanel = container?.querySelector<HTMLElement>('[data-testid="settings-panel-knowledge"]')
 
     expect(container?.querySelector('[data-testid="settings-page-header"]')?.textContent).toContain("Architecture Settings")
-    expect(agentTab?.textContent).toBe("Agent Companion Engine")
-    expect(retrievalTab?.textContent).toBe("Lightweight Hybrid Retrieval")
-    expect(agentTab?.getAttribute("aria-selected")).toBe("true")
-    expect(retrievalTab?.getAttribute("aria-selected")).toBe("false")
-    expect(agentPanel).toBeTruthy()
-    expect(retrievalPanel).toBeTruthy()
-    expect(agentPanel?.style.display).toBe("grid")
-    expect(retrievalPanel?.style.display).toBe("none")
-    expect(experienceCard?.textContent).toContain("Experience & Automation")
+    expect(architectureNav?.getAttribute("aria-current")).toBe("page")
+    expect(knowledgeNav?.textContent).toContain("Knowledge Base")
+    expect(architecturePanel).toBeTruthy()
+    expect(knowledgePanel).toBeTruthy()
+    expect(knowledgePanel?.getAttribute("hidden")).toBe("")
   })
 })
 
@@ -88,7 +82,8 @@ function createSettingsRepository(): SettingsRepository {
       autoAnalyzeOnSave: false,
       summaryLanguage: "auto" as const,
       autoRetryOnError: false,
-      displayLanguage: "en" as const
+      displayLanguage: "en" as const,
+      theme: "sage" as const
     }),
     saveAppSettings: async () => {},
     getProviders: async () => [

@@ -1,3 +1,4 @@
+import "./styles/globals.css"
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 
 import { BookmarkDrawer } from "./components/bookmark-drawer"

@@ -65,7 +65,7 @@ describe("Options", () => {
   it("renders settings as the only primary options destination", async () => {
     await renderOptions()
 
-    expect(container?.querySelector('[data-testid="options-nav-settings"]')?.getAttribute("aria-pressed")).toBe("true")
+    expect(container?.querySelector('[data-testid="options-nav-settings"]')?.getAttribute("aria-current")).toBe("page")
     expect(container?.querySelector('[data-testid="options-nav-bookmarks"]')).toBeNull()
     expect(container?.textContent).not.toContain("Bookmarks")
     expect(container?.querySelector('[data-testid="settings-page-shell"]')).toBeTruthy()
@@ -139,11 +139,10 @@ describe("Options", () => {
 
     expect(container?.textContent).toContain("TabVault")
     expect(container?.textContent).toContain("Settings")
-    expect(container?.textContent).not.toContain("Bookmarks")
     expect(dashboardShell).toBeTruthy()
     expect(sidebar).toBeTruthy()
     expect(mainContent).toBeTruthy()
-    expect(settingsNavButton?.getAttribute("aria-pressed")).toBe("true")
+    expect(settingsNavButton?.getAttribute("aria-current")).toBe("page")
 
     const appSection = getSectionByHeading("Provider & Protocol")
     const retrievalPanel = container?.querySelector('[data-testid="settings-tab-panel-retrieval"]')
@@ -553,7 +552,8 @@ const settingsRepository: SettingsRepository = {
     autoAnalyzeOnSave: false,
     summaryLanguage: "auto" as const,
     autoRetryOnError: false,
-    displayLanguage: "en" as const
+    displayLanguage: "en" as const,
+    theme: "sage" as const
   }),
   saveAppSettings: async () => {},
   getProviders: async () => [],
