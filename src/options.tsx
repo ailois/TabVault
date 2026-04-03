@@ -388,7 +388,7 @@ function Options({ services }: OptionsProps) {
             </h2>
             <p data-testid="settings-page-description" style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted }}>
               {activePage === "settings"
-                ? "配置大语言模型 (LLM) 接口协议、体验外观和自动化行为。"
+                ? t("settings.subtitle")
                 : "管理本地书签数据、向量索引策略、存储空间及隐私规则。"}
             </p>
           </header>
