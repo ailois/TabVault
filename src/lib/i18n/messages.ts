@@ -69,6 +69,8 @@ export type MessageKey =
   | "sidepanel.bookmarks.connectedPrefix"
   | "sidepanel.bookmarks.loading"
   | "sidepanel.apiKeyMissing"
+  | "settings.nav.architecture"
+  | "settings.nav.knowledge"
 
 type Messages = Record<MessageKey, string>
 
@@ -141,6 +143,8 @@ const en: Messages = {
   "sidepanel.bookmarks.connectedPrefix": "Connected {count} saved bookmarks, ask or search freely.",
   "sidepanel.bookmarks.loading": "Loading bookmarks...",
   "sidepanel.apiKeyMissing": "Add an API key in Settings to enable analysis.",
+  "settings.nav.architecture": "Architecture",
+  "settings.nav.knowledge": "Knowledge Base",
 }
 
 const zh: Messages = {
@@ -212,6 +216,8 @@ const zh: Messages = {
   "sidepanel.bookmarks.connectedPrefix": "已连接 {count} 条已保存书签，可直接提问或搜索。",
   "sidepanel.bookmarks.loading": "正在加载书签...",
   "sidepanel.apiKeyMissing": "请先在设置中添加 API key 以启用分析。",
+  "settings.nav.architecture": "架构配置",
+  "settings.nav.knowledge": "知识库管理",
 }
 
 const MESSAGES: Record<DisplayLanguage, Messages> = { en, zh }
