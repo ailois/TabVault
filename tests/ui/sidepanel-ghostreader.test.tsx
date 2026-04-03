@@ -98,17 +98,35 @@ describe("SidePanel Ghostreader", () => {
     expect(searchInput?.value).toBe("")
   })
 
-  it("keeps welcome and result cards within the same visual width system", async () => {
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [createBookmark({ id: "1", title: "React Compiler Notes", extractedText: "memoization details" })])
+  it("submits a Ghostreader question through the configured provider", async () => {
+    const analyze = vi.fn(async () => ({
+      summary: "Provider generated answer",
+      tags: ["react"]
+    }))
+    const provider = { analyze }
+    const createProvider = vi.fn(() => provider)
+
+    await renderSidePanel(
+      createServices({
+        createProvider,
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "openai-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        }),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({ id: "1", title: "React Compiler Notes", url: "https://example.com/react", extractedText: "memoization details" })
+          ])
+        })
       })
-    })
-
-    await renderSidePanel(services)
-
-    const welcomeCard = container?.querySelector<HTMLElement>("[data-testid='ghostreader-welcome-card']")
-    expect(welcomeCard?.style.maxWidth).toBe("90%")
+    )
 
     const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
@@ -117,16 +135,18 @@ describe("SidePanel Ghostreader", () => {
       setter?.call(input, "What is react compiler?")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
+    await act(async () => { await Promise.resolve() })
+
     await act(async () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
     })
     await act(async () => { await Promise.resolve() })
 
-    const resultCard = container?.querySelector<HTMLElement>("[data-testid='hybrid-result-card']")
-    const answerCard = container?.querySelector<HTMLElement>("[data-testid='hybrid-answer-card']")
-    expect(resultCard?.style.borderRadius).toBe("12px")
-    expect(answerCard?.style.borderRadius).toBe("12px")
+    expect(createProvider).toHaveBeenCalled()
+    expect(analyze).toHaveBeenCalled()
+    expect(container?.textContent).toContain("Provider generated answer")
   })
+
 })
 
 let container: HTMLDivElement | null = null

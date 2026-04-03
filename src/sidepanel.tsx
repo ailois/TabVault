@@ -86,6 +86,7 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [rankedResults, setRankedResults] = useState<RankedHybridResult[]>([])
   const [actionCards, setActionCards] = useState<ActionCard[]>([])
   const [answerBlock, setAnswerBlock] = useState<AnswerBlock | null>(null)
+  const [isGhostreaderSubmitting, setIsGhostreaderSubmitting] = useState(false)
 
   const displayedBookmarks = useMemo(
     () => bookmarks.map((bookmark) =>
@@ -269,6 +270,56 @@ export default function SidePanel({ services }: SidePanelProps) {
         setErrorMessage("Import failed")
       }
     })
+  }
+
+  async function handleGhostreaderSubmit(): Promise<void> {
+    const query = searchQuery.trim()
+    if (!query) {
+      return
+    }
+
+    setSearchQuery(query)
+    setErrorMessage(null)
+    setIsGhostreaderSubmitting(true)
+
+    try {
+      const settings = await sidePanelServices.settingsRepository.getAppSettings()
+      const providers = await sidePanelServices.settingsRepository.getProviders()
+      const selectedProvider = providers.find(
+        (provider) => provider.enabled && provider.provider === settings.defaultProvider
+      )
+
+      if (!selectedProvider?.apiKey.trim()) {
+        setErrorMessage(t("sidepanel.apiKeyMissing"))
+        return
+      }
+
+      const provider = sidePanelServices.createProvider(selectedProvider)
+      const analysis = await provider.analyze({
+        title: currentPageContext?.title ?? "Ghostreader question",
+        url: currentPageContext?.url ?? "https://tabvault.local/ghostreader",
+        content: buildGhostreaderContent({
+          query,
+          currentPageContext,
+          rankedResults
+        }),
+        summaryLanguage: settings.summaryLanguage
+      })
+
+      setAnswerBlock({
+        text: analysis.summary,
+        citations: rankedResults.slice(0, 3).map((result) => ({
+          sourceType: result.document.sourceType,
+          title: result.document.title,
+          url: result.document.url,
+          matchReason: result.matchReason
+        }))
+      })
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Ghostreader failed to answer"))
+    } finally {
+      setIsGhostreaderSubmitting(false)
+    }
   }
 
   async function handleHybridAction(actionId: ActionCard["id"]): Promise<void> {
@@ -505,7 +556,8 @@ export default function SidePanel({ services }: SidePanelProps) {
             />
             <button
               data-testid="ghostreader-submit"
-              onClick={() => setSearchQuery(searchQuery.trim())}
+              disabled={isGhostreaderSubmitting}
+              onClick={() => void handleGhostreaderSubmit()}
               style={{
                 position: "absolute",
                 right: "8px",
@@ -521,7 +573,7 @@ export default function SidePanel({ services }: SidePanelProps) {
               }}
               type="button"
             >
-              →
+              {isGhostreaderSubmitting ? "…" : "→"}
             </button>
           </div>
           <div style={{ marginTop: spacing.sm }}>
@@ -550,6 +602,39 @@ export default function SidePanel({ services }: SidePanelProps) {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
+}
+
+function buildGhostreaderContent(input: {
+  query: string
+  currentPageContext: { title?: string; url?: string; extractedText?: string } | null
+  rankedResults: RankedHybridResult[]
+}): string {
+  const currentPageBlock = input.currentPageContext
+    ? [
+        `Current page title: ${input.currentPageContext.title ?? "Unknown"}`,
+        `Current page URL: ${input.currentPageContext.url ?? "Unknown"}`,
+        `Current page content: ${input.currentPageContext.extractedText ?? ""}`
+      ].join("\n")
+    : "Current page unavailable"
+
+  const savedMatchesBlock = input.rankedResults
+    .filter((result) => result.document.sourceType === "saved-bookmark")
+    .slice(0, 5)
+    .map((result, index) => [
+      `Saved match ${index + 1} title: ${result.document.title}`,
+      `Saved match ${index + 1} URL: ${result.document.url}`,
+      `Saved match ${index + 1} reason: ${result.matchReason}`,
+      `Saved match ${index + 1} content: ${result.document.bodyText ?? result.document.summary ?? ""}`
+    ].join("\n"))
+    .join("\n\n")
+
+  return [
+    "Answer the user's Ghostreader question using the current page and saved bookmark context.",
+    "Return strict JSON with shape {\"summary\":\"string\",\"tags\":[\"string\"]}.",
+    `User question: ${input.query}`,
+    currentPageBlock,
+    savedMatchesBlock ? `Saved bookmark matches:\n${savedMatchesBlock}` : "Saved bookmark matches: none"
+  ].join("\n\n")
 }
 
 const visuallyHiddenStyle: React.CSSProperties = {
