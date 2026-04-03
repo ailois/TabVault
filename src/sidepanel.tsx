@@ -98,6 +98,26 @@ export default function SidePanel({ services }: SidePanelProps) {
   )
 
   useEffect(() => {
+    void sidePanelServices.settingsRepository.getAppSettings().then((settings) => {
+      setDisplayLanguage(settings.displayLanguage)
+    })
+  }, [sidePanelServices])
+
+  useEffect(() => {
+    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>) {
+      const newValue = changes["appSettings"]?.newValue
+      if (newValue && typeof newValue === "object" && "displayLanguage" in newValue) {
+        const lang = (newValue as { displayLanguage: unknown }).displayLanguage
+        if (lang === "en" || lang === "zh") {
+          setDisplayLanguage(lang)
+        }
+      }
+    }
+    globalThis.chrome?.storage?.local?.onChanged?.addListener(handleStorageChange)
+    return () => globalThis.chrome?.storage?.local?.onChanged?.removeListener(handleStorageChange)
+  }, [])
+
+  useEffect(() => {
     void loadBookmarks()
   }, [])
 
