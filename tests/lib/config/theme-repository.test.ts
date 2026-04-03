@@ -30,4 +30,17 @@ describe("ChromeThemeRepository", () => {
     await repo.setTheme("sage")
     expect(chrome.storage.local.set).toHaveBeenCalledWith({ themeOverride: "sage" })
   })
+
+  it("returns a stored custom accent color", async () => {
+    ;(chrome.storage.local.get as any).mockResolvedValue({ customAccentColor: "#C2587B" })
+    const repo = new ChromeThemeRepository()
+    await expect(repo.getCustomAccent()).resolves.toBe("#C2587B")
+  })
+
+  it("writes custom accent color values to chrome.storage.local", async () => {
+    const repo = new ChromeThemeRepository()
+    await repo.setCustomAccent("#4A90B8")
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({ customAccentColor: "#4A90B8" })
+  })
 })
+

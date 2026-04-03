@@ -22,7 +22,22 @@ describe("buildThemeFromOverride", () => {
     expect(theme.isDark).toBe(false)
   })
 
+  it("builds a custom light theme from a stored accent color", () => {
+    const theme = buildThemeFromOverride("custom" as any, "#C2587B")
+    expect(theme.name).toBe("custom")
+    expect(theme.isDark).toBe(false)
+    expect(theme.accent).toBe("#C2587B")
+    expect(theme.borderFocus).toBe("#C2587B")
+  })
+
+  it("uses taro purple as the fallback custom accent", () => {
+    const theme = buildThemeFromOverride("custom" as any)
+    expect(theme.name).toBe("custom")
+    expect(theme.accent).toBe("#9D8CBA")
+  })
+
   it("falls back to sage for unknown or missing values", () => {
     expect(buildThemeFromOverride(undefined).name).toBe("sage")
   })
 })
+

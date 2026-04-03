@@ -8,6 +8,7 @@ const fallbackTheme: ThemeWithToggle = {
   shadow: shadow.light,
   isDark: false,
   setTheme: () => {},
+  setCustomAccentColor: () => {},
   toggle: () => {}
 }
 

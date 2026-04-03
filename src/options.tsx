@@ -127,8 +127,12 @@ const THEME_CARDS: ThemeCardDefinition[] = [
   { theme: "vanilla", label: "香草色", chipColor: "#D4A373" },
   { theme: "cloud", label: "极简浅", chipColor: "#FAFAFA" },
   { theme: "obsidian", label: "深邃暗", chipColor: "#121214", dark: true },
-  { theme: "taro", label: "自定义", chipColor: "#B07AA1", emoji: "🎨" }
+  { theme: "taro", label: "芋色", chipColor: "#9D8CBA" },
+  { theme: "custom", label: "自定义", chipColor: "#9D8CBA", emoji: "🎨" }
 ]
+
+const CUSTOM_THEME_PRESETS = ["#9D8CBA", "#6B8E73", "#5B7C99", "#D4A373", "#E07B54", "#C2587B", "#4A90B8", "#7B9E6B"]
+
 
 export function applySingleProviderEnabledState(
   providers: ReturnType<typeof buildProviderFormState>,
@@ -591,6 +595,15 @@ function SettingsContent({
   validation,
   t
 }: SettingsContentProps) {
+  const [showColorPicker, setShowColorPicker] = React.useState(false)
+  const [customColorDraft, setCustomColorDraft] = React.useState("#9D8CBA")
+
+  React.useEffect(() => {
+    if (appSettings.theme === "custom") {
+      setCustomColorDraft(theme.accent)
+    }
+  }, [appSettings.theme, theme.accent])
+
   const cardStyle: React.CSSProperties = {
     backgroundColor: theme.surface,
     border: `1px solid ${theme.border}`,
@@ -735,6 +748,16 @@ function SettingsContent({
                         key={themeOption.theme}
                         data-testid={`theme-card-${themeOption.theme}`}
                         onClick={() => {
+                          if (themeOption.theme === "custom") {
+                            setShowColorPicker((current) => !current)
+                            setAppSettings((currentSettings) => ({
+                              ...currentSettings,
+                              theme: "custom"
+                            }))
+                            return
+                          }
+
+                          setShowColorPicker(false)
                           setAppSettings((currentSettings) => ({
                             ...currentSettings,
                             theme: themeOption.theme
@@ -764,6 +787,63 @@ function SettingsContent({
                     )
                   })}
                 </div>
+                {showColorPicker ? (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      padding: "16px",
+                      borderRadius: "10px",
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: theme.surfaceSubtle,
+                      display: "grid",
+                      gap: "12px"
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {CUSTOM_THEME_PRESETS.map((color) => (
+                        <button
+                          key={color}
+                          data-testid={`custom-theme-preset-${color}`}
+                          onClick={() => {
+                            setCustomColorDraft(color)
+                            theme.setCustomAccentColor(color)
+                            setAppSettings((currentSettings) => ({
+                              ...currentSettings,
+                              theme: "custom"
+                            }))
+                          }}
+                          style={{
+                            width: "28px",
+                            height: "28px",
+                            borderRadius: "999px",
+                            backgroundColor: color,
+                            border: customColorDraft === color ? `2px solid ${theme.textPrimary}` : "2px solid transparent",
+                            cursor: "pointer",
+                            flexShrink: 0
+                          }}
+                          title={color}
+                          type="button"
+                        />
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <input
+                        type="color"
+                        value={customColorDraft}
+                        onChange={(event) => {
+                          setCustomColorDraft(event.target.value)
+                          theme.setCustomAccentColor(event.target.value)
+                          setAppSettings((currentSettings) => ({
+                            ...currentSettings,
+                            theme: "custom"
+                          }))
+                        }}
+                        style={{ width: "40px", height: "32px", border: "none", cursor: "pointer", borderRadius: "6px" }}
+                      />
+                      <span style={{ fontSize: "0.75rem", color: theme.textMuted }}>{customColorDraft}</span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" }}>

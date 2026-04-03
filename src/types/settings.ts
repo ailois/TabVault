@@ -12,7 +12,7 @@ export type SummaryLanguage = "auto" | "zh" | "en" | "ja" | "ko" | "fr" | "de" |
 
 export type DisplayLanguage = "en" | "zh"
 
-export type ThemeName = "cloud" | "obsidian" | "sage" | "breeze" | "taro" | "vanilla"
+export type ThemeName = "cloud" | "obsidian" | "sage" | "breeze" | "taro" | "vanilla" | "custom"
 
 export type AppSettings = {
   defaultProvider: ProviderType

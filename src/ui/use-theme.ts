@@ -11,7 +11,7 @@ export type Theme = ThemeTokens & {
   isDark: boolean
 }
 
-const THEME_TOKEN_MAP: Record<ThemeName, Theme> = {
+const THEME_TOKEN_MAP: Record<Exclude<ThemeName, "custom">, Theme> = {
   cloud: {
     ...lightTokens,
     name: "cloud",
@@ -111,11 +111,31 @@ const THEME_TOKEN_MAP: Record<ThemeName, Theme> = {
 }
 
 const FALLBACK_THEME: ThemeName = "sage"
+const DEFAULT_CUSTOM_ACCENT = "#9D8CBA"
 const defaultRepo = new ChromeThemeRepository()
 
-export function buildThemeFromOverride(override: ThemeOverride): Theme {
+function toSoftAccent(hex: string): string {
+  const normalized = hex.replace("#", "")
+  return `#${normalized}1A`
+}
+
+export function buildThemeFromOverride(override: ThemeOverride, customAccent?: string): Theme {
   if (!override) {
     return THEME_TOKEN_MAP[FALLBACK_THEME]
+  }
+
+  if (override === "custom") {
+    const accent = customAccent ?? DEFAULT_CUSTOM_ACCENT
+    return {
+      ...lightTokens,
+      name: "custom",
+      accent,
+      accentHover: accent,
+      accentSoft: toSoftAccent(accent),
+      borderFocus: accent,
+      shadow: shadow.light,
+      isDark: false
+    }
   }
 
   return THEME_TOKEN_MAP[override] ?? THEME_TOKEN_MAP[FALLBACK_THEME]
@@ -123,27 +143,36 @@ export function buildThemeFromOverride(override: ThemeOverride): Theme {
 
 export type ThemeWithToggle = Theme & {
   setTheme: (theme: ThemeName) => void
+  setCustomAccentColor?: (color: string) => void
   toggle: () => void
 }
 
 export function useTheme(repo: ThemeRepository = defaultRepo): ThemeWithToggle {
   const [override, setOverride] = useState<ThemeOverride>(undefined)
+  const [customAccent, setCustomAccent] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     void repo.getTheme().then((stored) => {
       setOverride(stored)
     })
+    void repo.getCustomAccent?.().then((stored) => {
+      setCustomAccent(stored)
+    })
   }, [repo])
 
   useEffect(() => {
-    const activeTheme = buildThemeFromOverride(override)
+    const activeTheme = buildThemeFromOverride(override, customAccent)
     document.documentElement.dataset.theme = activeTheme.name
-  }, [override])
+  }, [customAccent, override])
 
   useEffect(() => {
-    const listener = (message: { type?: string; theme?: ThemeName }) => {
-      if (message?.type === "THEME_CHANGED" && message.theme && THEME_TOKEN_MAP[message.theme]) {
+    const listener = (message: { type?: string; theme?: ThemeName; customAccent?: string }) => {
+      if (message?.type === "THEME_CHANGED" && message.theme) {
         setOverride(message.theme)
+      }
+      if (message?.type === "CUSTOM_ACCENT_CHANGED" && typeof message.customAccent === "string") {
+        setCustomAccent(message.customAccent)
+        setOverride("custom")
       }
     }
 
@@ -151,12 +180,21 @@ export function useTheme(repo: ThemeRepository = defaultRepo): ThemeWithToggle {
     return () => globalThis.chrome?.runtime?.onMessage?.removeListener(listener)
   }, [])
 
-  const currentTheme = buildThemeFromOverride(override)
+  const currentTheme = buildThemeFromOverride(override, customAccent)
 
   function applyTheme(theme: ThemeName): void {
     setOverride(theme)
     void repo.setTheme(theme)
     globalThis.chrome?.runtime?.sendMessage({ type: "THEME_CHANGED", theme })
+  }
+
+  function applyCustomAccent(color: string): void {
+    setCustomAccent(color)
+    setOverride("custom")
+    void repo.setCustomAccent?.(color)
+    void repo.setTheme("custom")
+    globalThis.chrome?.runtime?.sendMessage({ type: "CUSTOM_ACCENT_CHANGED", customAccent: color })
+    globalThis.chrome?.runtime?.sendMessage({ type: "THEME_CHANGED", theme: "custom" })
   }
 
   function toggle(): void {
@@ -166,6 +204,7 @@ export function useTheme(repo: ThemeRepository = defaultRepo): ThemeWithToggle {
   return {
     ...currentTheme,
     setTheme: applyTheme,
+    setCustomAccentColor: applyCustomAccent,
     toggle
   }
 }

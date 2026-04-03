@@ -518,6 +518,7 @@ describe("Options", () => {
     expect(input?.value).toBe("LSKEY-VALID")
   })
 
+
   it("renders provider form fields with expected styling", async () => {
     await renderProviderSettingsForm(
       {
@@ -539,6 +540,30 @@ describe("Options", () => {
     expect(apiKeyInput?.style.padding).toBe(`${spacing.sm} ${spacing.md}`)
     expect(apiKeyInput?.style.borderRadius).toBe(radius.small)
     expect(apiKeyInput?.style.backgroundColor).toBeTruthy()
+  })
+
+  it("shows both taro preset and a custom color picker entry", async () => {
+    await renderOptions()
+
+    expect(container?.querySelector('[data-testid="theme-card-taro"]')?.textContent).toContain("芋色")
+    expect(container?.querySelector('[data-testid="theme-card-custom"]')?.textContent).toContain("自定义")
+  })
+
+  it("opens a custom color picker and keeps purple as a preset option", async () => {
+    await renderOptions()
+
+    const customThemeButton = container?.querySelector<HTMLButtonElement>('[data-testid="theme-card-custom"]')
+    expect(container?.querySelector<HTMLInputElement>('input[type="color"]')).toBeNull()
+
+    await act(async () => {
+      customThemeButton?.click()
+    })
+
+    const colorInput = container?.querySelector<HTMLInputElement>('input[type="color"]')
+    const purplePreset = container?.querySelector<HTMLButtonElement>('[data-testid="custom-theme-preset-#9D8CBA"]')
+
+    expect(colorInput).toBeTruthy()
+    expect(purplePreset).toBeTruthy()
   })
 })
 
