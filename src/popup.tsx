@@ -88,6 +88,20 @@ function Popup({ services }: PopupProps) {
   }, [popupServices])
 
   useEffect(() => {
+    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>) {
+      const newValue = changes["appSettings"]?.newValue
+      if (newValue && typeof newValue === "object" && "displayLanguage" in newValue) {
+        const lang = (newValue as { displayLanguage: unknown }).displayLanguage
+        if (lang === "en" || lang === "zh") {
+          setDisplayLanguage(lang)
+        }
+      }
+    }
+    globalThis.chrome?.storage?.local?.onChanged?.addListener(handleStorageChange)
+    return () => globalThis.chrome?.storage?.local?.onChanged?.removeListener(handleStorageChange)
+  }, [])
+
+  useEffect(() => {
     async function loadCurrentPage(): Promise<void> {
       try {
         const activeTab = await popupServices.queryActiveTab()
