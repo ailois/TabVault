@@ -346,7 +346,7 @@ function Options({ services }: OptionsProps) {
               }}
               type="button"
             >
-              ⚙️ 架构配置
+              ⚙️ {t("settings.nav.architecture")}
             </button>
             <button
               aria-current={activePage === "knowledge" ? "page" : undefined}
@@ -367,7 +367,7 @@ function Options({ services }: OptionsProps) {
               }}
               type="button"
             >
-              📚 知识库管理
+              📚 {t("settings.nav.knowledge")}
             </button>
           </nav>
         </aside>
