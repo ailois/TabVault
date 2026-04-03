@@ -98,31 +98,26 @@ describe("SidePanel Ghostreader", () => {
     expect(searchInput?.value).toBe("")
   })
 
-  it("submits a Ghostreader question through the configured provider", async () => {
-    const analyze = vi.fn(async () => ({
-      summary: "Provider generated answer",
-      tags: ["react"]
-    }))
+  it("shows provider errors clearly when Ghostreader submission fails", async () => {
+    const analyze = vi.fn(async () => {
+      const error = new Error("OpenAI-compatible authentication failed") as Error & { code?: string }
+      error.code = "auth_error"
+      throw error
+    })
     const provider = { analyze }
-    const createProvider = vi.fn(() => provider)
 
     await renderSidePanel(
       createServices({
-        createProvider,
+        createProvider: vi.fn(() => provider),
         settingsRepository: createSettingsRepository({
           getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
             {
               provider: "openai",
-              apiKey: "openai-key",
+              apiKey: "bad-key",
               baseUrl: "https://api.openai.com/v1",
               model: "gpt-4o-mini",
               enabled: true
             }
-          ])
-        }),
-        bookmarkRepository: createBookmarkRepository({
-          list: vi.fn(async () => [
-            createBookmark({ id: "1", title: "React Compiler Notes", url: "https://example.com/react", extractedText: "memoization details" })
           ])
         })
       })
@@ -132,7 +127,7 @@ describe("SidePanel Ghostreader", () => {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
 
     await act(async () => {
-      setter?.call(input, "What is react compiler?")
+      setter?.call(input, "Why is this failing?")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
     await act(async () => { await Promise.resolve() })
@@ -142,9 +137,8 @@ describe("SidePanel Ghostreader", () => {
     })
     await act(async () => { await Promise.resolve() })
 
-    expect(createProvider).toHaveBeenCalled()
     expect(analyze).toHaveBeenCalled()
-    expect(container?.textContent).toContain("Provider generated answer")
+    expect(container?.textContent).toContain("OpenAI-compatible authentication failed")
   })
 
 })
