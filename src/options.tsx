@@ -1,6 +1,7 @@
 import "./styles/globals.css"
 import React from "react"
 
+import KnowledgeSettingsPanel from "./components/knowledge-settings-panel"
 import ProviderSettingsForm from "./components/provider-settings-form"
 import { ToggleSwitch } from "./components/toggle-switch"
 import { LicenseActivation } from "./components/license-activation"
@@ -38,6 +39,7 @@ type OptionsServices = {
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
+type OptionsPage = "settings" | "knowledge"
 
 type LicenseEntryStateProps = {
   status: "trial" | "expired" | "licensed"
@@ -149,6 +151,7 @@ function Options({ services }: OptionsProps) {
   const [providerEditorSelection, setProviderEditorSelection] = React.useState<ProviderType>(DEFAULT_APP_SETTINGS.defaultProvider)
   const [selectedProtocolCard, setSelectedProtocolCard] = React.useState<ProviderType>(DEFAULT_APP_SETTINGS.defaultProvider)
   const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle")
+  const [activePage, setActivePage] = React.useState<OptionsPage>("settings")
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasLoadError, setHasLoadError] = React.useState(false)
   const [isActivationExpanded, setIsActivationExpanded] = React.useState(false)
@@ -325,8 +328,9 @@ function Options({ services }: OptionsProps) {
 
           <nav style={{ display: "grid", gap: "4px", padding: "0 16px", flex: 1 }}>
             <button
-              aria-current="page"
+              aria-current={activePage === "settings" ? "page" : undefined}
               data-testid="options-nav-settings"
+              onClick={() => setActivePage("settings")}
               style={{
                 display: "block",
                 width: "100%",
@@ -334,19 +338,20 @@ function Options({ services }: OptionsProps) {
                 padding: "10px 16px",
                 border: "none",
                 borderRadius: "8px",
-                backgroundColor: theme.page,
-                color: theme.accent,
+                backgroundColor: activePage === "settings" ? theme.page : "transparent",
+                color: activePage === "settings" ? theme.accent : theme.textMuted,
                 fontSize: "0.875rem",
                 fontWeight: 500,
-                cursor: "default"
+                cursor: "pointer"
               }}
               type="button"
             >
               ⚙️ 架构配置
             </button>
             <button
-              aria-current={undefined}
+              aria-current={activePage === "knowledge" ? "page" : undefined}
               data-testid="settings-nav-knowledge"
+              onClick={() => setActivePage("knowledge")}
               style={{
                 display: "block",
                 width: "100%",
@@ -354,11 +359,11 @@ function Options({ services }: OptionsProps) {
                 padding: "10px 16px",
                 border: "none",
                 borderRadius: "8px",
-                backgroundColor: "transparent",
-                color: theme.textMuted,
+                backgroundColor: activePage === "knowledge" ? theme.page : "transparent",
+                color: activePage === "knowledge" ? theme.accent : theme.textMuted,
                 fontSize: "0.875rem",
                 fontWeight: 500,
-                cursor: "default"
+                cursor: "pointer"
               }}
               type="button"
             >
@@ -378,51 +383,59 @@ function Options({ services }: OptionsProps) {
           }}
         >
           <header data-testid="settings-page-header" style={{ padding: "32px 32px 16px", flexShrink: 0 }}>
-            <h2 style={{ margin: "0 0 4px", fontSize: "1.5rem", fontWeight: 700, color: theme.textPrimary }}>{t("settings.title")}</h2>
+            <h2 style={{ margin: "0 0 4px", fontSize: "1.5rem", fontWeight: 700, color: theme.textPrimary }}>
+              {activePage === "settings" ? t("settings.title") : "管理"}
+            </h2>
             <p data-testid="settings-page-description" style={{ margin: 0, fontSize: "0.875rem", color: theme.textMuted }}>
-              配置大语言模型 (LLM) 接口协议、体验外观和自动化行为。
+              {activePage === "settings"
+                ? "配置大语言模型 (LLM) 接口协议、体验外观和自动化行为。"
+                : "管理本地书签数据、向量索引策略、存储空间及隐私规则。"}
             </p>
           </header>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 32px 32px", boxSizing: "border-box" }}>
-            <SettingsContent
-              appSettings={appSettings}
-              buildProviderConfig={buildProviderConfig}
-              handleSave={handleSave}
-              hasLoadError={hasLoadError}
-              isLoading={isLoading}
-              optionsServices={optionsServices}
-              providerEditorSelection={providerEditorSelection}
-              providers={providers}
-              saveStatus={saveStatus}
-              selectedProtocolCard={selectedProtocolCard}
-              setAppSettings={setAppSettings}
-              setProviderEditorSelection={setProviderEditorSelection}
-              setProviders={setProviders}
-              setSelectedProtocolCard={setSelectedProtocolCard}
-              theme={theme}
-              trialStateProps={trial.status ? {
-                analysisUsed: trial.state?.analysisUsed,
-                installedAt: trial.state?.installedAt,
-                isActivationExpanded,
-                isSubmittingLicense,
-                licenseError,
-                licenseInput,
-                onExpandActivation: () => setIsActivationExpanded(true),
-                onLicenseEdit: () => {
-                  setLicenseError(null)
-                  setIsActivationExpanded(true)
-                  setOptimisticLicensedKey(null)
-                  setLicenseInput(trial.state?.licenseKey ?? licenseInput)
-                },
-                onLicenseInputChange: setLicenseInput,
-                onLicenseSubmit: handleLicenseSubmit,
-                storedLicenseKey: optimisticLicensedKey ?? trial.state?.licenseKey,
-                status: optimisticLicensedKey ? "licensed" : trial.status
-              } : null}
-              validation={validation}
-              t={t}
-            />
+            {activePage === "settings" ? (
+              <SettingsContent
+                appSettings={appSettings}
+                buildProviderConfig={buildProviderConfig}
+                handleSave={handleSave}
+                hasLoadError={hasLoadError}
+                isLoading={isLoading}
+                optionsServices={optionsServices}
+                providerEditorSelection={providerEditorSelection}
+                providers={providers}
+                saveStatus={saveStatus}
+                selectedProtocolCard={selectedProtocolCard}
+                setAppSettings={setAppSettings}
+                setProviderEditorSelection={setProviderEditorSelection}
+                setProviders={setProviders}
+                setSelectedProtocolCard={setSelectedProtocolCard}
+                theme={theme}
+                trialStateProps={trial.status ? {
+                  analysisUsed: trial.state?.analysisUsed,
+                  installedAt: trial.state?.installedAt,
+                  isActivationExpanded,
+                  isSubmittingLicense,
+                  licenseError,
+                  licenseInput,
+                  onExpandActivation: () => setIsActivationExpanded(true),
+                  onLicenseEdit: () => {
+                    setLicenseError(null)
+                    setIsActivationExpanded(true)
+                    setOptimisticLicensedKey(null)
+                    setLicenseInput(trial.state?.licenseKey ?? licenseInput)
+                  },
+                  onLicenseInputChange: setLicenseInput,
+                  onLicenseSubmit: handleLicenseSubmit,
+                  storedLicenseKey: optimisticLicensedKey ?? trial.state?.licenseKey,
+                  status: optimisticLicensedKey ? "licensed" : trial.status
+                } : null}
+                validation={validation}
+                t={t}
+              />
+            ) : (
+              <KnowledgeSettingsPanel bookmarkRepository={optionsServices.bookmarkRepository} />
+            )}
           </div>
         </div>
       </main>

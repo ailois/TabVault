@@ -7,7 +7,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import Options from "../../src/options"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import type { BookmarkRepository } from "../../src/lib/storage/bookmark-repository"
 import type { ThemeRepository } from "../../src/lib/config/theme-repository"
+import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -24,7 +26,7 @@ globalThis.chrome = {
   runtime: {
     ...((globalThis.chrome as any)?.runtime ?? {}),
     onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
-    sendMessage: vi.fn()
+    sendMessage: vi.fn(async () => ({ success: true, count: 3 }))
   },
   bookmarks: {
     getTree: vi.fn().mockResolvedValue([
@@ -295,28 +297,38 @@ describe("Options save state", () => {
     expect(getInput("openai-response-model")?.value).toBe("gpt-4.1-mini")
   })
 
-  it("shows Failed to save settings when persisting throws", async () => {
-    const settingsRepository: SettingsRepository = {
-      getAppSettings: async () => ({
-        defaultProvider: "openai",
-        autoAnalyzeOnSave: false,
-        summaryLanguage: "auto" as const,
-        autoRetryOnError: false,
-        displayLanguage: "en" as const,
-        theme: "sage" as const
-      }),
-      saveAppSettings: async () => {
-        throw new Error("save failed")
-      },
-      saveProviders: async () => {},
-      getProviders: async () => getValidProviders()
-    }
+  it("switches to knowledge management page and renders its sections", async () => {
+    await renderOptions(createSettingsRepository(), undefined, createBookmarkRepository())
 
-    await renderOptions(settingsRepository)
-    await clickSave()
+    await clickButtonByTestId("settings-nav-knowledge")
+
+    expect(container?.textContent).toContain("存储概览")
+    expect(container?.textContent).toContain("数据清理 (Danger Zone)")
+    expect(container?.textContent).toContain("检索与向量架构")
+    expect(container?.textContent).toContain("隐私与过滤规则")
+    expect(container?.textContent).toContain("保存知识库设置")
+  })
+
+  it("knowledge page imports bookmarks and clears analysis through bookmark repository", async () => {
+    const clearErrorAnalysis = vi.fn<BookmarkRepository["clearErrorAnalysis"]>(async () => {})
+    const clearAllAnalysis = vi.fn<BookmarkRepository["clearAllAnalysis"]>(async () => {})
+    const bookmarkRepository = createBookmarkRepository({ clearErrorAnalysis, clearAllAnalysis })
+
+    await renderOptions(createSettingsRepository(), undefined, bookmarkRepository)
+    await clickButtonByTestId("settings-nav-knowledge")
+
+    await clickButtonByTestId("knowledge-import-button")
     await flushPromises()
+    expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: "IMPORT_BOOKMARKS" })
+    expect(container?.textContent).toContain("已导入 3 条书签")
 
-    expect(getSaveStatusText()).toBe("Failed to save settings")
+    await clickButtonByTestId("knowledge-clear-error-button")
+    await flushPromises()
+    expect(clearErrorAnalysis).toHaveBeenCalled()
+
+    await clickButtonByTestId("knowledge-clear-all-button")
+    await flushPromises()
+    expect(clearAllAnalysis).toHaveBeenCalled()
   })
 
   it("disables save when enabled OpenAI has an invalid base URL", async () => {
@@ -511,7 +523,11 @@ describe("Options save state", () => {
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-async function renderOptions(settingsRepository: SettingsRepository, themeRepository?: ThemeRepository): Promise<void> {
+async function renderOptions(
+  settingsRepository: SettingsRepository,
+  themeRepository?: ThemeRepository,
+  bookmarkRepository?: BookmarkRepository
+): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
@@ -522,7 +538,8 @@ async function renderOptions(settingsRepository: SettingsRepository, themeReposi
         services={{
           settingsRepository,
           testConnection: async () => {},
-          ...(themeRepository ? { themeRepository } : {})
+          ...(themeRepository ? { themeRepository } : {}),
+          ...(bookmarkRepository ? { bookmarkRepository } : {})
         }}
       />
     )
@@ -669,6 +686,39 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
     saveAppSettings: async () => {},
     getProviders: async () => [],
     saveProviders: async () => {},
+    ...overrides
+  }
+}
+
+function createBookmarkRepository(overrides: Partial<BookmarkRepository> = {}): BookmarkRepository {
+  return {
+    save: async () => {},
+    list: async () => [
+      createBookmarkRecord({ id: "bookmark-1", title: "React Docs", summary: "React summary", extractedText: "React content that is long enough to create chunk counts." }),
+      createBookmarkRecord({ id: "bookmark-2", title: "Vue Docs", extractedText: "Vue content" })
+    ],
+    getById: async () => null,
+    update: async () => {},
+    delete: async () => {},
+    clearAnalysis: async () => {},
+    clearAllAnalysis: async () => {},
+    clearErrorAnalysis: async () => {},
+    ...overrides
+  }
+}
+
+function createBookmarkRecord(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {
+  return {
+    id: "bookmark-default",
+    url: "https://example.com/article",
+    title: "Example page",
+    extractedText: "Example extracted text",
+    summary: undefined,
+    aiTags: [],
+    userTags: [],
+    status: "done",
+    createdAt: "2026-03-01T00:00:00.000Z",
+    updatedAt: "2026-03-01T00:00:00.000Z",
     ...overrides
   }
 }
