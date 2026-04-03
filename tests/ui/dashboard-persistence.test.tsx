@@ -39,6 +39,7 @@ describe("DashboardShell persistence", () => {
     await renderDashboard(bookmarks, updateBookmark)
 
     await selectBookmark("React Docs")
+    await switchToAiWorkspace()
 
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
     await act(async () => {
@@ -87,6 +88,7 @@ describe("DashboardShell persistence", () => {
     await renderDashboard(bookmarks, updateBookmark)
 
     await selectBookmark("React Docs")
+    await switchToAiWorkspace()
 
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit tags']")
     await act(async () => {
@@ -138,6 +140,13 @@ async function renderDashboard(bookmarks: BookmarkRecord[], updateBookmark: (boo
 
 async function selectBookmark(title: string) {
   const button = Array.from(container?.querySelectorAll("button") ?? []).find((element) => element.textContent?.includes(title)) as HTMLButtonElement | undefined
+  await act(async () => {
+    button?.click()
+  })
+}
+
+async function switchToAiWorkspace() {
+  const button = Array.from(container?.querySelectorAll("button") ?? []).find((element) => element.textContent?.includes("AI workspace")) as HTMLButtonElement | undefined
   await act(async () => {
     button?.click()
   })

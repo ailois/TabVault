@@ -113,7 +113,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         chrome.runtime.sendMessage({ type: "IMPORT_COMPLETE", count })
       })
       .catch(error => {
-        sendResponse({ success: false, error: String(error) })
+        sendResponse({ success: false, error: serializeBackgroundError(error) })
       })
     return true // Keep message channel open for async response
   }
@@ -121,7 +121,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "ANALYZE_ALL") {
     processAnalysisQueue()
       .then(() => sendResponse({ success: true }))
-      .catch(err => sendResponse({ success: false, error: String(err) }))
+      .catch(error => sendResponse({ success: false, error: serializeBackgroundError(error) }))
     return true
   }
 
@@ -235,3 +235,7 @@ chrome.runtime.onInstalled.addListener(() => {
       .catch(() => {})
   }
 })
+
+function serializeBackgroundError(error: unknown): string {
+  return error instanceof Error ? error.message : "Analysis failed"
+}

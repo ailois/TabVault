@@ -1,10 +1,12 @@
 import React from "react"
 
+import type { DisplayLanguage } from "../types/settings"
 import { radius, spacing } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 
 export type TrialBannerProps = {
   status: "trial" | "expired"
+  language?: DisplayLanguage
   title?: string
   message: string
   detail?: string
@@ -12,15 +14,21 @@ export type TrialBannerProps = {
   onCtaClick?: () => void
 }
 
-const DEFAULT_TITLES: Record<TrialBannerProps["status"], string> = {
-  trial: "Trial active",
-  expired: "Trial expired"
+const DEFAULT_TITLES: Record<DisplayLanguage, Record<TrialBannerProps["status"], string>> = {
+  en: {
+    trial: "Trial active",
+    expired: "Trial expired"
+  },
+  zh: {
+    trial: "\u8bd5\u7528\u4e2d",
+    expired: "\u8bd5\u7528\u5df2\u7ed3\u675f"
+  }
 }
 
-export function TrialBanner({ status, title, message, detail, ctaLabel, onCtaClick }: TrialBannerProps) {
+export function TrialBanner({ status, language = "en", title, message, detail, ctaLabel, onCtaClick }: TrialBannerProps) {
   const theme = useThemeContext()
 
-  const resolvedTitle = title ?? DEFAULT_TITLES[status]
+  const resolvedTitle = title ?? DEFAULT_TITLES[language][status]
   const isClickable = typeof onCtaClick === "function"
 
   const statusPalette =
@@ -64,8 +72,8 @@ export function TrialBanner({ status, title, message, detail, ctaLabel, onCtaCli
   const ctaStyle: React.CSSProperties = {
     flexShrink: 0,
     border: "none",
-    borderRadius: "10px",
-    padding: `8px ${spacing.md}`,
+    borderRadius: "8px",
+    padding: `6px ${spacing.md}`,
     backgroundColor: theme.accent,
     color: "#ffffff",
     fontSize: "0.875rem",

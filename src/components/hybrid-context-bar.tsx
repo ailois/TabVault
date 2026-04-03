@@ -1,19 +1,23 @@
 import React from "react"
 
+import { getMessage } from "../lib/i18n/messages"
+import type { DisplayLanguage } from "../types/settings"
 import { radius, spacing } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 
 type HybridContextBarProps = {
   currentPageTitle?: string
   indexedBookmarkCount: number
+  language?: DisplayLanguage
 }
 
-export function HybridContextBar({ currentPageTitle, indexedBookmarkCount }: HybridContextBarProps) {
+export function HybridContextBar({ currentPageTitle, indexedBookmarkCount, language = "en" }: HybridContextBarProps) {
   const theme = useThemeContext()
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
 
   return (
     <section
-      aria-label="Hybrid retrieval context"
+      aria-label={t("hybrid.context.ariaLabel")}
       data-testid="hybrid-context-bar"
       style={{
         display: "grid",
@@ -26,10 +30,10 @@ export function HybridContextBar({ currentPageTitle, indexedBookmarkCount }: Hyb
       }}
     >
       <div style={{ fontSize: "0.75rem", color: theme.textMuted, fontWeight: 600 }}>
-        Current page: {currentPageTitle ?? "Unavailable"}
+        {t("hybrid.context.currentPage")}: {currentPageTitle ?? t("hybrid.context.unavailable")}
       </div>
       <div style={{ fontSize: "0.75rem", color: theme.textSecondary }}>
-        Library: {indexedBookmarkCount} bookmarks indexed
+        {t("hybrid.context.library")}: {t("hybrid.context.indexed").replace("{count}", String(indexedBookmarkCount))}
       </div>
       <div
         style={{
@@ -42,7 +46,7 @@ export function HybridContextBar({ currentPageTitle, indexedBookmarkCount }: Hyb
           width: "fit-content"
         }}
       >
-        Hybrid local search enabled
+        {t("hybrid.context.enabled")}
       </div>
     </section>
   )

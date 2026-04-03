@@ -1,4 +1,4 @@
-import "./styles/globals.css"
+﻿import "./styles/globals.css"
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 
 import { BookmarkDrawer } from "./components/bookmark-drawer"
@@ -9,7 +9,7 @@ import { LicenseActivation } from "./components/license-activation"
 import { TrialBanner } from "./components/trial-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { buildActionCards, type ActionCard } from "./features/hybrid-retrieval/build-action-cards"
-import { buildAnswerBlock, type AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
+import type { AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
 import { detectQueryIntent } from "./features/hybrid-retrieval/query-intent"
 import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
 import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
@@ -18,6 +18,7 @@ import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
 import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
+import { getLocalizedErrorMessage } from "./lib/i18n/error-messages"
 import { getMessage } from "./lib/i18n/messages"
 import type { AiProvider } from "./lib/providers/provider"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
@@ -59,6 +60,48 @@ const DEFAULT_SIDEPANEL_SERVICES: SidePanelServices = {
     const [activeTab] = await (globalThis.chrome?.tabs?.query({ active: true, currentWindow: true }) ?? Promise.resolve([]))
     return activeTab
   }
+}
+
+function getLicenseActivationCopy(t: (key: Parameters<typeof getMessage>[1]) => string) {
+  return {
+    headingActivate: t("license.heading.activate"),
+    descriptionActivate: t("license.description.activate"),
+    headingActivated: t("license.heading.activated"),
+    descriptionActivated: t("license.description.activated"),
+    fieldLabel: t("license.field.label"),
+    activateButton: t("license.button.activate"),
+    activatingButton: t("license.button.activating"),
+    changeButton: t("license.button.change")
+  }
+}
+
+function formatCurrentPageTitle(title?: string): string {
+  return title ? `\u300a${title}\u300b` : ""
+}
+
+function buildLocalizedAnswerBlock(
+  language: "en" | "zh",
+  t: (key: Parameters<typeof getMessage>[1]) => string,
+  query: string,
+  rankedResults: RankedHybridResult[]
+): AnswerBlock {
+  const citations = rankedResults.slice(0, 3).map((result) => ({
+    sourceType: result.document.sourceType,
+    title: result.document.title,
+    url: result.document.url,
+    matchReason: result.matchReason
+  }))
+
+  const text =
+    language === "en"
+      ? citations.length > 0
+        ? `Based on ${citations.map((citation) => citation.title).join(", ")}, here are the most relevant local results for: ${query}`
+        : `No local results found for: ${query}`
+      : citations.length > 0
+        ? `${t("hybrid.query.query")}\uff1a${query} \u00b7 ${citations.map((citation) => citation.title).join(" / ")}`
+        : `${t("hybrid.query.query")}\uff1a${query}`
+
+  return { text, citations }
 }
 
 export default function SidePanel({ services }: SidePanelProps) {
@@ -164,18 +207,28 @@ export default function SidePanel({ services }: SidePanelProps) {
 
       const hasCurrentPage = results.some((result) => result.document.sourceType === "current-page")
       const hasSavedMatches = results.some((result) => result.document.sourceType === "saved-bookmark")
-      setActionCards(buildActionCards({ hasCurrentPage, hasSavedMatches }))
+      setActionCards(
+        buildActionCards({ hasCurrentPage, hasSavedMatches }).map((action) => ({
+          ...action,
+          label:
+            action.id === "ask-current-page"
+              ? t("hybrid.action.askCurrentPage")
+              : action.id === "ask-top-matches"
+                ? t("hybrid.action.askTopMatches")
+                : t("hybrid.action.openDashboard")
+        }))
+      )
 
       const intent = detectQueryIntent(searchQuery)
       if (intent === "answer" || intent === "mixed") {
-        setAnswerBlock(buildAnswerBlock({ query: searchQuery, rankedResults: results }))
+        setAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, searchQuery, results))
       } else {
         setAnswerBlock(null)
       }
     }
 
     void runHybridRetrieval()
-  }, [currentPageContext, searchQuery, sidePanelServices])
+  }, [currentPageContext, searchQuery, sidePanelServices, t])
 
   async function loadBookmarks(): Promise<void> {
     setIsLoadingBookmarks(true)
@@ -184,17 +237,11 @@ export default function SidePanel({ services }: SidePanelProps) {
       const savedBookmarks = await sidePanelServices.bookmarkRepository.list()
       setBookmarks(savedBookmarks)
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Failed to load bookmarks"))
+      setErrorMessage(getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.loadBookmarks"))
     } finally {
       setIsLoadingBookmarks(false)
     }
   }
-
-  useEffect(() => {
-    void sidePanelServices.settingsRepository.getAppSettings().then((settings) => {
-      setDisplayLanguage(settings.displayLanguage)
-    })
-  }, [sidePanelServices])
 
   const handleLicenseSubmit = useCallback(async () => {
     setLicenseError(null)
@@ -203,7 +250,7 @@ export default function SidePanel({ services }: SidePanelProps) {
     try {
       const result = await validateLicenseKey(licenseKeyInput)
       if (result !== "valid") {
-        setLicenseError("This license key is invalid.")
+        setLicenseError(t("settings.license.invalid"))
         return
       }
 
@@ -218,11 +265,11 @@ export default function SidePanel({ services }: SidePanelProps) {
       setIsActivationExpanded(false)
       setLicenseKeyInput("")
     } catch (error) {
-      setLicenseError(getErrorMessage(error, "Failed to activate license"))
+      setLicenseError(getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.activateLicense"))
     } finally {
       setIsSubmittingLicense(false)
     }
-  }, [licenseKeyInput, trial, trialRepository])
+  }, [licenseKeyInput, t, trial, trialRepository])
 
   async function handleAnalyzeBookmark(id: string): Promise<void> {
     const settings = await sidePanelServices.settingsRepository.getAppSettings()
@@ -249,6 +296,8 @@ export default function SidePanel({ services }: SidePanelProps) {
         bookmarkRepository: sidePanelServices.bookmarkRepository
       })
       await loadBookmarks()
+    } catch (error) {
+      setErrorMessage(getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.analyzeFailed"))
     } finally {
       setLocalAnalyzingIds((prev) => {
         const next = new Set(prev)
@@ -271,7 +320,7 @@ export default function SidePanel({ services }: SidePanelProps) {
       })
       await loadBookmarks()
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Failed to update tags"))
+      setErrorMessage(getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.updateTags"))
     }
   }
 
@@ -287,7 +336,7 @@ export default function SidePanel({ services }: SidePanelProps) {
         void loadBookmarks()
       } else {
         setStatus("")
-        setErrorMessage("Import failed")
+        setErrorMessage(t("sidepanel.error.importFailed"))
       }
     })
   }
@@ -336,7 +385,7 @@ export default function SidePanel({ services }: SidePanelProps) {
         }))
       })
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Ghostreader failed to answer"))
+      setErrorMessage(getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.ghostreaderFailed"))
     } finally {
       setIsGhostreaderSubmitting(false)
     }
@@ -350,12 +399,12 @@ export default function SidePanel({ services }: SidePanelProps) {
 
     if (actionId === "ask-current-page") {
       const currentPageResults = rankedResults.filter((result) => result.document.sourceType === "current-page")
-      setAnswerBlock(buildAnswerBlock({ query: searchQuery, rankedResults: currentPageResults }))
+      setAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, searchQuery, currentPageResults))
       return
     }
 
     if (actionId === "ask-top-matches") {
-      setAnswerBlock(buildAnswerBlock({ query: searchQuery, rankedResults: rankedResults.slice(0, 3) }))
+      setAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, searchQuery, rankedResults.slice(0, 3)))
     }
   }
 
@@ -410,14 +459,14 @@ export default function SidePanel({ services }: SidePanelProps) {
         <header style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
             <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-              <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>✦</div>
+              <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>TV</div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: theme.textPrimary }}>Ghostreader</div>
                 <div style={{ marginTop: 2, fontSize: "0.75rem", color: theme.textMuted }}>{t("sidepanel.header.tagline")}</div>
               </div>
             </div>
             <button
-              aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={theme.isDark ? t("common.theme.switchToLight") : t("common.theme.switchToDark")}
               data-testid="theme-toggle-button"
               onClick={() => theme.toggle()}
               style={{
@@ -432,12 +481,12 @@ export default function SidePanel({ services }: SidePanelProps) {
               }}
               type="button"
             >
-              {theme.isDark ? "☀️" : "🌙"}
+              {theme.isDark ? "L" : "D"}
             </button>
           </div>
 
           <div style={{ position: "relative" }}>
-            <label htmlFor="sidepanel-search" style={visuallyHiddenStyle}>Search bookmarks</label>
+            <label htmlFor="sidepanel-search" style={visuallyHiddenStyle}>{t("sidepanel.search.label")}</label>
             <span
               aria-hidden="true"
               style={{
@@ -450,7 +499,7 @@ export default function SidePanel({ services }: SidePanelProps) {
                 lineHeight: 1
               }}
             >
-              ⌕
+              S
             </span>
             <input
               id="sidepanel-search"
@@ -462,6 +511,7 @@ export default function SidePanel({ services }: SidePanelProps) {
             />
             {searchQuery ? (
               <button
+                aria-label={t("sidepanel.search.clear")}
                 data-testid="sidepanel-search-clear"
                 onClick={() => setSearchQuery("")}
                 style={{
@@ -479,7 +529,7 @@ export default function SidePanel({ services }: SidePanelProps) {
                 }}
                 type="button"
               >
-                ×
+                X
               </button>
             ) : null}
           </div>
@@ -490,17 +540,20 @@ export default function SidePanel({ services }: SidePanelProps) {
           {(trial.status === "trial" || trial.status === "expired") ? (
             <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}>
               <TrialBanner
-                ctaLabel={trial.status === "trial" ? "Activate now" : "Unlock TabVault"}
-                message={trial.status === "trial" ? "Try TabVault free for 3 days." : "New AI analysis is locked until you activate TabVault."}
+                ctaLabel={trial.status === "trial" ? t("sidepanel.trial.activate") : t("sidepanel.trial.unlock")}
+                message={trial.status === "trial" ? t("sidepanel.trial.try") : t("sidepanel.trial.locked")}
                 onCtaClick={() => setIsActivationExpanded(true)}
                 status={trial.status}
+                title={trial.status === "trial" ? t("trialBanner.title.trial") : t("trialBanner.title.expired")}
               />
               {isActivationExpanded ? (
                 <div style={{ marginTop: spacing.sm }}>
                   <LicenseActivation
+                    copy={getLicenseActivationCopy(t)}
                     errorMessage={licenseError}
                     isLicensed={false}
                     isSubmitting={isSubmittingLicense}
+                    language={displayLanguage}
                     licenseKey={licenseKeyInput}
                     onLicenseKeyChange={setLicenseKeyInput}
                     onSubmit={handleLicenseSubmit}
@@ -510,11 +563,11 @@ export default function SidePanel({ services }: SidePanelProps) {
             </div>
           ) : null}
 
-          {errorMessage ? <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}><ErrorBanner message={errorMessage} /></div> : null}
+          {errorMessage ? <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}><ErrorBanner language={displayLanguage} message={errorMessage} /></div> : null}
           {status ? <p style={{ margin: `0 ${spacing.md} ${spacing.sm}`, fontSize: "0.8125rem", color: theme.textSuccess }}>{status}</p> : null}
 
           <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}>
-            <HybridContextBar currentPageTitle={currentPageContext?.title} indexedBookmarkCount={bookmarks.length} />
+            <HybridContextBar currentPageTitle={currentPageContext?.title} indexedBookmarkCount={bookmarks.length} language={displayLanguage} />
           </div>
 
           <section style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: `0 ${spacing.md} ${spacing.md}` }}>
@@ -524,6 +577,7 @@ export default function SidePanel({ services }: SidePanelProps) {
                 rankedResults={rankedResults}
                 actions={actionCards}
                 answer={answerBlock}
+                language={displayLanguage}
                 onOpenBookmark={(bookmarkId) => {
                   const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
                   setSelectedBookmark(bookmark)
@@ -544,7 +598,7 @@ export default function SidePanel({ services }: SidePanelProps) {
                   maxWidth: "90%"
                 }} data-testid="ghostreader-welcome-card">
                   <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: "0.875rem", color: theme.textPrimary, lineHeight: 1.5 }}>
-                    {t("sidepanel.welcome.prompt").replace("{title}", currentPageContext?.title ? `《${currentPageContext.title}》` : "")}
+                    {t("sidepanel.welcome.prompt").replace("{title}", formatCurrentPageTitle(currentPageContext?.title))}
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs }}>
                     <span style={{ fontSize: "0.6875rem", backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "4px 8px", borderRadius: radius.pill, color: theme.textSecondary }}>{t("sidepanel.welcome.chip.summarize")}</span>
@@ -575,6 +629,7 @@ export default function SidePanel({ services }: SidePanelProps) {
               value={searchQuery}
             />
             <button
+              aria-label={t("sidepanel.input.submit")}
               data-testid="ghostreader-submit"
               disabled={isGhostreaderSubmitting}
               onClick={() => void handleGhostreaderSubmit()}
@@ -593,7 +648,7 @@ export default function SidePanel({ services }: SidePanelProps) {
               }}
               type="button"
             >
-              {isGhostreaderSubmitting ? "…" : "→"}
+              {isGhostreaderSubmitting ? "..." : "->"}
             </button>
           </div>
           <div style={{ marginTop: spacing.sm }}>
@@ -606,6 +661,7 @@ export default function SidePanel({ services }: SidePanelProps) {
         <BookmarkDrawer
           bookmark={selectedBookmark}
           onClose={() => setSelectedBookmark(null)}
+          language={displayLanguage}
           onAnalyze={async (id) => {
             setSelectedBookmark(null)
             await handleAnalyzeBookmark(id)
@@ -618,10 +674,6 @@ export default function SidePanel({ services }: SidePanelProps) {
       </main>
     </ThemeProvider>
   )
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
 }
 
 function buildGhostreaderContent(input: {
@@ -668,3 +720,4 @@ const visuallyHiddenStyle: React.CSSProperties = {
   whiteSpace: "nowrap",
   border: 0
 }
+

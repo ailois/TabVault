@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { BookmarkList } from "../../src/components/bookmark-list"
 import type { BookmarkRecord } from "../../src/types/bookmark"
-import { radius } from "../../src/ui/design-tokens"
+import type { DisplayLanguage } from "../../src/types/settings"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -116,6 +116,20 @@ describe("BookmarkCard", () => {
     expect(errorLine?.textContent).toBe("Provider network error")
   })
 
+  it("localizes known provider errors in Chinese", async () => {
+    await renderList(
+      [createBookmark({ status: "error", errorMessage: "OpenAI-compatible authentication failed" })],
+      undefined,
+      undefined,
+      undefined,
+      false,
+      "zh"
+    )
+
+    const errorLine = getCard()?.querySelector("[data-testid='bookmark-error-message']")
+    expect(errorLine?.textContent).toBe("OpenAI-compatible \u8eab\u4efd\u9a8c\u8bc1\u5931\u8d25")
+  })
+
   it("renders summary collapsed by default with Show more button when summary exists", async () => {
     await renderList([createBookmark({ summary: "A long AI-generated summary of this page." })])
 
@@ -149,7 +163,23 @@ describe("BookmarkCard", () => {
     await renderList([createBookmark({ aiTags: ["ai", "research"], userTags: [] })])
 
     const tagItems = Array.from(getCard()?.querySelectorAll("[data-testid='bookmark-tag']") ?? [])
-    expect(tagItems.map((tag) => tag.textContent?.trim())).toEqual(["✨ ai", "✨ research"])
+    expect(tagItems.map((tag) => tag.textContent?.trim())).toEqual(["#ai", "#research"])
+  })
+
+  it("renders localized Chinese copy when language is zh", async () => {
+    await renderList(
+      [createBookmark({ status: "analyzing", summary: "\u4e00\u6bb5\u4e2d\u6587\u6458\u8981" })],
+      undefined,
+      undefined,
+      undefined,
+      false,
+      "zh"
+    )
+
+    const badge = getCard()?.querySelector("[data-testid='bookmark-status-badge']")
+    const toggleBtn = getCard()?.querySelector("[data-testid='bookmark-summary-toggle']")
+    expect(badge?.textContent).toBe("\u5206\u6790\u4e2d...")
+    expect(toggleBtn?.textContent).toBe("\u5c55\u5f00\u66f4\u591a")
   })
 
   it("calls onDelete with bookmark id when delete button is clicked and confirmed", async () => {
@@ -260,7 +290,8 @@ async function renderList(
   onDelete: (id: string) => Promise<void> = vi.fn(async () => undefined),
   onAnalyze: (id: string) => Promise<void> = vi.fn(async () => undefined),
   onClearAnalysis: (id: string) => Promise<void> = vi.fn(async () => undefined),
-  compact: boolean = false
+  compact: boolean = false,
+  language: DisplayLanguage = "en"
 ): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
@@ -271,6 +302,7 @@ async function renderList(
       <BookmarkList
         bookmarks={bookmarks}
         compact={compact}
+        language={language}
         onAnalyze={onAnalyze}
         onClearAnalysis={onClearAnalysis}
         onDelete={onDelete}

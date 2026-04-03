@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 
 import type { BookmarkRecord } from "../types/bookmark"
+import type { DisplayLanguage } from "../types/settings"
 import { radius, spacing } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 import { LocalIcon } from "./local-icon"
@@ -10,6 +11,7 @@ type BookmarkTreeVariant = "options" | "sidepanel"
 type BookmarkTreeProps = {
   treeNodes: chrome.bookmarks.BookmarkTreeNode[]
   metadataMap: Record<string, BookmarkRecord>
+  language?: DisplayLanguage
   visibleUrls?: Set<string>
   selectedUrl?: string | null
   selectedFolderId?: string | null
@@ -22,9 +24,51 @@ type BookmarkTreeProps = {
   onSelectFolder?: (folderId: string) => void
 }
 
+const BOOKMARK_TREE_COPY: Record<DisplayLanguage, {
+  empty: string
+  untitledFolder: string
+  confirmDelete: string
+  analyzing: string
+  error: string
+  done: string
+  analyze: string
+  clear: string
+  analyzeAria: (title: string) => string
+  clearAria: (title: string) => string
+  deleteAria: (title: string) => string
+}> = {
+  en: {
+    empty: "No bookmarks found.",
+    untitledFolder: "Untitled Folder",
+    confirmDelete: "Delete this bookmark from Chrome?",
+    analyzing: "Analyzing",
+    error: "Error",
+    done: "Done",
+    analyze: "Analyze",
+    clear: "Clear",
+    analyzeAria: (title) => `Analyze ${title}`,
+    clearAria: (title) => `Clear analysis for ${title}`,
+    deleteAria: (title) => `Delete ${title}`
+  },
+  zh: {
+    empty: "\u6ca1\u6709\u627e\u5230\u4e66\u7b7e\u3002",
+    untitledFolder: "\u672a\u547d\u540d\u6587\u4ef6\u5939",
+    confirmDelete: "\u8981\u4ece Chrome \u4e2d\u5220\u9664\u8fd9\u4e2a\u4e66\u7b7e\u5417\uff1f",
+    analyzing: "\u5206\u6790\u4e2d",
+    error: "\u9519\u8bef",
+    done: "\u5df2\u5b8c\u6210",
+    analyze: "\u5206\u6790",
+    clear: "\u6e05\u9664",
+    analyzeAria: (title) => `\u5206\u6790 ${title}`,
+    clearAria: (title) => `\u6e05\u9664 ${title} \u7684\u5206\u6790\u7ed3\u679c`,
+    deleteAria: (title) => `\u5220\u9664 ${title}`
+  }
+}
+
 export function BookmarkTree({
   treeNodes,
   metadataMap,
+  language = "en",
   visibleUrls,
   selectedUrl = null,
   selectedFolderId = null,
@@ -37,9 +81,10 @@ export function BookmarkTree({
   onSelectFolder
 }: BookmarkTreeProps) {
   const theme = useThemeContext()
+  const copy = BOOKMARK_TREE_COPY[language]
 
   if (treeNodes.length === 0) {
-    return <p style={{ color: theme.textMuted, fontSize: "0.875rem", padding: spacing.md }}>No bookmarks found.</p>
+    return <p style={{ color: theme.textMuted, fontSize: "0.875rem", padding: spacing.md }}>{copy.empty}</p>
   }
 
   return (
@@ -48,6 +93,7 @@ export function BookmarkTree({
         <BookmarkTreeNodeItem
           key={node.id}
           depth={0}
+          language={language}
           metadataMap={metadataMap}
           node={node}
           onAnalyze={onAnalyze}
@@ -70,6 +116,7 @@ type BookmarkTreeNodeItemProps = {
   node: chrome.bookmarks.BookmarkTreeNode
   depth: number
   metadataMap: Record<string, BookmarkRecord>
+  language: DisplayLanguage
   visibleUrls?: Set<string>
   selectedUrl?: string | null
   selectedFolderId?: string | null
@@ -128,6 +175,7 @@ function BookmarkTreeNodeItem({
   node,
   depth,
   metadataMap,
+  language,
   visibleUrls,
   selectedUrl,
   selectedFolderId,
@@ -140,6 +188,7 @@ function BookmarkTreeNodeItem({
   onSelectFolder
 }: BookmarkTreeNodeItemProps) {
   const theme = useThemeContext()
+  const copy = BOOKMARK_TREE_COPY[language]
   const isFolder = !node.url
   const isTransparentRoot = isFolder && variant === "options" && !showBookmarks && !node.title && !node.url
   const [expanded, setExpanded] = useState(() => (isTransparentRoot ? true : readExpandedState(node.id)))
@@ -179,6 +228,7 @@ function BookmarkTreeNodeItem({
             <BookmarkTreeNodeItem
               key={child.id}
               depth={depth}
+              language={language}
               metadataMap={metadataMap}
               node={child}
               onAnalyze={onAnalyze}
@@ -262,7 +312,7 @@ function BookmarkTreeNodeItem({
               whiteSpace: "nowrap"
             }}
           >
-            {node.title || "Untitled Folder"}
+            {node.title || copy.untitledFolder}
           </span>
         </div>
         {expanded
@@ -270,6 +320,7 @@ function BookmarkTreeNodeItem({
               <BookmarkTreeNodeItem
                 key={child.id}
                 depth={depth + 1}
+                language={language}
                 metadataMap={metadataMap}
                 node={child}
                 onAnalyze={onAnalyze}
@@ -300,7 +351,7 @@ function BookmarkTreeNodeItem({
   const showHost = variant === "options"
 
   async function handleDelete(): Promise<void> {
-    if (!window.confirm("Delete this bookmark from Chrome?")) {
+    if (!window.confirm(copy.confirmDelete)) {
       return
     }
 
@@ -356,9 +407,9 @@ function BookmarkTreeNodeItem({
         />
       ) : null}
       <div style={{ flexShrink: 0, width: "10px", display: "flex", alignItems: showHost ? "flex-start" : "center", paddingTop: showHost ? "4px" : 0 }}>
-        {status === "analyzing" ? <span data-testid="bookmark-analyzing-spinner" style={dotAmberStyle} title="Analyzing" /> : null}
-        {status === "error" ? <span style={{ ...dotBaseStyle, backgroundColor: theme.textDanger }} title="Error" /> : null}
-        {status === "done" ? <span style={dotGreenStyle} title="Done" /> : null}
+        {status === "analyzing" ? <span data-testid="bookmark-analyzing-spinner" style={dotAmberStyle} title={copy.analyzing} /> : null}
+        {status === "error" ? <span style={{ ...dotBaseStyle, backgroundColor: theme.textDanger }} title={copy.error} /> : null}
+        {status === "done" ? <span style={dotGreenStyle} title={copy.done} /> : null}
       </div>
       <div style={{ flexShrink: 0, paddingTop: showHost ? "1px" : 0 }}>
         <LocalIcon url={node.url ?? ""} />
@@ -419,27 +470,27 @@ function BookmarkTreeNodeItem({
       >
         {showAnalyzeButton ? (
           <button
-            aria-label={`Analyze ${node.title}`}
+            aria-label={copy.analyzeAria(node.title || node.url || copy.untitledFolder)}
             data-testid="bookmark-analyze-button"
             onClick={() => void onAnalyze(node.url!)}
             style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: radius.small }}
             type="button"
           >
-            Analyze
+            {copy.analyze}
           </button>
         ) : null}
         {showClearButton ? (
           <button
-            aria-label={`Clear analysis for ${node.title}`}
+            aria-label={copy.clearAria(node.title || node.url || copy.untitledFolder)}
             onClick={() => void onClearAnalysis(node.url!)}
             style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: radius.small }}
             type="button"
           >
-            Clear
+            {copy.clear}
           </button>
         ) : null}
         <button
-          aria-label={`Delete ${node.title}`}
+          aria-label={copy.deleteAria(node.title || node.url || copy.untitledFolder)}
           onClick={() => void handleDelete()}
           style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: radius.small }}
           type="button"

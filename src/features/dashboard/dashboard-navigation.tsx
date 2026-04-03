@@ -1,24 +1,29 @@
 import React from "react"
 
+import { getMessage } from "../../lib/i18n/messages"
 import type { BookmarkRecord } from "../../types/bookmark"
+import type { DisplayLanguage } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
-import { collectBookmarksWithFolderContext, findDefaultFolderId, matchesSearch } from "./bookmark-workspace"
 
 type DashboardNavigationProps = {
   bookmarks: BookmarkRecord[]
   activeBookmarkId: string | null
-  onSelect: (bookmark: BookmarkRecord) => void
   chromeTree?: chrome.bookmarks.BookmarkTreeNode[]
+  language?: DisplayLanguage
+  onSelect: (bookmark: BookmarkRecord) => void
   selectedFolderId?: string | null
   onSelectFolder?: (folderId: string) => void
   width: number
 }
 
-export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, selectedFolderId, onSelectFolder }: DashboardNavigationProps) {
+export function DashboardNavigation({
+  chromeTree,
+  language = "en",
+  onSelectFolder,
+  selectedFolderId
+}: DashboardNavigationProps) {
   const theme = useThemeContext()
-
-  const accent = theme.accent
-  const accentSoft = theme.accentSoft
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
 
   return (
     <aside
@@ -35,18 +40,16 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
         flexShrink: 0
       }}
     >
-      {/* Logo */}
       <div style={{ padding: "24px 24px 16px" }}>
         <h1 style={{ margin: 0, fontWeight: 700, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "10px", color: theme.textPrimary }}>
-          <span style={{ display: "inline-block", width: "24px", height: "24px", borderRadius: "6px", backgroundColor: accent, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
+          <span style={{ display: "inline-block", width: "24px", height: "24px", borderRadius: "6px", backgroundColor: theme.accent, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
           TabVault
         </h1>
       </div>
 
-      {/* 知识库分组 */}
       <nav style={{ flex: 1, overflowY: "auto", padding: "0 16px" }}>
         <p style={{ margin: "0 0 12px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          知识库 (Library)
+          {t("dashboard.navigation.library")}
         </p>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "2px" }}>
           <li>
@@ -62,15 +65,15 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
                 padding: "8px 12px",
                 fontSize: "0.875rem",
                 fontWeight: !selectedFolderId ? 500 : undefined,
-                color: !selectedFolderId ? accent : theme.textMuted,
-                backgroundColor: !selectedFolderId ? accentSoft : "transparent",
+                color: !selectedFolderId ? theme.accent : theme.textMuted,
+                backgroundColor: !selectedFolderId ? theme.accentSoft : "transparent",
                 border: "none",
                 borderRadius: "8px",
                 cursor: "pointer"
               }}
               type="button"
             >
-              <span>📚</span> 全部收藏
+              <span>A</span> {t("dashboard.navigation.allBookmarks")}
             </button>
           </li>
           <li>
@@ -78,7 +81,7 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
               style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
               type="button"
             >
-              <span>📝</span> 我的笔记
+              <span>R</span> {t("dashboard.navigation.recents")}
             </button>
           </li>
           <li>
@@ -86,16 +89,15 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
               style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
               type="button"
             >
-              <span>⭐</span> 星标内容
+              <span>H</span> {t("dashboard.navigation.highlights")}
             </button>
           </li>
         </ul>
 
-        {/* 浏览器文件夹 */}
         {chromeTree && chromeTree.length > 0 ? (
           <div data-testid="dashboard-folder-tree" style={{ marginTop: "28px" }}>
             <p style={{ margin: "0 0 12px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              书签文件夹
+              {t("dashboard.navigation.folders")}
             </p>
             <FolderList
               nodes={chromeTree}
@@ -105,10 +107,9 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
           </div>
         ) : null}
 
-        {/* Tags */}
         <div style={{ marginTop: "28px" }}>
           <p style={{ margin: "0 0 12px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            智能标签 (Tags)
+            {t("dashboard.navigation.tags")}
           </p>
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "2px" }}>
             <li>
@@ -116,7 +117,7 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
                 type="button"
               >
-                <span># 前端工程化</span>
+                <span>{t("dashboard.navigation.tagFrontend")}</span>
                 <span style={{ fontSize: "0.625rem", backgroundColor: theme.border, padding: "2px 6px", borderRadius: "999px" }}>12</span>
               </button>
             </li>
@@ -125,7 +126,7 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
                 type="button"
               >
-                <span># AI 教程</span>
+                <span>{t("dashboard.navigation.tagAi")}</span>
                 <span style={{ fontSize: "0.625rem", backgroundColor: theme.border, padding: "2px 6px", borderRadius: "999px" }}>8</span>
               </button>
             </li>
@@ -133,13 +134,12 @@ export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, se
         </div>
       </nav>
 
-      {/* 底部 settings 入口 */}
       <div style={{ padding: "12px 16px", borderTop: `1px solid ${theme.border}` }}>
         <button
           style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
           type="button"
         >
-          ⚙️ 架构设置
+          S {t("dashboard.navigation.settings")}
         </button>
       </div>
     </aside>
@@ -158,7 +158,7 @@ function FolderList({
   depth?: number
 }) {
   const theme = useThemeContext()
-  const folders = nodes.filter((n) => !n.url)
+  const folders = nodes.filter((node) => !node.url)
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2px", marginLeft: depth > 0 ? "12px" : 0 }}>
@@ -169,7 +169,9 @@ function FolderList({
             {folder.title ? (
               <div
                 onClick={() => onSelectFolder?.(folder.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelectFolder?.(folder.id) }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") onSelectFolder?.(folder.id)
+                }}
                 role="button"
                 style={{
                   padding: "6px 10px",

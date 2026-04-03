@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { DashboardAiSidebar } from "../../src/features/dashboard/dashboard-ai-sidebar"
+import type { DisplayLanguage } from "../../src/types/settings"
 import { ThemeProvider } from "../../src/ui/theme-context"
 import { buildThemeFromOverride } from "../../src/ui/use-theme"
 import type { BookmarkRecord } from "../../src/types/bookmark"
@@ -52,12 +53,19 @@ describe("Dashboard ask box", () => {
     expect(container?.textContent).toContain("No local results found for: What is this about?")
     expect(container?.textContent).toContain("What is this about?")
   })
+
+  it("renders localized ask box copy in zh", async () => {
+    await renderSidebar(createBookmark(), "zh")
+
+    expect(container?.textContent).toContain("询问 Ghostreader")
+    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")?.placeholder).toContain("Ghostreader")
+  })
 })
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-async function renderSidebar(bookmark: BookmarkRecord) {
+async function renderSidebar(bookmark: BookmarkRecord, language: DisplayLanguage = "en") {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
@@ -65,7 +73,7 @@ async function renderSidebar(bookmark: BookmarkRecord) {
   await act(async () => {
     root?.render(
       <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
-        <DashboardAiSidebar bookmark={bookmark} />
+        <DashboardAiSidebar bookmark={bookmark} language={language} />
       </ThemeProvider>
     )
   })

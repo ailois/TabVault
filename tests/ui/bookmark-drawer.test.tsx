@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { BookmarkDrawer } from "../../src/components/bookmark-drawer"
 import type { BookmarkRecord } from "../../src/types/bookmark"
+import type { DisplayLanguage } from "../../src/types/settings"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 globalThis.chrome = {
@@ -34,7 +35,12 @@ function makeBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {
   }
 }
 
-async function render(bookmark: BookmarkRecord | null, onClose = vi.fn(), onUpdateTags = vi.fn(async () => undefined)) {
+async function render(
+  bookmark: BookmarkRecord | null,
+  onClose = vi.fn(),
+  onUpdateTags = vi.fn(async () => undefined),
+  language: DisplayLanguage = "en"
+) {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
@@ -42,6 +48,7 @@ async function render(bookmark: BookmarkRecord | null, onClose = vi.fn(), onUpda
     root.render(
       <BookmarkDrawer
         bookmark={bookmark}
+        language={language}
         onClose={onClose}
         onAnalyze={vi.fn(async () => undefined)}
         onClearAnalysis={vi.fn(async () => undefined)}
@@ -111,6 +118,14 @@ describe("BookmarkDrawer", () => {
   it("shows Clear button when status is done", async () => {
     await render(makeBookmark({ status: "done" }))
     expect(container?.querySelector("[data-testid='drawer-clear-button']")).not.toBeNull()
+  })
+
+  it("renders localized drawer copy in zh", async () => {
+    await render(makeBookmark({ status: "saved", summary: undefined, aiTags: [], userTags: [] }), vi.fn(), vi.fn(async () => undefined), "zh")
+
+    expect(container?.textContent).toContain("链接")
+    expect(container?.textContent).toContain("分析")
+    expect(container?.textContent).toContain("保存")
   })
 
   it("keeps drawer metadata and summary hierarchy visually compact", async () => {

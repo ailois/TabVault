@@ -1,12 +1,15 @@
 import React from "react"
 
+import { getMessage } from "../../lib/i18n/messages"
 import type { BookmarkRecord } from "../../types/bookmark"
+import type { DisplayLanguage } from "../../types/settings"
 import { spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 
 type DashboardResultsListProps = {
   bookmarks: BookmarkRecord[]
   activeUrl: string | null
+  language?: DisplayLanguage
   onSelectUrl: (url: string) => void
   searchQuery: string
   onSearchQueryChange: (value: string) => void
@@ -16,12 +19,14 @@ type DashboardResultsListProps = {
 export function DashboardResultsList({
   bookmarks,
   activeUrl,
+  language = "en",
   onSelectUrl,
   searchQuery,
   onSearchQueryChange,
-  heading = "全部收藏"
+  heading
 }: DashboardResultsListProps) {
   const theme = useThemeContext()
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
 
   return (
     <section
@@ -38,12 +43,15 @@ export function DashboardResultsList({
       }}
     >
       <header style={{ padding: "24px 24px 12px", flexShrink: 0 }}>
-        <h2 style={{ margin: "0 0 16px", fontSize: "1.25rem", fontWeight: 700, color: theme.textPrimary }}>{heading}</h2>
+        <h2 style={{ margin: "0 0 16px", fontSize: "1.25rem", fontWeight: 700, color: theme.textPrimary }}>
+          {heading ?? t("dashboard.results.heading")}
+        </h2>
         <div style={{ position: "relative" }}>
           <input
+            aria-label={t("dashboard.results.heading")}
             data-testid="dashboard-search-input"
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="搜索标题、全文、标签或你的笔记..."
+            placeholder={t("dashboard.results.searchPlaceholder")}
             style={{
               width: "100%",
               boxSizing: "border-box",
@@ -60,10 +68,10 @@ export function DashboardResultsList({
             value={searchQuery}
           />
           <span aria-hidden="true" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>
-            🔍
+            S
           </span>
           <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.625rem", color: theme.textMuted, border: `1px solid ${theme.border}`, padding: "2px 6px", borderRadius: "6px", backgroundColor: theme.page }}>
-            ⌘ K
+            {t("dashboard.results.searchShortcut")}
           </span>
         </div>
       </header>
@@ -71,13 +79,17 @@ export function DashboardResultsList({
       <div style={{ display: "grid", gap: "12px", overflowY: "auto", padding: "12px 24px 24px" }}>
         {bookmarks.length === 0 ? (
           <div style={{ padding: spacing.md, color: theme.textMuted, fontSize: "0.875rem" }}>
-            No bookmarks match your search.
+            {t("dashboard.results.empty")}
           </div>
         ) : null}
 
         {bookmarks.map((bookmark) => {
           const selected = activeUrl === bookmark.url
           const combinedTags = [...bookmark.aiTags, ...bookmark.userTags]
+          let hostname = bookmark.url
+          try {
+            hostname = new URL(bookmark.url).hostname
+          } catch {}
 
           return (
             <button
@@ -105,19 +117,19 @@ export function DashboardResultsList({
               ) : null}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm }}>
                 <div style={{ fontWeight: selected ? 600 : 500, fontSize: "0.9375rem" }}>{bookmark.title}</div>
-                <div style={{ color: selected ? "#FBBF24" : "#D0D6D1" }}>⭐</div>
+                <div style={{ color: selected ? "#FBBF24" : "#D0D6D1" }}>*</div>
               </div>
               <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginTop: "6px" }}>
-                {(bookmark.summary ?? bookmark.extractedText ?? "").slice(0, 120) || "暂无摘要"}
+                {(bookmark.summary ?? bookmark.extractedText ?? "").slice(0, 120) || t("dashboard.results.noSummary")}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, marginTop: "10px", flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", color: theme.textMuted, fontSize: "0.6875rem" }}>
-                  <span>{new URL(bookmark.url).hostname}</span>
+                  <span>{hostname}</span>
                   {combinedTags[0] ? <span style={{ width: "4px", height: "4px", borderRadius: "999px", backgroundColor: theme.border }} /> : null}
                   {combinedTags[0] ? <span style={{ backgroundColor: theme.accentSoft, color: theme.accent, padding: "2px 6px", borderRadius: "999px", fontWeight: 600 }}>#{combinedTags[0]}</span> : null}
                 </div>
                 <div style={{ fontSize: "0.625rem", color: theme.accent, backgroundColor: theme.accentSoft, padding: "2px 6px", borderRadius: "999px", fontWeight: 600 }}>
-                  {bookmark.summary ? "💬 笔记" : "已保存"}
+                  {bookmark.summary ? t("dashboard.results.summaryBadge") : t("dashboard.results.savedBadge")}
                 </div>
               </div>
             </button>

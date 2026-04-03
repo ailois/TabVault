@@ -141,6 +141,57 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).toContain("OpenAI-compatible authentication failed")
   })
 
+  it("localizes provider errors in Chinese when Ghostreader submission fails", async () => {
+    const analyze = vi.fn(async () => {
+      const error = new Error("OpenAI-compatible authentication failed") as Error & { code?: string }
+      error.code = "auth_error"
+      throw error
+    })
+    const provider = { analyze }
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository({
+          getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+            defaultProvider: "openai",
+            autoAnalyzeOnSave: false,
+            summaryLanguage: "auto",
+            autoRetryOnError: false,
+            displayLanguage: "zh",
+            theme: "sage"
+          })),
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "bad-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "Why is this failing?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).toHaveBeenCalled()
+    expect(container?.textContent).toContain("OpenAI-compatible \u8eab\u4efd\u9a8c\u8bc1\u5931\u8d25")
+  })
+
 })
 
 let container: HTMLDivElement | null = null

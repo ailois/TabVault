@@ -302,11 +302,11 @@ describe("Options save state", () => {
 
     await clickButtonByTestId("settings-nav-knowledge")
 
-    expect(container?.textContent).toContain("存储概览")
-    expect(container?.textContent).toContain("数据清理 (Danger Zone)")
-    expect(container?.textContent).toContain("检索与向量架构")
-    expect(container?.textContent).toContain("隐私与过滤规则")
-    expect(container?.textContent).toContain("保存知识库设置")
+    expect(container?.textContent).toContain("Storage Overview")
+    expect(container?.textContent).toContain("Data cleanup (Danger Zone)")
+    expect(container?.textContent).toContain("Retrieval & Vector Architecture")
+    expect(container?.textContent).toContain("Privacy & Filtering Rules")
+    expect(container?.textContent).toContain("Save knowledge settings")
   })
 
   it("knowledge page imports bookmarks and clears analysis through bookmark repository", async () => {
@@ -320,7 +320,7 @@ describe("Options save state", () => {
     await clickButtonByTestId("knowledge-import-button")
     await flushPromises()
     expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: "IMPORT_BOOKMARKS" })
-    expect(container?.textContent).toContain("已导入 3 条书签")
+    expect(container?.textContent).toContain("Imported 3 bookmarks")
 
     await clickButtonByTestId("knowledge-clear-error-button")
     await flushPromises()

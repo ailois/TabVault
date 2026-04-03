@@ -7,7 +7,12 @@ describe("getMessage", () => {
   })
 
   it("returns Chinese string for zh locale", () => {
-    expect(getMessage("zh", "settings.title")).toBe("架构配置")
+    expect(getMessage("zh", "settings.title")).toBe("架构设置")
+  })
+
+  it("keeps stable separators in trial remaining messages", () => {
+    expect(getMessage("en", "settings.trial.detail.remaining")).toBe("{days} days left \u00b7 {analyses} analyses remaining")
+    expect(getMessage("zh", "settings.trial.detail.remaining")).toBe("{days} \u5929\u5269\u4f59 \u00b7 \u8fd8\u53ef\u5206\u6790 {analyses} \u6b21")
   })
 
   it("falls back to English when locale is unknown", () => {
@@ -71,7 +76,7 @@ describe("getMessage", () => {
       "popup.error.apiKeyMissing",
       "popup.error.saveFallback",
       "popup.error.saveUnavailableMetadata",
-      "popup.error.analyzeFallback",
+      "popup.error.analyzeFallback"
     ]
     for (const key of keys) {
       expect(typeof getMessage("en", key)).toBe("string")

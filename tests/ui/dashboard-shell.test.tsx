@@ -5,9 +5,10 @@ import { createRoot, type Root } from "react-dom/client"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { DashboardShell } from "../../src/features/dashboard/dashboard-shell"
+import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import type { BookmarkRecord } from "../../src/types/bookmark"
 import { ThemeProvider } from "../../src/ui/theme-context"
 import { buildThemeFromOverride } from "../../src/ui/use-theme"
-import type { BookmarkRecord } from "../../src/types/bookmark"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -61,8 +62,8 @@ describe("DashboardShell", () => {
     expect(container?.textContent).toContain("React Docs")
     expect(container?.textContent).toContain("Vue Docs")
 
-    const otherBookmarks = Array.from(container?.querySelectorAll('[role="button"]') ?? []).find((el) =>
-      el.textContent?.includes("Other Bookmarks")
+    const otherBookmarks = Array.from(container?.querySelectorAll('[role="button"]') ?? []).find((element) =>
+      element.textContent?.includes("Other Bookmarks")
     )
     await act(async () => {
       ;(otherBookmarks as HTMLElement | undefined)?.click()
@@ -96,6 +97,13 @@ describe("DashboardShell", () => {
     expect(container?.textContent).toContain("Select a bookmark to start reading")
   })
 
+  it("renders localized dashboard copy when display language is zh", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "React Docs" })], undefined, createSettingsRepository("zh"))
+
+    expect(container?.textContent).toContain("全部书签")
+    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-search-input']")?.placeholder).toContain("搜索标题")
+  })
+
   it("switches the dashboard results column to search mode when typing", async () => {
     const bookmarks = [
       createBookmark({ id: "b1", title: "React Docs", url: "https://react.dev" }),
@@ -125,7 +133,7 @@ describe("DashboardShell", () => {
     })
 
     expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).not.toBeNull()
-    expect(container?.textContent).toContain("批量编辑工作台")
+    expect(container?.textContent).toContain("Bulk edit coming soon")
   })
 
   it("styles navigation items and reading metadata closer to the design", async () => {
@@ -148,7 +156,11 @@ describe("DashboardShell", () => {
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-async function renderDashboard(bookmarks: BookmarkRecord[]) {
+async function renderDashboard(
+  bookmarks: BookmarkRecord[],
+  updateBookmark?: (bookmark: BookmarkRecord) => Promise<void>,
+  settingsRepository?: SettingsRepository
+) {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
@@ -156,7 +168,7 @@ async function renderDashboard(bookmarks: BookmarkRecord[]) {
   await act(async () => {
     root?.render(
       <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
-        <DashboardShell initialBookmarks={bookmarks} />
+        <DashboardShell initialBookmarks={bookmarks} settingsRepository={settingsRepository} updateBookmark={updateBookmark} />
       </ThemeProvider>
     )
   })
@@ -188,5 +200,21 @@ function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord
     createdAt: "2026-03-01T00:00:00.000Z",
     updatedAt: "2026-03-01T00:00:00.000Z",
     ...overrides
+  }
+}
+
+function createSettingsRepository(displayLanguage: "en" | "zh"): SettingsRepository {
+  return {
+    getAppSettings: async () => ({
+      defaultProvider: "openai",
+      autoAnalyzeOnSave: false,
+      summaryLanguage: "auto",
+      autoRetryOnError: false,
+      displayLanguage,
+      theme: "sage"
+    }),
+    saveAppSettings: async () => {},
+    getProviders: async () => [],
+    saveProviders: async () => {}
   }
 }

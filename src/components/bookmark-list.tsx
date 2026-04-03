@@ -1,6 +1,8 @@
-﻿import React, { useState } from "react"
+import React, { useState } from "react"
 
+import { localizeKnownErrorText } from "../lib/i18n/error-messages"
 import type { BookmarkRecord } from "../types/bookmark"
+import type { DisplayLanguage } from "../types/settings"
 import { radius, spacing, typography } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 import { LocalIcon } from "./local-icon"
@@ -12,6 +14,7 @@ type BookmarkListProps = {
   onClearAnalysis: (id: string) => Promise<void>
   onSelect?: (id: string) => void
   compact?: boolean
+  language?: DisplayLanguage
   matchReasons?: Record<string, string>
 }
 
@@ -22,7 +25,67 @@ type BookmarkCardProps = {
   onClearAnalysis: (id: string) => Promise<void>
   onSelect?: (id: string) => void
   compact?: boolean
+  language?: DisplayLanguage
   matchReason?: string
+}
+
+const BOOKMARK_LIST_COPY: Record<DisplayLanguage, {
+  resultsAria: string
+  empty: string
+  confirmDelete: string
+  analyzing: string
+  error: string
+  done: string
+  analyze: string
+  clear: string
+  delete: string
+  clearAria: (title: string) => string
+  analyzeAria: (title: string) => string
+  deleteAria: (title: string) => string
+  matched: (reason: string) => string
+  showMore: string
+  showLess: string
+  tagsAria: (title: string) => string
+  dateLocale: string
+}> = {
+  en: {
+    resultsAria: "Bookmark results",
+    empty: "No bookmarks found.",
+    confirmDelete: "Delete this bookmark?",
+    analyzing: "Analyzing...",
+    error: "Error",
+    done: "Done",
+    analyze: "Analyze",
+    clear: "Clear",
+    delete: "Delete",
+    clearAria: (title) => `Clear analysis for ${title}`,
+    analyzeAria: (title) => `Analyze ${title}`,
+    deleteAria: (title) => `Delete ${title}`,
+    matched: (reason) => `matched ${reason}`,
+    showMore: "Show more",
+    showLess: "Show less",
+    tagsAria: (title) => `${title} tags`,
+    dateLocale: "en-US"
+  },
+  zh: {
+    resultsAria: "\u4e66\u7b7e\u7ed3\u679c",
+    empty: "\u6ca1\u6709\u627e\u5230\u4e66\u7b7e\u3002",
+    confirmDelete: "\u8981\u5220\u9664\u8fd9\u4e2a\u4e66\u7b7e\u5417\uff1f",
+    analyzing: "\u5206\u6790\u4e2d...",
+    error: "\u9519\u8bef",
+    done: "\u5df2\u5b8c\u6210",
+    analyze: "\u5206\u6790",
+    clear: "\u6e05\u9664",
+    delete: "\u5220\u9664",
+    clearAria: (title) => `\u6e05\u9664 ${title} \u7684\u5206\u6790\u7ed3\u679c`,
+    analyzeAria: (title) => `\u5206\u6790 ${title}`,
+    deleteAria: (title) => `\u5220\u9664 ${title}`,
+    matched: (reason) => `\u5339\u914d\uff1a${reason}`,
+    showMore: "\u5c55\u5f00\u66f4\u591a",
+    showLess: "\u6536\u8d77",
+    tagsAria: (title) => `${title} \u6807\u7b7e`,
+    dateLocale: "zh-CN"
+  }
 }
 
 export function BookmarkList({
@@ -32,23 +95,27 @@ export function BookmarkList({
   onClearAnalysis,
   onSelect,
   compact = false,
+  language = "en",
   matchReasons = {}
 }: BookmarkListProps) {
+  const copy = BOOKMARK_LIST_COPY[language]
+
   if (bookmarks.length === 0) {
     return (
-      <section aria-label="Bookmark results">
-        <p>No bookmarks found.</p>
+      <section aria-label={copy.resultsAria}>
+        <p>{copy.empty}</p>
       </section>
     )
   }
 
   return (
-    <ul aria-label="Bookmark results" style={listStyle}>
+    <ul aria-label={copy.resultsAria} style={listStyle}>
       {bookmarks.map((bookmark) => (
         <li key={bookmark.id}>
           <BookmarkCard
             bookmark={bookmark}
             compact={compact}
+            language={language}
             matchReason={matchReasons[bookmark.id]}
             onAnalyze={onAnalyze}
             onClearAnalysis={onClearAnalysis}
@@ -68,9 +135,11 @@ function BookmarkCard({
   onClearAnalysis,
   onSelect,
   compact = false,
+  language = "en",
   matchReason
 }: BookmarkCardProps) {
   const theme = useThemeContext()
+  const copy = BOOKMARK_LIST_COPY[language]
   const [expanded, setExpanded] = useState(false)
   const [hovered, setHovered] = useState(false)
 
@@ -79,16 +148,16 @@ function BookmarkCard({
     bookmark.status === "done" || bookmark.status === "error" || bookmark.status === "analyzing"
 
   async function handleDelete(): Promise<void> {
-    if (!window.confirm("Delete this bookmark?")) {
+    if (!window.confirm(copy.confirmDelete)) {
       return
     }
 
     await onDelete(bookmark.id)
   }
 
-  const handleSelect = (e: React.MouseEvent) => {
+  function handleSelect(event: React.MouseEvent) {
     if (onSelect) {
-      e.preventDefault()
+      event.preventDefault()
       onSelect(bookmark.id)
     }
   }
@@ -109,14 +178,14 @@ function BookmarkCard({
             {bookmark.status === "analyzing" ? (
               <span
                 data-testid="bookmark-analyzing-spinner"
-                title="Analyzing"
+                title={copy.analyzing}
                 style={{ ...spinnerBaseStyle, width: "8px", height: "8px" }}
               />
             ) : null}
             {bookmark.status === "error" ? (
-              <span style={{ ...dotBaseStyle, backgroundColor: theme.textDanger }} title="Error" />
+              <span style={{ ...dotBaseStyle, backgroundColor: theme.textDanger }} title={copy.error} />
             ) : null}
-            {bookmark.status === "done" ? <span style={dotGreenStyle} title="Done" /> : null}
+            {bookmark.status === "done" ? <span style={dotGreenStyle} title={copy.done} /> : null}
           </div>
           <LocalIcon url={bookmark.url} />
           <a
@@ -135,28 +204,28 @@ function BookmarkCard({
           <div style={{ ...compactActionsStyle, opacity: hovered ? 1 : 0 }}>
             {showAnalyzeButton ? (
               <button
-                aria-label={`Analyze ${bookmark.title}`}
+                aria-label={copy.analyzeAria(bookmark.title)}
                 data-testid="bookmark-analyze-button"
                 onClick={() => void onAnalyze(bookmark.id)}
                 style={{ ...compactActionButtonStyle, color: theme.textMuted }}
                 type="button"
               >
-                Analyze
+                {copy.analyze}
               </button>
             ) : null}
             {showClearButton ? (
               <button
-                aria-label={`Clear analysis for ${bookmark.title}`}
+                aria-label={copy.clearAria(bookmark.title)}
                 data-testid="bookmark-clear-button"
                 onClick={() => void onClearAnalysis(bookmark.id)}
                 style={{ ...compactActionButtonStyle, color: theme.textMuted }}
                 type="button"
               >
-                Clear
+                {copy.clear}
               </button>
             ) : null}
             <button
-              aria-label={`Delete ${bookmark.title}`}
+              aria-label={copy.deleteAria(bookmark.title)}
               data-testid="bookmark-delete-button"
               onClick={() => void handleDelete()}
               style={{ ...compactActionButtonStyle, color: theme.textMuted }}
@@ -179,7 +248,7 @@ function BookmarkCard({
                 display: "inline-block"
               }}
             >
-              matched {matchReason}
+              {copy.matched(matchReason)}
             </span>
           </div>
         ) : null}
@@ -204,7 +273,7 @@ function BookmarkCard({
       }}
     >
       <button
-        aria-label={`Delete ${bookmark.title}`}
+        aria-label={copy.deleteAria(bookmark.title)}
         data-testid="bookmark-delete-button"
         onClick={() => void handleDelete()}
         style={{
@@ -218,7 +287,7 @@ function BookmarkCard({
         }}
         type="button"
       >
-        🗑️
+        X
       </button>
 
       <div style={cardBodyStyle}>
@@ -231,7 +300,7 @@ function BookmarkCard({
               data-testid="bookmark-analyzing-spinner"
               style={{ ...spinnerBaseStyle, width: "10px", height: "10px" }}
             />
-            Analyzing...
+            {copy.analyzing}
           </div>
         ) : null}
         {bookmark.status === "error" ? (
@@ -239,29 +308,29 @@ function BookmarkCard({
             data-testid="bookmark-status-badge"
             style={{ ...badgeStyle, backgroundColor: theme.dangerSoft, color: theme.textDanger }}
           >
-            Error
+            {copy.error}
           </span>
         ) : null}
         {showAnalyzeButton ? (
           <button
-            aria-label={`Analyze ${bookmark.title}`}
+            aria-label={copy.analyzeAria(bookmark.title)}
             data-testid="bookmark-analyze-button"
             onClick={() => void onAnalyze(bookmark.id)}
             style={{ ...analyzeButtonStyle, color: theme.textMuted }}
             type="button"
           >
-            Analyze
+            {copy.analyze}
           </button>
         ) : null}
         {showClearButton ? (
           <button
-            aria-label={`Clear analysis for ${bookmark.title}`}
+            aria-label={copy.clearAria(bookmark.title)}
             data-testid="bookmark-clear-button"
             onClick={() => void onClearAnalysis(bookmark.id)}
             style={{ ...analyzeButtonStyle, color: theme.textMuted }}
             type="button"
           >
-            Clear
+            {copy.clear}
           </button>
         ) : null}
       </div>
@@ -281,9 +350,8 @@ function BookmarkCard({
         </h3>
       </div>
 
-
       <p data-testid="bookmark-metadata" style={{ ...metadataStyle, color: theme.textMuted }}>
-        {formatMetadata(bookmark)}
+        {formatMetadata(bookmark, copy.dateLocale)}
       </p>
 
       {bookmark.summary ? (
@@ -300,13 +368,13 @@ function BookmarkCard({
             style={{ ...summaryToggleStyle, color: theme.textMuted }}
             type="button"
           >
-            {expanded ? "Show less" : "Show more"}
+            {expanded ? copy.showLess : copy.showMore}
           </button>
         </>
       ) : null}
 
-      {(bookmark.aiTags.length > 0 || bookmark.userTags.length > 0) ? (
-        <ul aria-label={`${bookmark.title} tags`} style={tagListStyle}>
+      {bookmark.aiTags.length > 0 || bookmark.userTags.length > 0 ? (
+        <ul aria-label={copy.tagsAria(bookmark.title)} style={tagListStyle}>
           {bookmark.aiTags.map((tag) => (
             <li
               data-testid="bookmark-tag"
@@ -321,7 +389,7 @@ function BookmarkCard({
                 fontWeight: 500
               }}
             >
-              ✨ {tag}
+              #{tag}
             </li>
           ))}
           {bookmark.userTags.map((tag) => (
@@ -346,16 +414,16 @@ function BookmarkCard({
 
       {bookmark.status === "error" && bookmark.errorMessage ? (
         <p data-testid="bookmark-error-message" style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>
-          {bookmark.errorMessage}
+          {localizeKnownErrorText(language, bookmark.errorMessage)}
         </p>
       ) : null}
     </article>
   )
 }
 
-function formatMetadata(bookmark: BookmarkRecord): string {
+function formatMetadata(bookmark: BookmarkRecord, dateLocale: string): string {
   const host = getBookmarkHost(bookmark.url)
-  const timestamp = new Date(bookmark.updatedAt).toLocaleDateString("en-US", {
+  const timestamp = new Date(bookmark.updatedAt).toLocaleDateString(dateLocale, {
     month: "short",
     day: "numeric",
     year: "numeric"
@@ -386,11 +454,6 @@ const dotBaseStyle: React.CSSProperties = {
   width: "6px",
   height: "6px",
   borderRadius: "50%"
-}
-
-const dotAmberStyle: React.CSSProperties = {
-  ...dotBaseStyle,
-  backgroundColor: "#f59e0b"
 }
 
 const dotGreenStyle: React.CSSProperties = {

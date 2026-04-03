@@ -212,10 +212,9 @@ async function performRequest(
       body
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "OpenAI-compatible request failed"
     throw normalizeProviderError(error, {
       code: "network_error",
-      message
+      message: "OpenAI-compatible request failed"
     })
   } finally {
     clearTimeout(timeoutId)

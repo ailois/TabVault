@@ -61,6 +61,13 @@ describe("TrialBanner", () => {
     expect(container?.textContent).toContain("Your trial has ended.")
   })
 
+  it("renders localized Chinese default title", async () => {
+    await renderBanner({ status: "trial", language: "zh", message: "试用进行中" })
+
+    expect(container?.textContent).toContain("试用中")
+    expect(container?.textContent).toContain("试用进行中")
+  })
+
   it("overrides default title when custom title is provided", async () => {
     await renderBanner({ status: "trial", title: "Welcome back", message: "Custom title should render." })
 

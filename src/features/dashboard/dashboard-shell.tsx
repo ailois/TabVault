@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react"
 
+import { ChromeSettingsRepository } from "../../lib/config/chrome-settings-repository"
+import type { SettingsRepository } from "../../lib/config/settings-repository"
+import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
+import { getMessage } from "../../lib/i18n/messages"
 import { IndexedDbBookmarkRepository } from "../../lib/storage/indexeddb-bookmark-repository"
 import { updateBookmarkMetadata } from "../../lib/storage/update-bookmark-metadata"
 import type { BookmarkRecord } from "../../types/bookmark"
+import type { DisplayLanguage } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
 import { collectBookmarksWithFolderContext, findDefaultFolderId, matchesSearch } from "./bookmark-workspace"
 import { DashboardNavigation } from "./dashboard-navigation"
@@ -15,22 +20,50 @@ type DashboardShellProps = {
   listBookmarks?: () => Promise<BookmarkRecord[]>
   getBookmarkTree?: () => Promise<chrome.bookmarks.BookmarkTreeNode[]>
   updateBookmark?: (bookmark: BookmarkRecord) => Promise<void>
+  settingsRepository?: SettingsRepository
 }
 
-export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, getBookmarkTree, updateBookmark }: DashboardShellProps) {
+export function DashboardShell({
+  initialBookmarks,
+  initialTree,
+  listBookmarks,
+  getBookmarkTree,
+  updateBookmark,
+  settingsRepository
+}: DashboardShellProps) {
   const theme = useThemeContext()
   const bookmarkRepository = useMemo(() => new IndexedDbBookmarkRepository(), [])
+  const dashboardSettingsRepository = useMemo(
+    () =>
+      settingsRepository ??
+      (typeof chrome !== "undefined" && chrome.storage?.sync
+        ? new ChromeSettingsRepository()
+        : {
+            getAppSettings: async () => DEFAULT_APP_SETTINGS,
+            saveAppSettings: async () => {},
+            getProviders: async () => [],
+            saveProviders: async () => {}
+          }),
+    [settingsRepository]
+  )
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>(initialBookmarks ?? [])
   const [chromeTree, setChromeTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>(initialTree ?? [])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeBookmark, setActiveBookmark] = useState<BookmarkRecord | null>(null)
+  const [displayLanguage, setDisplayLanguage] = useState<DisplayLanguage>("en")
+  const t = useMemo(
+    () => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key),
+    [displayLanguage]
+  )
 
   useEffect(() => {
     if (initialBookmarks !== undefined) return
 
     const loadBookmarks = listBookmarks ?? (() => bookmarkRepository.list())
-    const loadTree = getBookmarkTree ?? (() => (typeof chrome !== "undefined" && chrome.bookmarks ? chrome.bookmarks.getTree() : Promise.resolve([])))
+    const loadTree =
+      getBookmarkTree ??
+      (() => (typeof chrome !== "undefined" && chrome.bookmarks ? chrome.bookmarks.getTree() : Promise.resolve([])))
 
     void Promise.all([loadBookmarks(), loadTree()]).then(([records, tree]) => {
       setBookmarks(records)
@@ -44,9 +77,30 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
     if (defaultId) setSelectedFolderId(defaultId)
   }, [chromeTree, selectedFolderId])
 
+  useEffect(() => {
+    void dashboardSettingsRepository.getAppSettings().then((settings) => {
+      setDisplayLanguage(settings.displayLanguage)
+    })
+  }, [dashboardSettingsRepository])
+
+  useEffect(() => {
+    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>) {
+      const newValue = changes["appSettings"]?.newValue
+      if (newValue && typeof newValue === "object" && "displayLanguage" in newValue) {
+        const language = (newValue as { displayLanguage: unknown }).displayLanguage
+        if (language === "en" || language === "zh") {
+          setDisplayLanguage(language)
+        }
+      }
+    }
+
+    globalThis.chrome?.storage?.local?.onChanged?.addListener(handleStorageChange)
+    return () => globalThis.chrome?.storage?.local?.onChanged?.removeListener(handleStorageChange)
+  }, [])
+
   const metadataMap = useMemo(() => {
     const map: Record<string, BookmarkRecord> = {}
-    for (const bm of bookmarks) map[bm.url] = bm
+    for (const bookmark of bookmarks) map[bookmark.url] = bookmark
     return map
   }, [bookmarks])
 
@@ -62,14 +116,14 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
 
     if (!searchQuery.trim()) return folderItems
 
-    return folderItems.filter((bm) =>
+    return folderItems.filter((bookmark) =>
       matchesSearch(
-        { id: bm.id, title: bm.title, url: bm.url, folderId: null, folderTitle: "" },
+        { id: bookmark.id, title: bookmark.title, url: bookmark.url, folderId: null, folderTitle: "" },
         searchQuery,
         metadataMap
       )
     )
-  }, [chromeTree, selectedFolderId, bookmarks, metadataMap, searchQuery])
+  }, [bookmarks, chromeTree, metadataMap, searchQuery, selectedFolderId])
 
   async function persistBookmark(nextBookmark: BookmarkRecord): Promise<void> {
     if (updateBookmark) {
@@ -90,7 +144,7 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
     })
 
     await persistBookmark(nextBookmark)
-    setBookmarks((prev) => prev.map((bookmark) => bookmark.id === nextBookmark.id ? nextBookmark : bookmark))
+    setBookmarks((prev) => prev.map((bookmark) => (bookmark.id === nextBookmark.id ? nextBookmark : bookmark)))
     setActiveBookmark(nextBookmark)
   }
 
@@ -104,7 +158,7 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
     })
 
     await persistBookmark(nextBookmark)
-    setBookmarks((prev) => prev.map((bookmark) => bookmark.id === nextBookmark.id ? nextBookmark : bookmark))
+    setBookmarks((prev) => prev.map((bookmark) => (bookmark.id === nextBookmark.id ? nextBookmark : bookmark)))
     setActiveBookmark(nextBookmark)
   }
 
@@ -120,41 +174,40 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
         fontFamily: "system-ui, sans-serif"
       }}
     >
-      {/* 左栏：知识库导航 */}
       <DashboardNavigation
         activeBookmarkId={activeBookmark?.id ?? null}
         bookmarks={bookmarks}
         chromeTree={chromeTree}
+        language={displayLanguage}
         onSelect={setActiveBookmark}
         onSelectFolder={(folderId) => setSelectedFolderId(folderId || null)}
         selectedFolderId={selectedFolderId}
         width={256}
       />
 
-      {/* 中栏：搜索 + 结果列表 */}
       <div data-testid="dashboard-browse-view" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <DashboardResultsList
           activeUrl={activeBookmark?.url ?? null}
           bookmarks={visibleBookmarks}
+          language={displayLanguage}
           onSearchQueryChange={setSearchQuery}
           onSelectUrl={(url) => {
-            const bm = bookmarks.find((b) => b.url === url) ?? null
-            setActiveBookmark(bm)
+            const bookmark = bookmarks.find((item) => item.url === url) ?? null
+            setActiveBookmark(bookmark)
           }}
           searchQuery={searchQuery}
         />
 
-        {/* 右栏：阅读区（标题 + tab + 内容） */}
         <DashboardReadingPane
           bookmark={activeBookmark}
+          language={displayLanguage}
           onSaveSummary={handleSaveSummary}
           onSaveTags={handleSaveTags}
         />
       </div>
 
-      {/* 隐藏保留：批量编辑区（暂未实现） */}
       <div data-testid="dashboard-bulk-edit-view" style={{ display: "none" }}>
-        批量编辑工作台
+        {t("dashboard.bulkEdit.placeholder")}
       </div>
     </div>
   )

@@ -1,12 +1,19 @@
 import React from "react"
+import type { DisplayLanguage } from "../types/settings"
 import { radius, spacing } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 
 type ErrorBannerProps = {
   message: string
+  language?: DisplayLanguage
 }
 
-export function ErrorBanner({ message }: ErrorBannerProps) {
+const ERROR_BANNER_COPY: Record<DisplayLanguage, string> = {
+  en: "Error",
+  zh: "\u9519\u8bef"
+}
+
+export function ErrorBanner({ message, language = "en" }: ErrorBannerProps) {
   const theme = useThemeContext()
 
   const bannerStyle: React.CSSProperties = {
@@ -31,7 +38,7 @@ export function ErrorBanner({ message }: ErrorBannerProps) {
 
   return (
     <article data-feedback-kind="error" role="alert" style={bannerStyle}>
-      <h3 style={titleStyle}>Error</h3>
+      <h3 style={titleStyle}>{ERROR_BANNER_COPY[language]}</h3>
       <p style={messageStyle}>{message}</p>
     </article>
   )

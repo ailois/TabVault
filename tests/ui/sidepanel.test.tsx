@@ -218,6 +218,97 @@ describe("SidePanel", () => {
     expect(container?.querySelector("[data-testid='ghostreader-input']")).not.toBeNull()
   })
 
+  it("renders localized sidepanel copy when display language is zh", async () => {
+    await renderSidePanel(
+      createServices({
+        settingsRepository: createSettingsRepository({
+          getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+            defaultProvider: "openai",
+            autoAnalyzeOnSave: false,
+            summaryLanguage: "auto",
+            autoRetryOnError: false,
+            displayLanguage: "zh",
+            theme: "sage"
+          }))
+        }),
+        queryActiveTab: vi.fn(async () => ({ id: 1, title: "当前 React 页面", url: "https://example.com/current" })),
+        extractPage: vi.fn(async () => "react compiler and useMemo")
+      })
+    )
+
+    expect(container?.querySelector<HTMLInputElement>("#sidepanel-search")?.placeholder).toContain("\u641c\u7d22\u4e66\u7b7e")
+    expect(container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")?.placeholder).toContain("Ghostreader")
+    expect(container?.textContent).toContain("\u5f53\u524d\u9875\u9762")
+    expect(container?.textContent).toContain("\u540c\u6b65\u4e66\u7b7e")
+    expect(container?.textContent).toContain("\u603b\u7ed3\u91cd\u70b9")
+  })
+
+  it("localizes sidepanel action aria labels in Chinese", async () => {
+    await renderSidePanel(
+      createServices({
+        settingsRepository: createSettingsRepository({
+          getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+            defaultProvider: "openai",
+            autoAnalyzeOnSave: false,
+            summaryLanguage: "auto",
+            autoRetryOnError: false,
+            displayLanguage: "zh",
+            theme: "sage"
+          }))
+        })
+      })
+    )
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "React")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-search-clear']")?.getAttribute("aria-label")).toContain("\u6e05\u7a7a\u641c\u7d22")
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.getAttribute("aria-label")).toContain("\u53d1\u9001\u7ed9 Ghostreader")
+  })
+
+  it("passes localized zh copy into the bookmark drawer", async () => {
+    await renderSidePanel(
+      createServices({
+        settingsRepository: createSettingsRepository({
+          getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+            defaultProvider: "openai",
+            autoAnalyzeOnSave: false,
+            summaryLanguage: "auto",
+            autoRetryOnError: false,
+            displayLanguage: "zh",
+            theme: "sage"
+          }))
+        }),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [createBookmark({ id: "zh-drawer", title: "React Notes", extractedText: "react hooks and compiler" })])
+        }),
+        queryActiveTab: vi.fn(async () => undefined),
+        extractPage: vi.fn(async () => "")
+      })
+    )
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "React")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const resultButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("React Notes"))
+    await act(async () => { resultButton?.click() })
+    await act(async () => { await Promise.resolve() })
+
+    const drawerText = container?.querySelector("[data-testid='bookmark-drawer']")?.textContent ?? ""
+    expect(drawerText).toContain("\u94fe\u63a5")
+    expect(drawerText).toContain("\u6253\u5f00")
+  })
+
   it("renders a theme toggle button in the header", async () => {
     await renderSidePanel()
     const btn = container?.querySelector<HTMLButtonElement>("[data-testid='theme-toggle-button']")
@@ -434,6 +525,54 @@ describe("SidePanel", () => {
     expect(analyzeBookmark).toHaveBeenCalledOnce()
 
     await act(async () => { resolveAnalyze() })
+  })
+
+  it("shows a localized analyze error when drawer analysis fails", async () => {
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => [createBookmark({ id: "bm-fail", status: "saved", title: "Example page" })])
+      }),
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto",
+          autoRetryOnError: false,
+          displayLanguage: "zh",
+          theme: "sage"
+        })),
+        getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+          { provider: "openai", apiKey: "sk-test", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", enabled: true }
+        ])
+      }),
+      analyzeBookmark: vi.fn(async () => {
+        throw new Error("Analysis failed")
+      })
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "Example")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const resultButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Example page"))
+    await act(async () => { resultButton?.click() })
+    await act(async () => { await Promise.resolve() })
+
+    const analyzeBtn = container?.querySelector<HTMLButtonElement>("[data-testid='drawer-analyze-button']")
+    await act(async () => {
+      analyzeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    const errorAlert = container?.querySelector<HTMLElement>("[role='alert']")
+    expect(errorAlert?.textContent).toContain("\u5206\u6790\u4e66\u7b7e\u5931\u8d25")
+    expect(errorAlert?.textContent).not.toContain("Analysis failed")
   })
 
   it("renders the hybrid context bar when current page context is available", async () => {

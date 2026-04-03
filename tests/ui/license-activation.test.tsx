@@ -118,6 +118,17 @@ describe("LicenseActivation", () => {
     expect(container?.textContent).not.toContain("TVLT-1234-5678-ABCD")
   })
 
+  it("renders localized Chinese defaults when language is zh", async () => {
+    await renderLicenseActivation({
+      language: "zh",
+      licenseKey: "TVLT-1234-5678-ABCD"
+    })
+
+    expect(container?.textContent).toContain("激活 TabVault")
+    expect(container?.querySelector("input[aria-label='许可密钥']")).not.toBeNull()
+    expect(container?.querySelector("button")?.textContent).toBe("激活")
+  })
+
   it("switches from edit state to activated state when isLicensed becomes true", async () => {
     await renderLicenseActivation({
       licenseKey: "TVLT-1234-5678-ABCD",

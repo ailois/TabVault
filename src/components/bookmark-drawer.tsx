@@ -1,18 +1,23 @@
-import React, { useEffect, useState } from "react"
+﻿import React, { useEffect, useState } from "react"
+import { localizeKnownErrorText } from "../lib/i18n/error-messages"
+import { getMessage } from "../lib/i18n/messages"
+import type { DisplayLanguage } from "../types/settings"
 import type { BookmarkRecord } from "../types/bookmark"
 import { radius, spacing } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 
 type BookmarkDrawerProps = {
   bookmark: BookmarkRecord | null
+  language?: DisplayLanguage
   onClose: () => void
   onAnalyze: (id: string) => Promise<void>
   onClearAnalysis: (id: string) => Promise<void>
   onUpdateTags: (id: string, aiTags: string[], userTags: string[]) => Promise<void>
 }
 
-export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, onUpdateTags }: BookmarkDrawerProps) {
+export function BookmarkDrawer({ bookmark, language = "en", onClose, onAnalyze, onClearAnalysis, onUpdateTags }: BookmarkDrawerProps) {
   const theme = useThemeContext()
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
   const [isEditingTags, setIsEditingTags] = useState(false)
   const [localAiTags, setLocalAiTags] = useState<string[]>([])
   const [localUserTags, setLocalUserTags] = useState<string[]>([])
@@ -46,6 +51,15 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
 
   const showAnalyzeButton = bookmark.status === "saved" || bookmark.status === "error"
   const showClearButton = bookmark.status === "done" || bookmark.status === "error" || bookmark.status === "analyzing"
+  const dateLocale = language === "zh" ? "zh-CN" : "en-US"
+  const statusLabel =
+    bookmark.status === "saved"
+      ? t("drawer.status.saved")
+      : bookmark.status === "done"
+        ? t("drawer.status.done")
+        : bookmark.status === "error"
+          ? t("drawer.status.error")
+          : t("drawer.status.analyzing")
 
   const tagsChanged =
     JSON.stringify(localAiTags) !== JSON.stringify(bookmark.aiTags) ||
@@ -132,8 +146,8 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
                 style={{ width: "14px", height: "14px", opacity: 0.75, borderRadius: "2px" }}
               />
               <span>{(() => { try { return new URL(bookmark.url).hostname.replace(/^www\./, "") } catch { return "" } })()}</span>
-              <span>•</span>
-              <span>{new Date(bookmark.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+              <span>&bull;</span>
+              <span>{new Date(bookmark.createdAt).toLocaleDateString(dateLocale, { month: "short", day: "numeric", year: "numeric" })}</span>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
@@ -144,16 +158,16 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
               style={{ padding: "5px 10px", border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "0.75rem", fontWeight: 500, color: theme.textSecondary, textDecoration: "none", backgroundColor: "transparent" }}
               target="_blank"
             >
-              ↗️ Open
+              {t("drawer.action.open")}
             </a>
             <button
-              aria-label="Close details"
+              aria-label={t("drawer.action.close")}
               data-testid="drawer-close-button"
               onClick={() => void handleClose()}
               style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "1.125rem", padding: "2px", borderRadius: radius.small, flexShrink: 0 }}
               type="button"
             >
-              ✕
+              X
             </button>
           </div>
         </div>
@@ -162,7 +176,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
         <div style={{ flex: 1, padding: spacing.md, display: "grid", gap: spacing.md }}>
           {/* URL */}
           <div data-testid="drawer-url-section">
-            <p style={{ margin: "0 0 4px", fontSize: "0.75rem", fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>URL</p>
+            <p style={{ margin: "0 0 4px", fontSize: "0.75rem", fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("drawer.section.url")}</p>
             <a
               data-testid="drawer-url-link"
               href={bookmark.url}
@@ -190,7 +204,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
                 whiteSpace: "nowrap"
               }}
             >
-              {bookmark.status}
+              {statusLabel}
             </span>
             {bookmark.provider ? (
               <span style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: radius.pill, backgroundColor: theme.accentSoft, color: theme.accent, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}>
@@ -210,7 +224,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
               padding: "20px"
             }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", paddingBottom: "10px", borderBottom: `1px solid ${theme.isDark ? theme.borderMuted : "#ede8fa"}` }}>
-                <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: theme.isDark ? theme.textMuted : "#312e81", textTransform: "uppercase", letterSpacing: "0.05em" }}>✨ AI Summary</p>
+                <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: theme.isDark ? theme.textMuted : "#312e81", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("drawer.summary.title")}</p>
                 {showAnalyzeButton ? (
                   <button
                     data-testid="drawer-regenerate-button"
@@ -218,7 +232,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
                     style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: theme.isDark ? theme.accent : "#6366f1", fontWeight: 500, padding: "0" }}
                     type="button"
                   >
-                    Re-generate
+                    {t("drawer.summary.regenerate")}
                   </button>
                 ) : null}
               </div>
@@ -226,18 +240,18 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
             </div>
           ) : null}
 
-          {/* Tags section — always shown */}
+          {/* Tags section */}
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: allTagCount > 0 || isEditingTags ? "8px" : 0 }}>
-              <p style={{ margin: 0, fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.07em" }}>Smart Tags</p>
+              <p style={{ margin: 0, fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("drawer.tags.title")}</p>
               <button
-                aria-label={isEditingTags ? "Done editing tags" : "Edit tags"}
+                aria-label={isEditingTags ? t("drawer.tags.done") : t("drawer.tags.edit")}
                 data-testid="tags-edit-button"
                 onClick={() => setIsEditingTags(!isEditingTags)}
                 style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: "5px" }}
                 type="button"
               >
-                {isEditingTags ? "Done" : "✎"}
+                {isEditingTags ? t("drawer.tags.done") : t("drawer.tags.edit")}
               </button>
             </div>
             <div style={{
@@ -258,13 +272,13 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
                   {tag}
                   {isEditingTags ? (
                     <button
-                      aria-label={`Remove tag ${tag}`}
+                      aria-label={t("drawer.tags.remove").replace("{tag}", tag)}
                       data-testid="tag-remove-button"
                       onClick={() => setLocalAiTags(localAiTags.filter((t) => t !== tag))}
                       style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "0 0 0 2px", lineHeight: 1 }}
                       type="button"
                     >
-                      ×
+                      x
                     </button>
                   ) : null}
                 </span>
@@ -275,13 +289,13 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
                   {tag}
                   {isEditingTags ? (
                     <button
-                      aria-label={`Remove tag ${tag}`}
+                      aria-label={t("drawer.tags.remove").replace("{tag}", tag)}
                       data-testid="tag-remove-button"
                       onClick={() => setLocalUserTags(localUserTags.filter((t) => t !== tag))}
                       style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "0 0 0 2px", lineHeight: 1 }}
                       type="button"
                     >
-                      ×
+                      x
                     </button>
                   ) : null}
                 </span>
@@ -291,7 +305,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
                   data-testid="tag-input"
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleTagInputKeyDown}
-                  placeholder="+ Add custom tag..."
+                  placeholder={t("drawer.tags.inputPlaceholder")}
                   style={{ fontSize: "0.8125rem", background: "transparent", outline: "none", border: "none", padding: "4px 6px", minWidth: "120px", color: theme.textPrimary, flex: 1 }}
                   type="text"
                   value={tagInput}
@@ -302,13 +316,13 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
 
           {/* Error message */}
           {bookmark.status === "error" && bookmark.errorMessage ? (
-            <p style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>{bookmark.errorMessage}</p>
+            <p style={{ margin: 0, fontSize: "0.8125rem", color: theme.textDanger }}>{localizeKnownErrorText(language, bookmark.errorMessage)}</p>
           ) : null}
 
           {/* Dates */}
           <div data-testid="drawer-date-block" style={{ fontSize: "0.75rem", color: theme.textMuted, display: "grid", gap: "2px" }}>
-            <p style={{ margin: 0 }}>Saved {new Date(bookmark.createdAt).toLocaleDateString()}</p>
-            <p style={{ margin: 0 }}>Updated {new Date(bookmark.updatedAt).toLocaleDateString()}</p>
+            <p style={{ margin: 0 }}>{t("drawer.date.saved").replace("{date}", new Date(bookmark.createdAt).toLocaleDateString(dateLocale))}</p>
+            <p style={{ margin: 0 }}>{t("drawer.date.updated").replace("{date}", new Date(bookmark.updatedAt).toLocaleDateString(dateLocale))}</p>
           </div>
         </div>
 
@@ -321,7 +335,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
               style={{ flex: 1, padding: `${spacing.sm} ${spacing.md}`, border: "none", borderRadius: radius.medium, backgroundColor: theme.accent, color: "#fff", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
               type="button"
             >
-              Analyze
+              {t("drawer.button.analyze")}
             </button>
           ) : null}
           {showClearButton ? (
@@ -331,7 +345,7 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
               style={{ flex: 1, padding: `${spacing.sm} ${spacing.md}`, border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: "transparent", color: theme.textSecondary, fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
               type="button"
             >
-              Clear analysis
+              {t("drawer.button.clearAnalysis")}
             </button>
           ) : null}
         </div>
@@ -339,3 +353,4 @@ export function BookmarkDrawer({ bookmark, onClose, onAnalyze, onClearAnalysis, 
     </>
   )
 }
+

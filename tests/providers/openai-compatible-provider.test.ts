@@ -318,7 +318,7 @@ describe("OpenAiCompatibleProvider", () => {
     ).rejects.toMatchObject({
       name: "ProviderError",
       code: "network_error",
-      message: "socket hang up"
+      message: "OpenAI-compatible request failed"
     })
   })
 
@@ -362,7 +362,7 @@ describe("OpenAiCompatibleProvider", () => {
       const rejectionExpectation = expect(analyzePromise).rejects.toMatchObject({
         name: "ProviderError",
         code: "network_error",
-        message: "The operation was aborted."
+        message: "OpenAI-compatible request failed"
       })
 
       await vi.advanceTimersByTimeAsync(10)

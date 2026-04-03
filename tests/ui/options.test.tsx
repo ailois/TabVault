@@ -123,11 +123,53 @@ describe("Options", () => {
       root.render(<Options services={{ settingsRepository: zhSettingsRepository, testConnection: async () => {} }} />)
     })
 
-    expect(container?.textContent).toContain("架构配置")
-    expect(container?.textContent).toContain("轻量级混合检索")
-    expect(container?.textContent).toContain("体验与自动化")
-    expect(container?.textContent).toContain("界面语言")
-    expect(container?.textContent).toContain("保存设置")
+    expect(container?.textContent).toContain("\u67b6\u6784\u8bbe\u7f6e")
+    expect(container?.textContent).toContain("\u77e5\u8bc6\u5e93")
+    expect(container?.textContent).toContain("\u4f53\u9a8c\u4e0e\u81ea\u52a8\u5316")
+    expect(container?.textContent).toContain("\u754c\u9762\u8bed\u8a00")
+    expect(container?.textContent).toContain("\u4fdd\u5b58\u8bbe\u7f6e")
+    expect(container?.textContent).toContain("OpenAI \u804a\u5929\u8865\u5168")
+  })
+
+  it("localizes provider connection fallback errors in zh", async () => {
+    const zhSettingsRepository: SettingsRepository = {
+      ...settingsRepository,
+      getAppSettings: async () => ({
+        defaultProvider: "openai",
+        autoAnalyzeOnSave: false,
+        summaryLanguage: "auto" as const,
+        autoRetryOnError: false,
+        displayLanguage: "zh" as const,
+        theme: "sage" as const
+      }),
+      getProviders: async () => [{
+        provider: "openai" as const,
+        apiKey: "sk-test",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4o-mini",
+        enabled: true
+      }]
+    }
+
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root.render(<Options services={{ settingsRepository: zhSettingsRepository, testConnection: async () => { throw new Error("Failed to open bookmark database") } }} />)
+    })
+
+    const testButton = container?.querySelector<HTMLButtonElement>("[data-testid='provider-test-button']")
+
+    await act(async () => {
+      testButton?.click()
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(container?.querySelector("[data-testid='connection-test-result']")?.textContent).toContain("\u8fde\u63a5\u5931\u8d25")
+    expect(container?.textContent).not.toContain("Failed to open bookmark database")
   })
 
   it("renders editable app and provider settings sections", async () => {
@@ -137,35 +179,23 @@ describe("Options", () => {
     const sidebar = container?.querySelector('[data-testid="options-sidebar"]')
     const mainContent = container?.querySelector('[data-testid="options-main-content"]')
     const settingsNavButton = container?.querySelector<HTMLButtonElement>('[data-testid="options-nav-settings"]')
+    const appSection = getSectionByHeading("OpenAI Chat")
+    const workspace = container?.querySelector('[data-testid="settings-workspace"]')
+    const providerRail = container?.querySelector('[data-testid="provider-rail"]')
+    const providerRailButtons = Array.from(container?.querySelectorAll('[data-testid^="provider-rail-"]') ?? [])
 
     expect(container?.textContent).toContain("TabVault")
-    expect(container?.textContent).toContain("Settings")
+    expect(container?.textContent).toContain("Knowledge Base")
     expect(dashboardShell).toBeTruthy()
     expect(sidebar).toBeTruthy()
     expect(mainContent).toBeTruthy()
     expect(settingsNavButton?.getAttribute("aria-current")).toBe("page")
-
-    const appSection = getSectionByHeading("Provider & Protocol")
-    const retrievalPanel = container?.querySelector('[data-testid="settings-tab-panel-retrieval"]')
-    const openAiSection = getSectionByHeading("OpenAI-compatible")
-    const workspace = container?.querySelector('[data-testid="settings-workspace"]')
-    const providerRail = container?.querySelector('[data-testid="provider-rail"]')
-
-    const providerRailButtons = Array.from(container?.querySelectorAll('[data-testid^="provider-rail-"]') ?? [])
-
-    expect(appSection?.closest('[data-testid="settings-section-card"]')).toBeTruthy()
-    expect(retrievalPanel).toBeTruthy()
+    expect(appSection).toBeTruthy()
     expect(workspace).toBeTruthy()
     expect(providerRail).toBeTruthy()
-    expect(providerRailButtons).toHaveLength(3)
-    expect(container?.querySelector('[data-testid="provider-rail-responses"]')).toBeNull()
-    expect(container?.textContent).not.toContain("Responses API")
+    expect(providerRailButtons).toHaveLength(4)
     expect(container?.textContent).not.toContain("Edit configuration")
-    // defaultProvider is openai, so only openai provider form is visible
-    expect(openAiSection?.closest('[data-testid="settings-section-card"]') ?? openAiSection).toBeTruthy()
-    // provider editor selector should be removed
     expect(container?.querySelector("#provider-editor-selector")).toBeNull()
-    // claude and gemini sections are not visible
     expect(getSectionByHeading("Claude")).toBeUndefined()
     expect(getSectionByHeading("Gemini")).toBeUndefined()
   })
@@ -174,7 +204,7 @@ describe("Options", () => {
     await renderOptions()
 
     // Initially openai should be visible, claude not
-    expect(getSectionByHeading("OpenAI-compatible")).toBeTruthy()
+    expect(getSectionByHeading("OpenAI Chat")).toBeTruthy()
     expect(getSectionByHeading("Claude")).toBeUndefined()
 
     // Switch provider rail to claude
@@ -186,7 +216,7 @@ describe("Options", () => {
     })
 
     // Now claude should be visible, openai not
-    expect(getSectionByHeading("OpenAI-compatible")).toBeUndefined()
+    expect(getSectionByHeading("OpenAI Chat")).toBeUndefined()
     expect(getSectionByHeading("Claude")).toBeTruthy()
     expect(container?.querySelector<HTMLButtonElement>('[data-testid="provider-rail-openai"]')?.getAttribute("aria-pressed")).toBe("false")
     expect(container?.querySelector<HTMLButtonElement>('[data-testid="provider-rail-claude"]')?.getAttribute("aria-pressed")).toBe("true")
@@ -208,7 +238,7 @@ describe("Options", () => {
       }
     )
 
-    const openAiSection = getSectionByHeading("OpenAI-compatible")
+    const openAiSection = getSectionByHeading("OpenAI Chat")
     const apiKeyInput = getInputById("openai-api-key")
     const modelInput = getInputById("openai-model")
     const baseUrlInput = getInputById("openai-base-url")
@@ -231,8 +261,8 @@ describe("Options", () => {
   it("renders provider sections with readable descriptions and explicit field groupings", async () => {
     await renderOptions()
 
-    assertProviderSectionStructure("OpenAI-compatible", {
-      description: "Use any OpenAI-compatible endpoint by providing an API key, model, and base URL.",
+    assertProviderSectionStructure("OpenAI Chat", {
+      description: "/v1/chat/completions",
       expectedFieldLabels: ["API key", "Model", "Base URL"]
     })
   })
@@ -542,11 +572,29 @@ describe("Options", () => {
     expect(apiKeyInput?.style.backgroundColor).toBeTruthy()
   })
 
+  it("renders provider form copy in zh", async () => {
+    await renderProviderSettingsForm(
+      {
+        provider: "openai",
+        apiKey: "",
+        baseUrl: "",
+        model: "",
+        enabled: false
+      },
+      {},
+      "zh"
+    )
+
+    expect(container?.textContent).toContain("\u6a21\u578b")
+    expect(container?.textContent).toContain("\u6d4b\u8bd5\u8fde\u63a5")
+    expect(container?.textContent).toContain("\u5fc5\u586b")
+  })
+
   it("shows both taro preset and a custom color picker entry", async () => {
     await renderOptions()
 
-    expect(container?.querySelector('[data-testid="theme-card-taro"]')?.textContent).toContain("芋色")
-    expect(container?.querySelector('[data-testid="theme-card-custom"]')?.textContent).toContain("自定义")
+    expect(container?.querySelector('[data-testid="theme-card-taro"]')?.textContent).toContain("Taro")
+    expect(container?.querySelector('[data-testid="theme-card-custom"]')?.textContent).toContain("Custom")
   })
 
   it("opens a custom color picker and keeps purple as a preset option", async () => {
@@ -608,13 +656,17 @@ function mockTrialStatus(overrides: {
   })
 }
 
-async function renderProviderSettingsForm(value: ProviderFormState, fieldErrors: ProviderValidation): Promise<void> {
+async function renderProviderSettingsForm(
+  value: ProviderFormState,
+  fieldErrors: ProviderValidation,
+  language: "en" | "zh" = "en"
+): Promise<void> {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
 
   await act(async () => {
-    root.render(<ProviderSettingsForm fieldErrors={fieldErrors} onChange={() => {}} onTestConnection={async () => "ok"} value={value} />)
+    root.render(<ProviderSettingsForm fieldErrors={fieldErrors} language={language} onChange={() => {}} onTestConnection={async () => "ok"} value={value} />)
   })
 }
 

@@ -59,7 +59,7 @@ describe("Popup state", () => {
 
     expect(container?.querySelector('[data-testid="popup-unsynced-view"]')).not.toBeNull()
     expect(screen().text()).toContain("Example page")
-    expect(screen().getPrimaryActionButton()?.textContent).toContain("保存当前页面")
+    expect(screen().getPrimaryActionButton()?.textContent).toContain("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
   })
 
   it("renders the synced popup state when current page already exists", async () => {
@@ -79,7 +79,7 @@ describe("Popup state", () => {
     expect(container?.querySelector('[data-testid="popup-synced-view"]')).not.toBeNull()
     expect(container?.textContent).toContain("Saved summary")
     expect(container?.textContent).toContain("example")
-    expect(container?.textContent).toContain("In library")
+    expect(container?.textContent).toContain("\u5df2\u5728\u5e93\u4e2d")
   })
 
   it("renders popup copy in Chinese when display language is zh", async () => {
@@ -96,9 +96,9 @@ describe("Popup state", () => {
       })
     }))
 
-    expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("打开侧边栏")
-    expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("控制台")
-    expect(screen().getPrimaryActionButton()?.textContent).toContain("保存当前页面")
+    expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("\u6253\u5f00\u4fa7\u8fb9\u680f")
+    expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("\u6253\u5f00\u9762\u677f")
+    expect(screen().getPrimaryActionButton()?.textContent).toContain("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
   })
 
   it("does not render search, library, or bookmark management UI", async () => {
@@ -126,15 +126,15 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("保存当前页面")
+    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
 
     const statusRegion = screen().getStatusRegion()
     const errorAlert = screen().getErrorAlert()
 
-    expect(screen().getStatusRegion()?.textContent).toContain("已保存：Example page")
+    expect(screen().getStatusRegion()?.textContent).toContain("\u5df2\u4fdd\u5b58\uff1aExample page")
     expect(statusRegion?.getAttribute("role")).toBe("status")
     expect(statusRegion?.getAttribute("aria-live")).toBe("polite")
-    expect(errorAlert?.textContent).toContain("请先在设置中添加 API key 以启用自动分析。")
+    expect(errorAlert?.textContent).toContain("\u8bf7\u5148\u5728\u8bbe\u7f6e\u4e2d\u586b\u5199 API Key\uff0c\u624d\u80fd\u542f\u7528\u81ea\u52a8\u5206\u6790\u3002")
     expect(errorAlert?.getAttribute("role")).toBe("alert")
   })
 
@@ -146,7 +146,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("保存当前页面")
+    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
 
     expect(screen().getErrorAlert()?.textContent).toContain("Failed to save current page")
     expect(screen().getStatusRegion()).toBeNull()
@@ -161,9 +161,9 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("保存当前页面")
+    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
 
-    expect(screen().getErrorAlert()?.textContent).toContain("当前标签页缺少标题或 URL，无法保存。")
+    expect(screen().getErrorAlert()?.textContent).toContain("\u5f53\u524d\u6807\u7b7e\u9875\u7f3a\u5c11\u6807\u9898\u6216 URL\uff0c\u65e0\u6cd5\u4fdd\u5b58\u3002")
     expect(screen().text()).not.toContain("Active tab title is required")
   })
 
@@ -194,15 +194,15 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("保存当前页面")
+    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
 
     expect(screen().getStatusRegion()).toBeNull()
 
     analyzeDeferred.reject(new Error("Analysis failed"))
     await flush()
 
-    expect(screen().getStatusRegion()?.textContent).toContain("已保存：Example page")
-    expect(screen().getErrorAlert()?.textContent).toContain("Analysis failed")
+    expect(screen().getStatusRegion()?.textContent).toContain("\u5df2\u4fdd\u5b58\uff1aExample page")
+    expect(screen().getErrorAlert()?.textContent).toContain("\u5206\u6790\u4e66\u7b7e\u5931\u8d25")
   })
 
   it.each<readonly [ProviderConfig["provider"], ProviderConfig]>([
@@ -254,7 +254,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("保存当前页面")
+    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
 
     const provider = analyzeBookmark.mock.calls[0]?.[0]?.provider
 
@@ -275,7 +275,29 @@ describe("Popup state", () => {
     await renderPopup(createServices())
     const btn = container?.querySelector<HTMLButtonElement>("[data-testid='theme-toggle-button']")
     expect(btn).not.toBeNull()
-    expect(btn?.getAttribute("aria-label")).toMatch(/switch to (dark|light) mode/i)
+    expect(btn?.getAttribute("aria-label")).toMatch(/switch to (dark|light) mode|\u5207\u6362\u5230[\u6df1\u6d45]\u8272\u6a21\u5f0f/i)
+  })
+
+  it("localizes the theme toggle label in Chinese", async () => {
+    await renderPopup(createServices())
+
+    const btn = container?.querySelector<HTMLButtonElement>("[data-testid='theme-toggle-button']")
+
+    expect(btn?.getAttribute("aria-label")).toContain("\u5207\u6362\u5230\u6df1\u8272\u6a21\u5f0f")
+  })
+
+  it("uses localized save fallback for internal storage errors", async () => {
+    const services = createServices({
+      saveCurrentPage: vi.fn(async () => {
+        throw new Error("Failed to open bookmark database")
+      })
+    })
+
+    await renderPopup(services)
+    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
+
+    expect(screen().getErrorAlert()?.textContent).toContain("\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u5931\u8d25")
+    expect(screen().getErrorAlert()?.textContent).not.toContain("Failed to open bookmark database")
   })
 
   it("opens settings from the header action", async () => {
@@ -290,7 +312,7 @@ describe("Popup state", () => {
 
     await renderPopup(createServices())
 
-    const settingsButton = container?.querySelector<HTMLButtonElement>("button[aria-label='打开设置']")
+    const settingsButton = container?.querySelector<HTMLButtonElement>("button[aria-label='\u6253\u5f00\u8bbe\u7f6e']")
     await act(async () => { settingsButton?.click() })
     await flush()
 

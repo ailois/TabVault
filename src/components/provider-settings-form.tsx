@@ -1,7 +1,9 @@
-﻿import React, { useEffect, useState } from "react"
+﻿import React, { useEffect, useMemo, useState } from "react"
 
 import type { ProviderFormState } from "../features/settings/provider-form-state"
 import type { ProviderValidation } from "../features/settings/settings-validation"
+import { getProviderPresentation } from "../lib/i18n/provider-metadata"
+import type { DisplayLanguage } from "../types/settings"
 import { radius, spacing } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 
@@ -10,20 +12,7 @@ type ProviderSettingsFormProps = {
   onChange: (nextValue: ProviderFormState) => void
   fieldErrors?: ProviderValidation
   onTestConnection: (value: ProviderFormState) => Promise<"ok" | string>
-}
-
-const PROVIDER_LABELS: Record<ProviderFormState["provider"], string> = {
-  openai: "OpenAI Chat",
-  "openai-response": "OpenAI Response",
-  claude: "Claude",
-  gemini: "Gemini"
-}
-
-const PROVIDER_DESCRIPTIONS: Record<ProviderFormState["provider"], string> = {
-  openai: "/v1/chat/completions",
-  "openai-response": "/v1/responses",
-  claude: "Anthropic Messages",
-  gemini: "Google AI Studio"
+  language?: DisplayLanguage
 }
 
 const PROVIDER_COLORS: Record<ProviderFormState["provider"], string> = {
@@ -40,7 +29,67 @@ const PROVIDER_BASE_URL_DEFAULTS: Partial<Record<ProviderFormState["provider"], 
   gemini: "https://generativelanguage.googleapis.com/v1beta/models"
 }
 
-function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }: ProviderSettingsFormProps) {
+const FORM_COPY: Record<DisplayLanguage, {
+  required: string
+  apiKey: string
+  model: string
+  baseUrl: string
+  baseUrlOptional: (url: string) => string
+  connectionIdle: string
+  connectionTesting: string
+  connectionSuccess: string
+  testButton: string
+  testingButton: string
+}> = {
+  en: {
+    required: "Required",
+    apiKey: "API key",
+    model: "Model",
+    baseUrl: "Base URL",
+    baseUrlOptional: (url) => `optional, defaults to ${url}`,
+    connectionIdle: "Connection not tested yet",
+    connectionTesting: "Testing connection...",
+    connectionSuccess: "Connected",
+    testButton: "Test connection",
+    testingButton: "Testing..."
+  },
+  zh: {
+    required: "必填",
+    apiKey: "API Key",
+    model: "模型",
+    baseUrl: "Base URL",
+    baseUrlOptional: (url) => `可选，默认使用 ${url}`,
+    connectionIdle: "尚未测试连接",
+    connectionTesting: "正在测试连接...",
+    connectionSuccess: "连接成功",
+    testButton: "测试连接",
+    testingButton: "测试中..."
+  }
+}
+
+const LOCALIZED_FORM_COPY: typeof FORM_COPY = {
+  en: FORM_COPY.en,
+  zh: {
+    required: "\u5fc5\u586b",
+    apiKey: "API Key",
+    model: "\u6a21\u578b",
+    baseUrl: "Base URL",
+    baseUrlOptional: (url) => `\u53ef\u9009\uff0c\u9ed8\u8ba4\u4f7f\u7528 ${url}`,
+    connectionIdle: "\u5c1a\u672a\u6d4b\u8bd5\u8fde\u63a5",
+    connectionTesting: "\u6b63\u5728\u6d4b\u8bd5\u8fde\u63a5...",
+    connectionSuccess: "\u8fde\u63a5\u6210\u529f",
+    testButton: "\u6d4b\u8bd5\u8fde\u63a5",
+    testingButton: "\u6d4b\u8bd5\u4e2d..."
+  }
+}
+
+function ProviderSettingsForm({
+  value,
+  onChange,
+  fieldErrors,
+  onTestConnection,
+  language = "en"
+}: ProviderSettingsFormProps) {
   const theme = useThemeContext()
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | string>("idle")
 
@@ -48,12 +97,25 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
     setTestStatus("idle")
   }, [value])
 
-  const providerLabel = PROVIDER_LABELS[value.provider]
-  const providerDescription = PROVIDER_DESCRIPTIONS[value.provider]
+  const copy = LOCALIZED_FORM_COPY[language]
+  const providerPresentation = getProviderPresentation(language, value.provider)
   const providerColor = PROVIDER_COLORS[value.provider]
   const apiKeyErrorId = `${value.provider}-api-key-error`
   const modelErrorId = `${value.provider}-model-error`
   const baseUrlErrorId = `${value.provider}-base-url-error`
+
+  const connectionLabel = useMemo(() => {
+    if (testStatus === "idle") {
+      return null
+    }
+    if (testStatus === "testing") {
+      return copy.connectionTesting
+    }
+    if (testStatus === "ok") {
+      return copy.connectionSuccess
+    }
+    return testStatus
+  }, [copy.connectionSuccess, copy.connectionTesting, testStatus])
 
   const updateField = <K extends keyof ProviderFormState>(field: K, fieldValue: ProviderFormState[K]) => {
     onChange({
@@ -82,7 +144,7 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
     boxSizing: "border-box",
     padding: `${spacing.sm} ${spacing.md}`,
     border: `1px solid ${theme.border}`,
-    borderRadius: radius.medium,
+    borderRadius: radius.small,
     backgroundColor: theme.page,
     fontSize: "0.875rem",
     color: theme.textPrimary,
@@ -125,18 +187,18 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
               backgroundColor: providerColor
             }}
           />
-          {providerLabel}
+          {providerPresentation.label}
         </h2>
         <p data-testid="provider-description" style={{ margin: 0, color: theme.textMuted, fontSize: "0.75rem", lineHeight: 1.5 }}>
-          {providerDescription}
+          {providerPresentation.description}
         </p>
       </div>
 
       <div style={{ display: "grid", gap: spacing.md, paddingTop: spacing.md, borderTop: `1px solid ${theme.border}` }}>
-        <div data-testid="provider-field-stack" style={{ display: "grid" }}>
+        <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
           <label htmlFor={`${value.provider}-api-key`} style={labelStyle}>
-            <span>API Key</span>
-            <span style={{ color: theme.textDanger, opacity: 0.8 }}>必填</span>
+            <span>{copy.apiKey}</span>
+            <span style={{ color: theme.textDanger, opacity: 0.8 }}>{copy.required}</span>
           </label>
           <input
             aria-describedby={fieldErrors?.apiKey ? apiKeyErrorId : undefined}
@@ -155,10 +217,10 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
           ) : null}
         </div>
 
-        <div data-testid="provider-field-stack" style={{ display: "grid" }}>
+        <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
           <label htmlFor={`${value.provider}-model`} style={labelStyle}>
-            <span>Model (模型名称)</span>
-            <span style={{ color: theme.textDanger, opacity: 0.8 }}>必填</span>
+            <span>{copy.model}</span>
+            <span style={{ color: theme.textDanger, opacity: 0.8 }}>{copy.required}</span>
           </label>
           <input
             aria-describedby={fieldErrors?.model ? modelErrorId : undefined}
@@ -176,13 +238,13 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
           ) : null}
         </div>
 
-        <div data-testid="provider-field-stack" style={{ display: "grid" }}>
+        <div data-testid="provider-field-stack" style={{ display: "grid", gap: spacing.xs }}>
           <label htmlFor={`${value.provider}-base-url`} style={{ ...labelStyle, justifyContent: "flex-start" }}>
             <span>
-              Base URL
+              {copy.baseUrl}
               {value.provider !== "openai" && value.provider !== "openai-response" ? (
                 <span style={{ fontWeight: 400, color: theme.textMuted, marginLeft: "0.5em" }}>
-                  (optional, defaults to {PROVIDER_BASE_URL_DEFAULTS[value.provider]})
+                  ({copy.baseUrlOptional(PROVIDER_BASE_URL_DEFAULTS[value.provider] ?? "")})
                 </span>
               ) : null}
             </span>
@@ -206,14 +268,17 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
       </div>
 
       <div style={{ marginTop: "4px", paddingTop: spacing.md, borderTop: `1px solid ${theme.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
-        <span style={{ fontSize: "0.75rem", color: testStatus === "ok" ? theme.textSuccess : theme.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: testStatus === "ok" ? theme.textSuccess : testStatus !== "idle" && testStatus !== "testing" ? theme.textDanger : "#D1D5DB" }} />
-          {testStatus === "idle" || testStatus === "testing"
-            ? "尚未测试连通性"
-            : testStatus === "ok"
-              ? "连接成功"
-              : testStatus}
-        </span>
+        {connectionLabel ? (
+          <span data-testid="connection-test-result" style={{ fontSize: "0.75rem", color: testStatus === "ok" ? theme.textSuccess : testStatus !== "idle" && testStatus !== "testing" ? theme.textDanger : theme.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: testStatus === "ok" ? theme.textSuccess : testStatus !== "idle" && testStatus !== "testing" ? theme.textDanger : "#D1D5DB" }} />
+            {connectionLabel}
+          </span>
+        ) : (
+          <span style={{ fontSize: "0.75rem", color: theme.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#D1D5DB" }} />
+            {copy.connectionIdle}
+          </span>
+        )}
         <button
           data-testid="provider-test-button"
           disabled={!canTest || testStatus === "testing"}
@@ -229,7 +294,7 @@ function ProviderSettingsForm({ value, onChange, fieldErrors, onTestConnection }
           }}
           type="button"
         >
-          {testStatus === "testing" ? "测试中..." : "测试连接 (Test)"}
+          {testStatus === "testing" ? copy.testingButton : copy.testButton}
         </button>
       </div>
     </section>

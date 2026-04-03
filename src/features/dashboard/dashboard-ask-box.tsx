@@ -1,18 +1,33 @@
 import React, { useMemo, useState } from "react"
 
-import { buildAnswerBlock } from "../../features/hybrid-retrieval/build-answer-block"
 import { rankHybridResults } from "../../features/hybrid-retrieval/rank-hybrid-results"
 import type { SearchDocument } from "../../features/hybrid-retrieval/search-documents"
+import { getMessage } from "../../lib/i18n/messages"
 import type { BookmarkRecord } from "../../types/bookmark"
+import type { DisplayLanguage } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 
 type DashboardAskBoxProps = {
   bookmark: BookmarkRecord | null
+  language?: DisplayLanguage
 }
 
-export function DashboardAskBox({ bookmark }: DashboardAskBoxProps) {
+function formatAnswer(language: DisplayLanguage, query: string, titles: string[]): string {
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
+
+  if (titles.length === 0) {
+    return t("dashboard.ask.answer.none").replace("{query}", query)
+  }
+
+  return t("dashboard.ask.answer.found")
+    .replace("{titles}", titles.join(", "))
+    .replace("{query}", query)
+}
+
+export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxProps) {
   const theme = useThemeContext()
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
   const [query, setQuery] = useState("")
   const [answerText, setAnswerText] = useState<string | null>(null)
 
@@ -39,25 +54,27 @@ export function DashboardAskBox({ bookmark }: DashboardAskBoxProps) {
   }, [bookmark])
 
   function handleSubmit(): void {
-    if (!searchDocument || !query.trim()) {
+    const trimmedQuery = query.trim()
+    if (!searchDocument || !trimmedQuery) {
       return
     }
 
-    const results = rankHybridResults([searchDocument], query)
-    const answer = buildAnswerBlock({ query, rankedResults: results })
-    setAnswerText(answer.text)
+    const results = rankHybridResults([searchDocument], trimmedQuery)
+    const titles = results.slice(0, 3).map((result) => result.document.title)
+    setAnswerText(formatAnswer(language, trimmedQuery, titles))
   }
 
   return (
     <div data-testid="dashboard-ask-card" style={{ border: `1px solid ${theme.border}`, borderRadius: radius.xl, padding: "20px", backgroundColor: theme.page, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
       <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", marginBottom: spacing.sm }}>
-        ASK GHOSTREADER
+        {t("dashboard.ask.title")}
       </div>
       <div style={{ position: "relative" }}>
         <input
+          aria-label={t("dashboard.ask.title")}
           data-testid="dashboard-ask-input"
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Ask Ghostreader about this bookmark..."
+          placeholder={t("dashboard.ask.placeholder")}
           style={{
             width: "100%",
             boxSizing: "border-box",
@@ -72,6 +89,7 @@ export function DashboardAskBox({ bookmark }: DashboardAskBoxProps) {
           value={query}
         />
         <button
+          aria-label={t("dashboard.ask.submit")}
           data-testid="dashboard-ask-submit"
           onClick={handleSubmit}
           style={{
@@ -89,7 +107,7 @@ export function DashboardAskBox({ bookmark }: DashboardAskBoxProps) {
           }}
           type="button"
         >
-          →
+          {">"}
         </button>
       </div>
       {answerText ? (

@@ -3,6 +3,8 @@ import React from "react"
 import type { ActionCard } from "../features/hybrid-retrieval/build-action-cards"
 import type { AnswerBlock } from "../features/hybrid-retrieval/build-answer-block"
 import type { RankedHybridResult } from "../features/hybrid-retrieval/rank-hybrid-results"
+import { getMessage } from "../lib/i18n/messages"
+import type { DisplayLanguage } from "../types/settings"
 import { radius, spacing } from "../ui/design-tokens"
 import { useThemeContext } from "../ui/theme-context"
 
@@ -11,10 +13,12 @@ export function HybridQueryStream(input: {
   rankedResults: RankedHybridResult[]
   actions: ActionCard[]
   answer?: AnswerBlock | null
+  language?: DisplayLanguage
   onOpenBookmark?: (bookmarkId: string) => void
   onAction?: (actionId: ActionCard["id"]) => void
 }) {
   const theme = useThemeContext()
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(input.language ?? "en", key)
   const currentPageResults = input.rankedResults.filter((result) => result.document.sourceType === "current-page")
   const savedBookmarkResults = input.rankedResults.filter((result) => result.document.sourceType === "saved-bookmark")
 
@@ -36,7 +40,7 @@ export function HybridQueryStream(input: {
   }
 
   return (
-    <section aria-label="Hybrid query stream" style={{ display: "grid", gap: spacing.sm }}>
+    <section aria-label={t("hybrid.query.ariaLabel")} style={{ display: "grid", gap: spacing.sm }}>
       <div
         style={{
           ...cardStyle,
@@ -44,13 +48,13 @@ export function HybridQueryStream(input: {
           color: theme.textPrimary
         }}
       >
-        <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginBottom: "4px" }}>Query</div>
+        <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginBottom: "4px" }}>{t("hybrid.query.query")}</div>
         <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{input.query}</div>
       </div>
 
       {currentPageResults.length > 0 ? (
         <div style={{ display: "grid", gap: spacing.xs }}>
-          <p style={sectionTitleStyle}>Current page match</p>
+          <p style={sectionTitleStyle}>{t("hybrid.query.currentPageMatch")}</p>
           {currentPageResults.map((result) => (
             <div
               data-testid="hybrid-result-card"
@@ -61,7 +65,7 @@ export function HybridQueryStream(input: {
                 {result.document.title}
               </div>
               <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginTop: "4px" }}>
-                Current page
+                {t("hybrid.query.currentPage")}
               </div>
             </div>
           ))}
@@ -70,7 +74,7 @@ export function HybridQueryStream(input: {
 
       {savedBookmarkResults.length > 0 ? (
         <div style={{ display: "grid", gap: spacing.xs }}>
-          <p style={sectionTitleStyle}>Saved bookmarks</p>
+          <p style={sectionTitleStyle}>{t("hybrid.query.savedBookmarks")}</p>
           {savedBookmarkResults.map((result) => (
             <button
               data-testid="hybrid-result-card"
@@ -87,7 +91,7 @@ export function HybridQueryStream(input: {
                 {result.document.title}
               </div>
               <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginTop: "4px" }}>
-                Saved bookmark
+                {t("hybrid.query.savedBookmark")}
               </div>
             </button>
           ))}

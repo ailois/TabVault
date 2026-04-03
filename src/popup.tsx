@@ -9,6 +9,7 @@ import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
 import { extractPage as defaultExtractPage } from "./lib/extraction/extract-page"
+import { getLocalizedErrorMessage } from "./lib/i18n/error-messages"
 import { getMessage } from "./lib/i18n/messages"
 import type { AiProvider } from "./lib/providers/provider"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
@@ -153,7 +154,7 @@ function Popup({ services }: PopupProps) {
       setStatusMessage(formatSavedStatus(saved.title, t))
       await maybeAnalyzeBookmark(saved)
     } catch (error) {
-      setErrorMessage(getSaveErrorMessage(error, t))
+      setErrorMessage(getSaveErrorMessage(displayLanguage, error))
       setStatusTone("info")
       setStatusMessage(t("popup.status.ready"))
     } finally {
@@ -192,7 +193,7 @@ function Popup({ services }: PopupProps) {
       setStatusTone("success")
       setStatusMessage(formatSavedStatus(bookmark.title, t))
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, t("popup.error.analyzeFallback")))
+      setErrorMessage(getLocalizedErrorMessage(displayLanguage, error, "popup.error.analyzeFallback"))
       setStatusTone("success")
       setStatusMessage(formatSavedStatus(bookmark.title, t))
     } finally {
@@ -252,19 +253,19 @@ function Popup({ services }: PopupProps) {
           <header style={headerStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div style={{ width: "20px", height: "20px", borderRadius: "4px", backgroundColor: theme.accent, color: "#fff", fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                ✦
+                TV
               </div>
               <span id="popup-title" style={{ fontWeight: 700, fontSize: "14px" }}>TabVault</span>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <button
-                aria-label={theme.isDark ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={theme.isDark ? t("common.theme.switchToLight") : t("common.theme.switchToDark")}
                 data-testid="theme-toggle-button"
                 onClick={() => theme.toggle()}
                 style={iconButtonStyle}
                 type="button"
               >
-                {theme.isDark ? "☀️" : "🌙"}
+                {theme.isDark ? "L" : "D"}
               </button>
               <button
                 aria-label={t("popup.actions.openSettings")}
@@ -272,7 +273,7 @@ function Popup({ services }: PopupProps) {
                 style={iconButtonStyle}
                 type="button"
               >
-                ⚙️
+                S
               </button>
             </div>
           </header>
@@ -281,6 +282,7 @@ function Popup({ services }: PopupProps) {
             <PopupSyncedView
               bookmark={savedBookmark}
               errorMessage={errorMessage}
+              language={displayLanguage}
               onOpenDashboard={() => void openDashboardTab()}
               onOpenSidepanel={() => void openCurrentTabSidePanel()}
               theme={theme}
@@ -293,6 +295,7 @@ function Popup({ services }: PopupProps) {
               errorMessage={errorMessage}
               isAnalyzing={isAnalyzing}
               isSaving={isSaving}
+              language={displayLanguage}
               onOpenDashboard={() => void openDashboardTab()}
               onOpenSidepanel={() => void openCurrentTabSidePanel()}
               onSave={() => void handleSaveCurrentPage()}
@@ -314,6 +317,7 @@ function Popup({ services }: PopupProps) {
 
 type PopupViewProps = {
   theme: ReturnType<typeof useTheme>
+  language: "en" | "zh"
   t: (key: Parameters<typeof getMessage>[1]) => string
 }
 
@@ -323,6 +327,7 @@ function PopupUnsyncedView({
   errorMessage,
   isAnalyzing,
   isSaving,
+  language,
   onOpenDashboard,
   onOpenSidepanel,
   onSave,
@@ -346,7 +351,7 @@ function PopupUnsyncedView({
             <span style={{ fontSize: "11px", fontWeight: 700, color: theme.textSecondary, textTransform: "uppercase" }}>{t("popup.currentPage.label")}</span>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 8px", borderRadius: "9999px", border: `1px solid ${theme.border}`, fontSize: "10px", color: theme.textSecondary }}>
               <span style={{ width: "6px", height: "6px", borderRadius: "9999px", border: `1px solid ${theme.textSecondary}` }} />
-              尚未收录
+              {t("popup.unsynced.badge")}
             </div>
           </div>
           <div style={{ display: "grid", gap: "4px" }}>
@@ -357,10 +362,10 @@ function PopupUnsyncedView({
 
         <section style={{ borderRadius: "12px", backgroundColor: theme.surface, border: `1px solid ${theme.border}`, padding: "12px" }}>
           <div style={{ border: `1px dashed ${theme.accent}`, borderRadius: "8px", padding: "20px 12px", backgroundColor: theme.surfaceSubtle, textAlign: "center" }}>
-            <div style={{ fontSize: "20px", marginBottom: "8px" }}>✨</div>
-            <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px" }}>让 AI 帮你阅读这篇文章</div>
+            <div style={{ fontSize: "20px", marginBottom: "8px" }}>AI</div>
+            <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px" }}>{t("popup.unsynced.helperTitle")}</div>
             <div style={{ fontSize: "10px", color: theme.textSecondary, lineHeight: 1.6 }}>
-              点击下方按钮，TabVault 将自动提取核心要点并生成智能标签，存入你的数字大脑。
+              {t("popup.unsynced.helperBody")}
             </div>
           </div>
         </section>
@@ -375,7 +380,7 @@ function PopupUnsyncedView({
           </div>
         </div>
 
-        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+        {errorMessage ? <ErrorBanner language={language} message={errorMessage} /> : null}
       </div>
     </div>
   )
@@ -384,6 +389,7 @@ function PopupUnsyncedView({
 function PopupSyncedView({
   bookmark,
   errorMessage,
+  language,
   onOpenDashboard,
   onOpenSidepanel,
   theme,
@@ -401,7 +407,7 @@ function PopupSyncedView({
           <span style={{ fontSize: "11px", fontWeight: 700, color: theme.textSecondary, textTransform: "uppercase" }}>{t("popup.currentPage.label")}</span>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 8px", borderRadius: "9999px", backgroundColor: theme.accentSoft, color: theme.accent, fontSize: "10px", fontWeight: 600 }}>
             <span style={{ width: "6px", height: "6px", borderRadius: "9999px", backgroundColor: theme.accent }} />
-            In library
+            {t("popup.synced.badge")}
           </div>
         </div>
 
@@ -428,31 +434,24 @@ function PopupSyncedView({
 
         <div style={{ display: "grid", gap: "8px" }}>
           <button data-testid="popup-primary-action" onClick={onOpenSidepanel} style={{ width: "100%", border: "none", borderRadius: "8px", backgroundColor: theme.accent, color: "#fff", padding: "10px 16px", fontSize: "13px", fontWeight: 500, cursor: "pointer" }} type="button">
-            💬 {t("popup.actions.openSidepanel")}
+            {t("popup.actions.openSidepanel")}
           </button>
           <button data-testid="popup-open-dashboard" onClick={onOpenDashboard} style={{ width: "100%", borderRadius: "8px", border: `1px solid ${theme.border}`, backgroundColor: theme.surface, padding: "8px 12px", fontSize: "12px", color: theme.textPrimary }} type="button">
             {t("popup.actions.openDashboard")}
           </button>
         </div>
 
-        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+        {errorMessage ? <ErrorBanner language={language} message={errorMessage} /> : null}
       </div>
     </div>
   )
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
-}
-
-function getSaveErrorMessage(error: unknown, t: (key: Parameters<typeof getMessage>[1]) => string): string {
-  const message = getErrorMessage(error, t("popup.error.saveFallback"))
-
-  if (message === "Active tab title is required" || message === "Active tab URL is required") {
-    return t("popup.error.saveUnavailableMetadata")
-  }
-
-  return message
+function getSaveErrorMessage(language: "en" | "zh", error: unknown): string {
+  return getLocalizedErrorMessage(language, error, "popup.error.saveFallback", {
+    "Active tab title is required": "popup.error.saveUnavailableMetadata",
+    "Active tab URL is required": "popup.error.saveUnavailableMetadata"
+  })
 }
 
 export default Popup
