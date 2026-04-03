@@ -1,4 +1,6 @@
 .worktrees/
 build/
 node_modules/
+.plasmo/
+2026_04_03_12_22_03.jpg
 tsconfig.tsbuildinfo
