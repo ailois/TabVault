@@ -1,8 +1,8 @@
 import React from "react"
 
 import type { BookmarkRecord } from "../../types/bookmark"
-import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
+import { collectBookmarksWithFolderContext, findDefaultFolderId, matchesSearch } from "./bookmark-workspace"
 
 type DashboardNavigationProps = {
   bookmarks: BookmarkRecord[]
@@ -14,68 +14,133 @@ type DashboardNavigationProps = {
   width: number
 }
 
-export function DashboardNavigation({ bookmarks, activeBookmarkId, onSelect, chromeTree, selectedFolderId, onSelectFolder, width }: DashboardNavigationProps) {
+export function DashboardNavigation({ activeBookmarkId, onSelect, chromeTree, selectedFolderId, onSelectFolder }: DashboardNavigationProps) {
   const theme = useThemeContext()
+
+  const accent = theme.accent
+  const accentSoft = theme.accentSoft
 
   return (
     <aside
       data-testid="dashboard-navigation"
       style={{
-        width: `${width}px`,
-        minWidth: `${width}px`,
-        borderRight: `1px solid ${theme.border}`,
+        width: "256px",
+        minWidth: "256px",
         backgroundColor: theme.surface,
-        padding: spacing.md,
-        boxSizing: "border-box",
-        overflowY: "auto",
-        flexShrink: 0,
+        borderRight: `1px solid ${theme.border}`,
+        boxShadow: "2px 0 8px rgba(0,0,0,0.02)",
         display: "flex",
         flexDirection: "column",
-        gap: spacing.sm
+        zIndex: 10,
+        flexShrink: 0
       }}
     >
-      {chromeTree && chromeTree.length > 0 ? (
-        <div data-testid="dashboard-folder-tree">
-          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", marginBottom: spacing.xs, padding: "4px 0" }}>
-            FOLDERS
+      {/* Logo */}
+      <div style={{ padding: "24px 24px 16px" }}>
+        <h1 style={{ margin: 0, fontWeight: 700, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "10px", color: theme.textPrimary }}>
+          <span style={{ display: "inline-block", width: "24px", height: "24px", borderRadius: "6px", backgroundColor: accent, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
+          TabVault
+        </h1>
+      </div>
+
+      {/* 知识库分组 */}
+      <nav style={{ flex: 1, overflowY: "auto", padding: "0 16px" }}>
+        <p style={{ margin: "0 0 12px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          知识库 (Library)
+        </p>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "2px" }}>
+          <li>
+            <button
+              aria-current={!selectedFolderId ? "page" : undefined}
+              onClick={() => onSelectFolder?.("")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                width: "100%",
+                textAlign: "left",
+                padding: "8px 12px",
+                fontSize: "0.875rem",
+                fontWeight: !selectedFolderId ? 500 : undefined,
+                color: !selectedFolderId ? accent : theme.textMuted,
+                backgroundColor: !selectedFolderId ? accentSoft : "transparent",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer"
+              }}
+              type="button"
+            >
+              <span>📚</span> 全部收藏
+            </button>
+          </li>
+          <li>
+            <button
+              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+              type="button"
+            >
+              <span>📝</span> 我的笔记
+            </button>
+          </li>
+          <li>
+            <button
+              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+              type="button"
+            >
+              <span>⭐</span> 星标内容
+            </button>
+          </li>
+        </ul>
+
+        {/* 浏览器文件夹 */}
+        {chromeTree && chromeTree.length > 0 ? (
+          <div data-testid="dashboard-folder-tree" style={{ marginTop: "28px" }}>
+            <p style={{ margin: "0 0 12px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              书签文件夹
+            </p>
+            <FolderList
+              nodes={chromeTree}
+              onSelectFolder={onSelectFolder}
+              selectedFolderId={selectedFolderId ?? null}
+            />
           </div>
-          <FolderList
-            nodes={chromeTree}
-            onSelectFolder={onSelectFolder}
-            selectedFolderId={selectedFolderId ?? null}
-          />
-        </div>
-      ) : null}
-      <div>
-        <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.1em", marginBottom: spacing.sm, padding: "4px 0" }}>
-          BOOKMARKS
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
-          {bookmarks.map((bookmark) => {
-            const selected = bookmark.id === activeBookmarkId
-            return (
+        ) : null}
+
+        {/* Tags */}
+        <div style={{ marginTop: "28px" }}>
+          <p style={{ margin: "0 0 12px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            智能标签 (Tags)
+          </p>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "2px" }}>
+            <li>
               <button
-                key={bookmark.id}
-                onClick={() => onSelect(bookmark)}
-                style={{
-                  textAlign: "left",
-                  border: `1px solid ${selected ? theme.borderFocus : theme.border}`,
-                  borderRadius: radius.large,
-                  backgroundColor: selected ? theme.accentSoft : theme.surface,
-                  color: selected ? theme.accent : theme.textPrimary,
-                  padding: `${spacing.sm} 12px`,
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  lineHeight: 1.4,
-                  boxShadow: selected ? "0 2px 8px rgba(99,102,241,0.08)" : "none"
-                }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
                 type="button"
               >
-                {bookmark.title}
+                <span># 前端工程化</span>
+                <span style={{ fontSize: "0.625rem", backgroundColor: theme.border, padding: "2px 6px", borderRadius: "999px" }}>12</span>
               </button>
-            )
-          })}
+            </li>
+            <li>
+              <button
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                type="button"
+              >
+                <span># AI 教程</span>
+                <span style={{ fontSize: "0.625rem", backgroundColor: theme.border, padding: "2px 6px", borderRadius: "999px" }}>8</span>
+              </button>
+            </li>
+          </ul>
         </div>
+      </nav>
+
+      {/* 底部 settings 入口 */}
+      <div style={{ padding: "12px 16px", borderTop: `1px solid ${theme.border}` }}>
+        <button
+          style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+          type="button"
+        >
+          ⚙️ 架构设置
+        </button>
       </div>
     </aside>
   )
@@ -108,11 +173,11 @@ function FolderList({
                 role="button"
                 style={{
                   padding: "6px 10px",
-                  borderRadius: "10px",
+                  borderRadius: "8px",
                   cursor: "pointer",
                   fontSize: "0.8125rem",
                   fontWeight: isSelected ? 600 : 500,
-                  color: isSelected ? theme.accent : theme.textSecondary,
+                  color: isSelected ? theme.accent : theme.textMuted,
                   backgroundColor: isSelected ? theme.accentSoft : "transparent",
                   border: `1px solid ${isSelected ? theme.borderFocus : "transparent"}`
                 }}
@@ -135,4 +200,3 @@ function FolderList({
     </div>
   )
 }
-

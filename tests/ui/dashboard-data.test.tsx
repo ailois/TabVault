@@ -54,8 +54,7 @@ describe("DashboardShell data flow", () => {
     })
 
     expect(container?.textContent).toContain("React Docs")
-    expect(container?.textContent).toContain("https://react.dev/reference/react")
-    expect(container?.textContent).toContain("2026-03-01T00:00:00.000Z")
+    expect(container?.textContent).toContain("react.dev")
     expect(container?.textContent).toContain("React lets you build user interfaces.")
   })
 })

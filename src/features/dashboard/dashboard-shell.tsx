@@ -3,10 +3,8 @@ import React, { useEffect, useMemo, useState } from "react"
 import { IndexedDbBookmarkRepository } from "../../lib/storage/indexeddb-bookmark-repository"
 import { updateBookmarkMetadata } from "../../lib/storage/update-bookmark-metadata"
 import type { BookmarkRecord } from "../../types/bookmark"
-import { spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 import { collectBookmarksWithFolderContext, findDefaultFolderId, matchesSearch } from "./bookmark-workspace"
-import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
 import { DashboardNavigation } from "./dashboard-navigation"
 import { DashboardReadingPane } from "./dashboard-reading-pane"
 import { DashboardResultsList } from "./dashboard-results-list"
@@ -110,14 +108,11 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
     setActiveBookmark(nextBookmark)
   }
 
-  const isBulkEditMode = activeBookmark !== null
-
   return (
     <div
       data-testid="dashboard-shell"
       style={{
         display: "flex",
-        flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
         backgroundColor: theme.page,
@@ -125,66 +120,42 @@ export function DashboardShell({ initialBookmarks, initialTree, listBookmarks, g
         fontFamily: "system-ui, sans-serif"
       }}
     >
-      <div
-        style={{
-          padding: `${spacing.sm} ${spacing.md}`,
-          borderBottom: `1px solid ${theme.border}`,
-          backgroundColor: theme.surface,
-          flexShrink: 0
-        }}
-      >
-        <input
-          data-testid="dashboard-search-input"
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search bookmarks..."
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            padding: `${spacing.sm} ${spacing.md}`,
-            border: `1px solid ${theme.border}`,
-            borderRadius: "10px",
-            backgroundColor: theme.surfaceSubtle,
-            color: theme.textPrimary,
-            fontSize: "0.875rem",
-            outline: "none"
-          }}
-          type="text"
-          value={searchQuery}
-        />
-      </div>
+      {/* 左栏：知识库导航 */}
+      <DashboardNavigation
+        activeBookmarkId={activeBookmark?.id ?? null}
+        bookmarks={bookmarks}
+        chromeTree={chromeTree}
+        onSelect={setActiveBookmark}
+        onSelectFolder={(folderId) => setSelectedFolderId(folderId || null)}
+        selectedFolderId={selectedFolderId}
+        width={256}
+      />
 
+      {/* 中栏：搜索 + 结果列表 */}
       <div data-testid="dashboard-browse-view" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <DashboardNavigation
-          activeBookmarkId={activeBookmark?.id ?? null}
-          bookmarks={[]}
-          chromeTree={chromeTree}
-          onSelect={setActiveBookmark}
-          onSelectFolder={setSelectedFolderId}
-          selectedFolderId={selectedFolderId}
-          width={280}
-        />
         <DashboardResultsList
           activeUrl={activeBookmark?.url ?? null}
           bookmarks={visibleBookmarks}
+          onSearchQueryChange={setSearchQuery}
           onSelectUrl={(url) => {
             const bm = bookmarks.find((b) => b.url === url) ?? null
             setActiveBookmark(bm)
           }}
+          searchQuery={searchQuery}
         />
-        <DashboardReadingPane bookmark={activeBookmark} />
-        <DashboardAiSidebar
+
+        {/* 右栏：阅读区（标题 + tab + 内容） */}
+        <DashboardReadingPane
           bookmark={activeBookmark}
           onSaveSummary={handleSaveSummary}
           onSaveTags={handleSaveTags}
-          width={360}
         />
       </div>
 
-      {isBulkEditMode ? (
-        <div data-testid="dashboard-bulk-edit-view" style={{ display: "none" }}>
-          批量编辑工作台
-        </div>
-      ) : null}
+      {/* 隐藏保留：批量编辑区（暂未实现） */}
+      <div data-testid="dashboard-bulk-edit-view" style={{ display: "none" }}>
+        批量编辑工作台
+      </div>
     </div>
   )
 }
