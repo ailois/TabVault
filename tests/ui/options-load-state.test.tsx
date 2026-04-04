@@ -107,9 +107,18 @@ async function renderOptions(settingsRepository: SettingsRepository): Promise<vo
 }
 
 function getSectionByHeading(heading: string): HTMLElement | undefined {
-  const headings = Array.from(container?.querySelectorAll("h2") ?? [])
-  const match = headings.find((h) => h.textContent === heading)
-  return match?.closest("section") ?? undefined
+  const providerIdByHeading: Record<string, string> = {
+    "OpenAI Chat": "openai",
+    "OpenAI 聊天补全": "openai",
+    "OpenAI Response": "openai-response",
+    "OpenAI 响应": "openai-response",
+    Claude: "claude",
+    Gemini: "gemini"
+  }
+  const providerId = providerIdByHeading[heading]
+  return providerId
+    ? container?.querySelector<HTMLElement>(`[data-testid="provider-settings-form-${providerId}"]`) ?? undefined
+    : undefined
 }
 
 function getInput(id: string): HTMLInputElement | null | undefined {

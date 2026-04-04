@@ -163,7 +163,7 @@ function ProviderSettingsForm({
   }
 
   return (
-    <section style={{ display: "grid", gap: spacing.lg }}>
+    <section data-testid={`provider-settings-form-${value.provider}`} style={{ display: "grid", gap: spacing.lg }}>
       <div style={{ display: "grid", gap: "4px" }}>
         <h2
           style={{

@@ -706,6 +706,7 @@ function Options({ services }: OptionsProps) {
           </div>
 
           <button
+            data-testid="settings-save-button"
             disabled={isLoading || hasLoadError || saveStatus === "saving" || validation.hasErrors}
             onClick={() => void handleSave()}
             style={{

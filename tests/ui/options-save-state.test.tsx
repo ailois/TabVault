@@ -663,7 +663,7 @@ async function clickSave(): Promise<void> {
   const button = getSaveButton()
 
   if (!button) {
-    throw new Error("Expected Save settings button")
+    throw new Error("Expected save button")
   }
 
   await act(async () => {
@@ -689,10 +689,18 @@ function setElementValue(element: HTMLInputElement | HTMLSelectElement, value: s
 }
 
 function getSectionByHeading(heading: string): HTMLElement | undefined {
-  const headings = Array.from(container?.querySelectorAll("h2") ?? [])
-  const match = headings.find((sectionHeading) => sectionHeading.textContent === heading)
-
-  return match?.closest("section") ?? undefined
+  const providerIdByHeading: Record<string, string> = {
+    "OpenAI Chat": "openai",
+    "OpenAI 聊天补全": "openai",
+    "OpenAI Response": "openai-response",
+    "OpenAI 响应": "openai-response",
+    Claude: "claude",
+    Gemini: "gemini"
+  }
+  const providerId = providerIdByHeading[heading]
+  return providerId
+    ? container?.querySelector<HTMLElement>(`[data-testid="provider-settings-form-${providerId}"]`) ?? undefined
+    : undefined
 }
 
 function getSaveStatusText(): string | undefined {
@@ -704,7 +712,7 @@ function getSaveActionArea(): HTMLElement | undefined {
 }
 
 function getSaveButton(): HTMLButtonElement | undefined {
-  return getSaveActionArea()?.querySelector<HTMLButtonElement>("button") ?? undefined
+  return container?.querySelector<HTMLButtonElement>('[data-testid="settings-save-button"]') ?? undefined
 }
 
 function createDeferred<T>(): {

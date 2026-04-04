@@ -30,16 +30,16 @@ const PROVIDER_PRESENTATIONS: Record<DisplayLanguage, Record<ProviderType, Provi
       description: "/v1/chat/completions"
     },
     "openai-response": {
-      label: "OpenAI Response",
+      label: "OpenAI \u54cd\u5e94",
       description: "/v1/responses"
     },
     claude: {
       label: "Claude",
-      description: "Anthropic Messages"
+      description: "Anthropic Messages \u534f\u8bae"
     },
     gemini: {
       label: "Gemini",
-      description: "Google AI Studio"
+      description: "Google AI Studio \u5de5\u4f5c\u53f0"
     }
   }
 }

@@ -126,7 +126,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
+    await clickPrimaryActionButton()
 
     const statusRegion = screen().getStatusRegion()
     const errorAlert = screen().getErrorAlert()
@@ -146,7 +146,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
+    await clickPrimaryActionButton()
 
     expect(screen().getErrorAlert()?.textContent).toContain("Failed to save current page")
     expect(screen().getStatusRegion()).toBeNull()
@@ -161,7 +161,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
+    await clickPrimaryActionButton()
 
     expect(screen().getErrorAlert()?.textContent).toContain("\u5f53\u524d\u6807\u7b7e\u9875\u7f3a\u5c11\u6807\u9898\u6216 URL\uff0c\u65e0\u6cd5\u4fdd\u5b58\u3002")
     expect(screen().text()).not.toContain("Active tab title is required")
@@ -194,7 +194,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
+    await clickPrimaryActionButton()
 
     expect(screen().getStatusRegion()).toBeNull()
 
@@ -254,7 +254,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
+    await clickPrimaryActionButton()
 
     const provider = analyzeBookmark.mock.calls[0]?.[0]?.provider
 
@@ -294,7 +294,7 @@ describe("Popup state", () => {
     })
 
     await renderPopup(services)
-    await clickButton("\u4fdd\u5b58\u5f53\u524d\u9875\u9762")
+    await clickPrimaryActionButton()
 
     expect(screen().getErrorAlert()?.textContent).toContain("\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u5931\u8d25")
     expect(screen().getErrorAlert()?.textContent).not.toContain("Failed to open bookmark database")
@@ -353,11 +353,10 @@ async function renderPopup(services: Partial<TestPopupServices>): Promise<void> 
   await flush()
 }
 
-async function clickButton(name: string): Promise<void> {
-  const button = screen().getButton(name)
-
+async function clickPrimaryActionButton(): Promise<void> {
+  const button = screen().getPrimaryActionButton()
   if (!button) {
-    throw new Error(`Button not found: ${name}`)
+    throw new Error("Primary action button not found")
   }
 
   await act(async () => {
@@ -502,9 +501,6 @@ function screen() {
     container?.querySelector<HTMLElement>("section[aria-labelledby='popup-library-title']") ?? null
   const getBookmarkCards = () =>
     Array.from(container?.querySelectorAll<HTMLElement>("article[data-bookmark-card='true']") ?? [])
-  const getButton = (name: string) =>
-    Array.from(container?.querySelectorAll("button") ?? []).find((button) => button.textContent?.includes(name))
-
   return {
     text,
     getPopupShell,
@@ -513,7 +509,6 @@ function screen() {
     getStatusRegion,
     getErrorAlert,
     getLibrarySection,
-    getBookmarkCards,
-    getButton
+    getBookmarkCards
   }
 }

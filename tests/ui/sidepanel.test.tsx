@@ -108,8 +108,9 @@ describe("SidePanel", () => {
     const cta = container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")
     await act(async () => { cta?.click() })
 
-    expect(container?.querySelector("[data-testid='license-activation-card']")).toBeTruthy()
-    expect(container?.textContent).toContain("Activate TabVault")
+    const card = container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")
+    expect(card).toBeTruthy()
+    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
   })
 
   it("does not render any trial region when the user is licensed", async () => {

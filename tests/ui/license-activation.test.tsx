@@ -58,9 +58,10 @@ describe("LicenseActivation", () => {
   it("renders input and Activate button when not licensed", async () => {
     await renderLicenseActivation({ licenseKey: "TVLT-AAAA-BBBB-CCCC" })
 
+    const card = container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")
     expect(container?.querySelector("[data-testid='license-key-input']")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='license-submit-button']")?.textContent).toBe("Activate")
-    expect(container?.textContent).toContain("Activate TabVault")
+    expect(container?.querySelector("[data-testid='license-submit-button']")).not.toBeNull()
+    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
   })
 
   it("disables Activate button when input is empty", async () => {
@@ -114,7 +115,7 @@ describe("LicenseActivation", () => {
     })
 
     const card = container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")
-    expect(container?.textContent).toContain("Activated")
+    expect(container?.querySelector("[data-testid='license-change-button']")).not.toBeNull()
     expect(container?.textContent).toContain("ABCD")
     expect(container?.textContent).not.toContain("TVLT-1234-5678-ABCD")
     expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-active")
@@ -139,14 +140,14 @@ describe("LicenseActivation", () => {
       isLicensed: false
     })
 
-    expect(container?.textContent).toContain("Activate TabVault")
+    expect(container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
 
     await renderLicenseActivation({
       licenseKey: "TVLT-1234-5678-ABCD",
       isLicensed: true
     })
 
-    expect(container?.textContent).toContain("Activated")
+    expect(container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")?.getAttribute("aria-labelledby")).toBe("license-activation-heading-active")
     expect(container?.querySelector("[data-testid='license-key-input']")).toBeNull()
   })
 
@@ -165,7 +166,7 @@ describe("LicenseActivation", () => {
     })
 
     expect(onEdit).toHaveBeenCalledTimes(1)
-    expect(container?.textContent).toContain("Activate TabVault")
+    expect(container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
     expect(container?.querySelector("[data-testid='license-key-input']")).not.toBeNull()
   })
 

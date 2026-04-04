@@ -274,9 +274,7 @@ describe("Options", () => {
     const sectionCard = container?.querySelector<HTMLElement>('[data-testid="settings-section-card"]')
     const saveActions = container?.querySelector<HTMLElement>('[data-testid="settings-save-actions"]')
     const saveStatus = container?.querySelector<HTMLElement>('[data-testid="save-status"]')
-    const saveButton = Array.from(container?.querySelectorAll("button") ?? []).find(
-      (candidate): candidate is HTMLButtonElement => candidate.textContent === "Save settings"
-    )
+    const saveButton = container?.querySelector<HTMLButtonElement>('[data-testid="settings-save-button"]')
 
     expect(pageShell?.style.gap).toBe(spacing.lg)
     expect(sectionCard?.style.borderRadius).toBe("16px")
@@ -340,8 +338,9 @@ describe("Options", () => {
       cta?.click()
     })
 
-    expect(container?.querySelector('[data-testid="license-activation-card"]')).toBeTruthy()
-    expect(container?.textContent).toContain("Activate TabVault")
+    const card = container?.querySelector<HTMLElement>('[data-testid="license-activation-card"]')
+    expect(card).toBeTruthy()
+    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
   })
 
   it("shows the license activation form when clicking the expired banner CTA", async () => {
@@ -361,8 +360,9 @@ describe("Options", () => {
       cta?.click()
     })
 
-    expect(container?.querySelector('[data-testid="license-activation-card"]')).toBeTruthy()
-    expect(container?.textContent).toContain("Activate TabVault")
+    const card = container?.querySelector<HTMLElement>('[data-testid="license-activation-card"]')
+    expect(card).toBeTruthy()
+    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
   })
 
   it("renders the activated license view when the user is licensed", async () => {
@@ -379,8 +379,9 @@ describe("Options", () => {
 
     await renderOptions()
 
-    expect(container?.querySelector('[data-testid="license-activation-card"]')).toBeTruthy()
-    expect(container?.textContent).toContain("Activated")
+    const card = container?.querySelector<HTMLElement>('[data-testid="license-activation-card"]')
+    expect(card).toBeTruthy()
+    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-active")
     expect(container?.querySelector('[data-testid="trial-banner"]')).toBeNull()
   })
 
@@ -411,16 +412,14 @@ describe("Options", () => {
       container?.querySelector<HTMLButtonElement>('[data-testid="trial-banner-cta"]')?.click()
     })
 
-    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
       valueSetter?.call(input, "LSKEY-VALID")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
-    const activateButton = Array.from(container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []).find(
-      (candidate): candidate is HTMLButtonElement => candidate.textContent === "Activate"
-    )
+    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
 
     await act(async () => {
       activateButton?.click()
@@ -454,16 +453,14 @@ describe("Options", () => {
       container?.querySelector<HTMLButtonElement>('[data-testid="trial-banner-cta"]')?.click()
     })
 
-    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
       valueSetter?.call(input, "LSKEY-BAD")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
-    const activateButton = Array.from(container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []).find(
-      (candidate): candidate is HTMLButtonElement => candidate.textContent === "Activate"
-    )
+    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
 
     await act(async () => {
       activateButton?.click()
@@ -489,16 +486,14 @@ describe("Options", () => {
       container?.querySelector<HTMLButtonElement>('[data-testid="trial-banner-cta"]')?.click()
     })
 
-    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
       valueSetter?.call(input, "LSKEY-ANY")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
-    const activateButton = Array.from(container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []).find(
-      (candidate): candidate is HTMLButtonElement => candidate.textContent === "Activate"
-    )
+    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
 
     await act(async () => {
       activateButton?.click()
@@ -529,16 +524,14 @@ describe("Options", () => {
       container?.querySelector<HTMLButtonElement>('[data-testid="trial-banner-cta"]')?.click()
     })
 
-    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
       valueSetter?.call(input, "LSKEY-VALID")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
-    const activateButton = Array.from(container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []).find(
-      (candidate): candidate is HTMLButtonElement => candidate.textContent === "Activate"
-    )
+    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
 
     await act(async () => {
       activateButton?.click()
@@ -673,10 +666,18 @@ async function renderProviderSettingsForm(
 }
 
 function getSectionByHeading(heading: string): HTMLElement | undefined {
-  const headings = Array.from(container?.querySelectorAll("h2") ?? [])
-  const match = headings.find((sectionHeading) => sectionHeading.textContent === heading)
-
-  return match?.closest("section") ?? undefined
+  const providerIdByHeading: Record<string, string> = {
+    "OpenAI Chat": "openai",
+    "OpenAI 聊天补全": "openai",
+    "OpenAI Response": "openai-response",
+    "OpenAI 响应": "openai-response",
+    Claude: "claude",
+    Gemini: "gemini"
+  }
+  const providerId = providerIdByHeading[heading]
+  return providerId
+    ? container?.querySelector<HTMLElement>(`[data-testid="provider-settings-form-${providerId}"]`) ?? undefined
+    : undefined
 }
 
 function getInputById(id: string): HTMLInputElement | null | undefined {

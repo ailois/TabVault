@@ -6,6 +6,7 @@ import { createProvider } from "./lib/providers/provider-factory"
 import { TrialRepository } from "./lib/trial/trial-repository"
 import { getTrialStatus } from "./lib/trial/get-trial-status"
 import { getBuiltInKeyConfig } from "./lib/trial/built-in-key"
+import { INTERNAL_ERROR_MESSAGES } from "./lib/i18n/error-messages"
 
 const repo = new IndexedDbBookmarkRepository()
 const settingsRepo = new ChromeSettingsRepository()
@@ -133,19 +134,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const trialState = await trialRepo.get()
 
       if (!trialState) {
-        sendResponse({ success: false, error: "Trial not initialized" })
+        sendResponse({ success: false, error: INTERNAL_ERROR_MESSAGES.trialNotInitialized })
         return
       }
 
       const status = getTrialStatus(trialState)
       if (status === "expired") {
-        sendResponse({ success: false, error: "Trial expired" })
+        sendResponse({ success: false, error: INTERNAL_ERROR_MESSAGES.trialExpired })
         return
       }
 
       const builtInConfig = getBuiltInKeyConfig()
       if (!builtInConfig.enabled) {
-        sendResponse({ success: false, error: "Built-in key not configured" })
+        sendResponse({ success: false, error: INTERNAL_ERROR_MESSAGES.builtInKeyNotConfigured })
         return
       }
 
@@ -156,7 +157,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         await trialRepo.incrementAnalysisUsed()
         sendResponse({ success: true })
       } catch (error) {
-        sendResponse({ success: false, error: error instanceof Error ? error.message : "Analysis failed" })
+        sendResponse({ success: false, error: error instanceof Error ? error.message : INTERNAL_ERROR_MESSAGES.analysisFailed })
       }
     })()
 

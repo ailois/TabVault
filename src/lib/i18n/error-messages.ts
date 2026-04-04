@@ -1,16 +1,18 @@
 import type { DisplayLanguage } from "../../types/settings"
 import { getMessage, type MessageKey } from "./messages"
 
-const INTERNAL_FALLBACK_MESSAGES = new Set([
-  "Analysis failed",
-  "Trial not initialized",
-  "Trial expired",
-  "Built-in key not configured",
-  "Failed to open bookmark database",
-  "IndexedDB request failed",
-  "IndexedDB transaction failed",
-  "IndexedDB transaction aborted"
-])
+export const INTERNAL_ERROR_MESSAGES = {
+  analysisFailed: "Analysis failed",
+  trialNotInitialized: "Trial not initialized",
+  trialExpired: "Trial expired",
+  builtInKeyNotConfigured: "Built-in key not configured",
+  failedToOpenBookmarkDatabase: "Failed to open bookmark database",
+  indexedDbRequestFailed: "IndexedDB request failed",
+  indexedDbTransactionFailed: "IndexedDB transaction failed",
+  indexedDbTransactionAborted: "IndexedDB transaction aborted"
+} as const
+
+const INTERNAL_FALLBACK_MESSAGES: ReadonlySet<string> = new Set(Object.values(INTERNAL_ERROR_MESSAGES))
 
 type FixedMessageKeyMap = Partial<Record<string, MessageKey>>
 type ProviderCode =
