@@ -462,7 +462,7 @@ export default function SidePanel({ services }: SidePanelProps) {
         }))
       })
     } catch (error) {
-      if (isProviderInvalidRequestError(error)) {
+      if (shouldFallbackToLocalGhostreaderAnswer(error)) {
         const { results, actions } = await runHybridRetrieval(query)
         setGhostreaderResults(results)
         setGhostreaderActionCards(actions)
@@ -837,8 +837,13 @@ function truncatePromptText(text: string, maxChars: number): string {
   return `${normalized.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`
 }
 
-function isProviderInvalidRequestError(error: unknown): boolean {
-  return error instanceof Error && (error as { code?: string }).code === "invalid_request_error"
+function shouldFallbackToLocalGhostreaderAnswer(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const code = (error as { code?: string }).code
+  return code !== "auth_error"
 }
 
 const visuallyHiddenStyle: React.CSSProperties = {

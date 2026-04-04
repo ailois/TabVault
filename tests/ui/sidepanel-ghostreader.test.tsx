@@ -424,6 +424,59 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).not.toContain("OpenAI-compatible rejected the request")
   })
 
+  it("falls back to local retrieval answers when Ghostreader gets network_error", async () => {
+    const analyze = vi.fn(async () => {
+      const error = new Error("OpenAI-compatible request failed") as Error & { code?: string }
+      error.code = "network_error"
+      throw error
+    })
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "yangmi-bookmark",
+              title: "Yang Mi interview archive",
+              summary: "Collected Yang Mi notes",
+              extractedText: "Yang Mi profile and interview references"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).toHaveBeenCalled()
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+    expect(container?.textContent).not.toContain("OpenAI-compatible request failed")
+  })
+
 })
 
 let container: HTMLDivElement | null = null
