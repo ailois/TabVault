@@ -98,6 +98,128 @@ describe("SidePanel Ghostreader", () => {
     expect(searchInput?.value).toBe("")
   })
 
+  it("keeps header search and Ghostreader composer independent", async () => {
+    await renderSidePanel(createServices())
+
+    const searchInput = container?.querySelector<HTMLInputElement>("#sidepanel-search")
+    const composerInput = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(composerInput, "Yang Mi")
+      composerInput?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    expect(searchInput?.value).toBe("")
+    expect(composerInput?.value).toBe("Yang Mi")
+  })
+
+  it("does not trigger retrieval while typing in the Ghostreader composer", async () => {
+    const analyze = vi.fn(async () => ({ summary: "unused", tags: [] }))
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({ id: "bm-react", title: "React Notes", extractedText: "react compiler details" })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const composerInput = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(composerInput, "React")
+      composerInput?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).not.toHaveBeenCalled()
+    expect(container?.textContent).not.toContain("React Notes")
+  })
+
+  it("submits on Enter and returns only the Yang Mi bookmark for the Chinese question", async () => {
+    const analyze = vi.fn(async () => {
+      const error = new Error("OpenAI-compatible rejected the request") as Error & { code?: string }
+      error.code = "invalid_request_error"
+      throw error
+    })
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "bm-yangmi",
+              title: "\u6768\u5e42\u91c7\u8bbf\u5408\u96c6",
+              extractedText: "\u6768\u5e42\u4e13\u8bbf\u4e0e\u5f71\u89c6\u8d44\u6599"
+            }),
+            createBookmark({
+              id: "bm-about",
+              title: "\u5173\u4e8e\u6211\u4eec - UniVibe",
+              extractedText: "\u4e13\u4e1a AI \u7f16\u7a0b\u52a9\u624b"
+            }),
+            createBookmark({
+              id: "bm-keras",
+              title: "\u5173\u4e8e Keras \u7684\u201c\u5c42\u201d",
+              extractedText: "deep learning layers"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const searchInput = container?.querySelector<HTMLInputElement>("#sidepanel-search")
+    const composerInput = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(composerInput, "\u5173\u4e8e\u6768\u5e42\u7684\u4e66\u7b7e\u6709\u54ea\u4e9b\uff1f")
+      composerInput?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).not.toHaveBeenCalled()
+    expect(searchInput?.value).toBe("")
+    expect(container?.textContent).not.toContain("\u6768\u5e42\u91c7\u8bbf\u5408\u96c6")
+
+    await act(async () => {
+      composerInput?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).toHaveBeenCalledTimes(1)
+    expect(container?.textContent).toContain("\u6768\u5e42\u91c7\u8bbf\u5408\u96c6")
+    expect(container?.textContent).not.toContain("\u5173\u4e8e\u6211\u4eec - UniVibe")
+    expect(container?.textContent).not.toContain("\u5173\u4e8e Keras \u7684\u201c\u5c42\u201d")
+  })
+
   it("shows provider errors clearly when Ghostreader submission fails", async () => {
     const analyze = vi.fn(async () => {
       const error = new Error("OpenAI-compatible authentication failed") as Error & { code?: string }
@@ -190,6 +312,116 @@ describe("SidePanel Ghostreader", () => {
 
     expect(analyze).toHaveBeenCalled()
     expect(container?.textContent).toContain("OpenAI-compatible \u8eab\u4efd\u9a8c\u8bc1\u5931\u8d25")
+  })
+
+  it("truncates oversized current-page and saved-match content before Ghostreader submission", async () => {
+    const analyze = vi.fn(async () => ({ summary: "trimmed answer", tags: [] }))
+    const provider = { analyze }
+    const longCurrentPage = "A".repeat(6_000)
+    const longSavedContent = "B".repeat(3_000)
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => provider),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "bookmark-long",
+              title: "Yang Mi interview",
+              summary: "Yang Mi notes",
+              extractedText: longSavedContent
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        }),
+        extractPage: vi.fn(async () => longCurrentPage)
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).toHaveBeenCalledTimes(1)
+    const submittedInput = (analyze as any).mock.calls[0]?.[0] as { content: string } | undefined
+    expect(submittedInput).toBeTruthy()
+    expect(submittedInput?.content.length).toBeLessThan(8_000)
+    expect(submittedInput?.content).not.toContain("A".repeat(4_000))
+    expect(submittedInput?.content).not.toContain("B".repeat(1_500))
+  })
+
+  it("falls back to local retrieval answers when Ghostreader gets invalid_request_error", async () => {
+    const analyze = vi.fn(async () => {
+      const error = new Error("OpenAI-compatible rejected the request") as Error & { code?: string }
+      error.code = "invalid_request_error"
+      throw error
+    })
+    const provider = { analyze }
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => provider),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "yangmi-bookmark",
+              title: "Yang Mi interview archive",
+              summary: "Collected Yang Mi notes",
+              extractedText: "Yang Mi profile and interview references"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).toHaveBeenCalled()
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+    expect(container?.textContent).not.toContain("OpenAI-compatible rejected the request")
   })
 
 })

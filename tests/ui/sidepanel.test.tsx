@@ -444,6 +444,32 @@ describe("SidePanel", () => {
     expect(container?.textContent).toContain("React Docs")
   })
 
+  it("finds Chinese-title bookmarks from a natural-language Chinese Ghostreader query", async () => {
+    const bookmarks = [
+      createBookmark({ id: "1", title: "杨幂采访合集" }),
+      createBookmark({ id: "2", title: "Vitest Guide" })
+    ]
+    const services = createServices({
+      bookmarkRepository: createBookmarkRepository({
+        list: vi.fn(async () => bookmarks)
+      }),
+      queryActiveTab: vi.fn(async () => ({ id: 1, title: "娱乐资讯", url: "https://example.com/current" })),
+      extractPage: vi.fn(async () => "杨幂相关新闻整理")
+    })
+
+    await renderSidePanel(services)
+
+    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+      setter?.call(searchInput, "关于杨幂的书签有哪些？")
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("杨幂采访合集")
+  })
+
   it("renders bookmark list in compact mode with no summary or tags visible", async () => {
     const b1 = createBookmark({
       id: "1",

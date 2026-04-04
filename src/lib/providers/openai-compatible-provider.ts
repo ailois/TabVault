@@ -83,6 +83,34 @@ export class OpenAiCompatibleProvider implements AiProvider {
 
 const DEFAULT_TIMEOUT_MS = 30_000
 
+export async function testOpenAiCompatibleConnection(config: OpenAiCompatibleProviderConfig): Promise<void> {
+  const fetchImpl = config.fetchImpl ?? ((input, init) => fetch(input, init))
+  const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
+
+  if (shouldPreferResponsesApi(config.model)) {
+    await testViaResponsesApi(config, fetchImpl, timeoutMs)
+    return
+  }
+
+  try {
+    await testViaChatCompletions(config, fetchImpl, timeoutMs)
+  } catch (error) {
+    if (!shouldFallbackToResponses(error)) {
+      throw error
+    }
+
+    try {
+      await testViaResponsesApi(config, fetchImpl, timeoutMs)
+    } catch (fallbackError) {
+      if (shouldPreserveOriginalError(error, fallbackError)) {
+        throw error
+      }
+
+      throw fallbackError
+    }
+  }
+}
+
 function buildPrompt(input: AnalyzeInput): string {
   return (
     'Analyze this bookmark and return strict JSON with shape {"summary":"string","tags":["string"]}.' +
@@ -91,6 +119,10 @@ function buildPrompt(input: AnalyzeInput): string {
     `Bookmark URL: ${input.url}\n` +
     `Bookmark content: ${input.content}`
   )
+}
+
+function buildConnectionTestPrompt(): string {
+  return "Return a short plain-text OK if this API key, base URL, and model are working."
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -155,6 +187,65 @@ async function analyzeViaChatCompletions(
   return extractChatTextContent(data)
 }
 
+async function testViaChatCompletions(
+  config: OpenAiCompatibleProviderConfig,
+  fetchImpl: FetchLike,
+  timeoutMs: number
+): Promise<void> {
+  const url = `${normalizeBaseUrl(config.baseUrl)}/chat/completions`
+  const body = JSON.stringify({
+    model: config.model,
+    messages: [
+      {
+        role: "user",
+        content: buildConnectionTestPrompt()
+      }
+    ]
+  })
+
+  const response = await performRequest(config, fetchImpl, timeoutMs, url, body)
+
+  if (!response.ok) {
+    throw normalizeProviderError(new Error(`OpenAI-compatible request failed with status ${response.status}`), {
+      code: getErrorCode(response.status),
+      message: getErrorMessage(response.status)
+    })
+  }
+
+  const contentType = response.headers?.get("content-type") ?? ""
+
+  if (contentType.includes("text/event-stream")) {
+    let rawText: string
+    try {
+      if (!response.text) {
+        throw new Error("Response body does not support text()")
+      }
+      rawText = await response.text()
+    } catch (textError) {
+      throw normalizeProviderError(textError, {
+        code: "invalid_response",
+        message: "OpenAI-compatible returned invalid SSE stream"
+      })
+    }
+
+    const text = parseSseText(rawText)
+    ensureConnectionText(text)
+    return
+  }
+
+  let data: OpenAiCompatibleResponse
+  try {
+    data = (await response.json()) as OpenAiCompatibleResponse
+  } catch (jsonError) {
+    throw normalizeProviderError(jsonError, {
+      code: "invalid_response",
+      message: "OpenAI-compatible returned invalid JSON (possible CORS or network error)"
+    })
+  }
+
+  ensureConnectionText(extractChatTextContent(data))
+}
+
 async function analyzeViaResponsesApi(
   config: OpenAiCompatibleProviderConfig,
   input: AnalyzeInput,
@@ -187,6 +278,39 @@ async function analyzeViaResponsesApi(
   }
 
   return extractResponsesTextContent(data)
+}
+
+async function testViaResponsesApi(
+  config: OpenAiCompatibleProviderConfig,
+  fetchImpl: FetchLike,
+  timeoutMs: number
+): Promise<void> {
+  const url = `${normalizeBaseUrl(config.baseUrl)}/responses`
+  const body = JSON.stringify({
+    model: config.model,
+    input: buildConnectionTestPrompt()
+  })
+
+  const response = await performRequest(config, fetchImpl, timeoutMs, url, body)
+
+  if (!response.ok) {
+    throw normalizeProviderError(new Error(`OpenAI-compatible request failed with status ${response.status}`), {
+      code: getErrorCode(response.status),
+      message: getErrorMessage(response.status)
+    })
+  }
+
+  let data: ResponsesApiResponse
+  try {
+    data = (await response.json()) as ResponsesApiResponse
+  } catch (jsonError) {
+    throw normalizeProviderError(jsonError, {
+      code: "invalid_response",
+      message: "OpenAI-compatible returned invalid JSON (possible CORS or network error)"
+    })
+  }
+
+  ensureConnectionText(extractResponsesTextContent(data))
 }
 
 async function performRequest(
@@ -251,6 +375,15 @@ function extractResponsesTextContent(data: ResponsesApiResponse): string {
   }
 
   return text
+}
+
+function ensureConnectionText(text: string): void {
+  if (!text.trim()) {
+    throw normalizeProviderError(new Error("OpenAI-compatible response did not include text content"), {
+      code: "bad_model_output",
+      message: "OpenAI-compatible returned no text output"
+    })
+  }
 }
 
 function shouldPreferResponsesApi(model: string): boolean {

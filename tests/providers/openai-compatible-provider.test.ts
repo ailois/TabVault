@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { OpenAiCompatibleProvider } from "../../src/lib/providers/openai-compatible-provider"
+import { OpenAiCompatibleProvider, testOpenAiCompatibleConnection } from "../../src/lib/providers/openai-compatible-provider"
 
 function makeJsonResponse(body: unknown, status = 200) {
   return {
@@ -186,8 +186,104 @@ describe("OpenAiCompatibleProvider", () => {
     expect(result.summary).toBe("Fallback")
     expect(result.tags).toEqual(["resp"])
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.openai.com/v1/chat/completions")
+    expect(fetchMock.mock.calls.at(0)?.[0]).toBe("https://api.openai.com/v1/chat/completions")
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.openai.com/v1/responses")
+  })
+
+  it("accepts plain-text chat completion output for connection testing", async () => {
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: "OK"
+            }
+          }
+        ]
+      })
+    )
+
+    await expect(
+      testOpenAiCompatibleConnection({
+        apiKey: "test-key",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4o-mini",
+        fetchImpl: fetchMock
+      })
+    ).resolves.toBeUndefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.openai.com/v1/chat/completions",
+      expect.any(Object)
+    )
+  })
+
+  it("accepts plain-text responses output for connection testing", async () => {
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
+        output: [
+          {
+            type: "message",
+            content: [{ type: "output_text", text: "OK" }]
+          }
+        ]
+      })
+    )
+
+    await expect(
+      testOpenAiCompatibleConnection({
+        apiKey: "test-key",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-5.4-mini",
+        fetchImpl: fetchMock
+      })
+    ).resolves.toBeUndefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.openai.com/v1/responses",
+      expect.any(Object)
+    )
+  })
+
+  it("falls back to /responses for connection testing when chat output is invalid", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => makeJsonResponse({ choices: [{ message: {} }] }))
+      .mockImplementationOnce(async () =>
+        makeJsonResponse({
+          output: [
+            {
+              type: "message",
+              content: [{ type: "output_text", text: "OK" }]
+            }
+          ]
+        })
+      )
+
+    await expect(
+      testOpenAiCompatibleConnection({
+        apiKey: "test-key",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4o-mini",
+        fetchImpl: fetchMock
+      })
+    ).resolves.toBeUndefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.openai.com/v1/chat/completions",
+      expect.any(Object)
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.openai.com/v1/responses",
+      expect.any(Object)
+    )
   })
 
   it("does not fall back to /responses on auth_error", async () => {

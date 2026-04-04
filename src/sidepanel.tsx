@@ -10,7 +10,6 @@ import { TrialBanner } from "./components/trial-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { buildActionCards, type ActionCard } from "./features/hybrid-retrieval/build-action-cards"
 import type { AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
-import { detectQueryIntent } from "./features/hybrid-retrieval/query-intent"
 import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
 import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
@@ -114,6 +113,10 @@ const GHOSTREADER_PROMPT_COPY = {
   }
 } as const
 
+const GHOSTREADER_MAX_CURRENT_PAGE_CHARS = 3_000
+const GHOSTREADER_MAX_MATCH_CHARS = 900
+const GHOSTREADER_MAX_MATCHES = 3
+
 function buildLocalizedAnswerBlock(
   language: "en" | "zh",
   t: (key: Parameters<typeof getMessage>[1]) => string,
@@ -157,13 +160,19 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([])
   const [isLoadingBookmarks, setIsLoadingBookmarks] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [ghostreaderInput, setGhostreaderInput] = useState("")
+  const [activeView, setActiveView] = useState<"search" | "ask" | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [selectedBookmark, setSelectedBookmark] = useState<BookmarkRecord | null>(null)
   const [localAnalyzingIds, setLocalAnalyzingIds] = useState<Set<string>>(new Set())
   const [currentPageContext, setCurrentPageContext] = useState<{ title?: string; url?: string; extractedText?: string } | null>(null)
-  const [rankedResults, setRankedResults] = useState<RankedHybridResult[]>([])
-  const [actionCards, setActionCards] = useState<ActionCard[]>([])
-  const [answerBlock, setAnswerBlock] = useState<AnswerBlock | null>(null)
+  const [searchResults, setSearchResults] = useState<RankedHybridResult[]>([])
+  const [searchActionCards, setSearchActionCards] = useState<ActionCard[]>([])
+  const [searchAnswerBlock, setSearchAnswerBlock] = useState<AnswerBlock | null>(null)
+  const [submittedGhostreaderQuery, setSubmittedGhostreaderQuery] = useState("")
+  const [ghostreaderResults, setGhostreaderResults] = useState<RankedHybridResult[]>([])
+  const [ghostreaderActionCards, setGhostreaderActionCards] = useState<ActionCard[]>([])
+  const [ghostreaderAnswerBlock, setGhostreaderAnswerBlock] = useState<AnswerBlock | null>(null)
   const [isGhostreaderSubmitting, setIsGhostreaderSubmitting] = useState(false)
 
   const displayedBookmarks = useMemo(
@@ -229,46 +238,65 @@ export default function SidePanel({ services }: SidePanelProps) {
     void loadCurrentPage()
   }, [sidePanelServices])
 
+  const runHybridRetrieval = useCallback(async (query: string) => {
+    const results = await retrieveHybridResults({
+      query,
+      currentPage: currentPageContext ?? {},
+      listBookmarks: () => sidePanelServices.bookmarkRepository.list()
+    })
+
+    const hasCurrentPage = results.some((result) => result.document.sourceType === "current-page")
+    const hasSavedMatches = results.some((result) => result.document.sourceType === "saved-bookmark")
+    const actions = buildActionCards({ hasCurrentPage, hasSavedMatches }).map((action) => ({
+      ...action,
+      label:
+        action.id === "ask-current-page"
+          ? t("hybrid.action.askCurrentPage")
+          : action.id === "ask-top-matches"
+            ? t("hybrid.action.askTopMatches")
+            : t("hybrid.action.openDashboard")
+    }))
+
+    return { results, actions }
+  }, [currentPageContext, sidePanelServices, t])
+
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setRankedResults([])
-      setActionCards([])
-      setAnswerBlock(null)
+    const query = searchQuery.trim()
+    if (!query) {
+      setSearchResults([])
+      setSearchActionCards([])
+      setSearchAnswerBlock(null)
+      if (activeView === "search") {
+        setActiveView(submittedGhostreaderQuery ? "ask" : null)
+      }
       return
     }
 
-    async function runHybridRetrieval() {
-      const results = await retrieveHybridResults({
-        query: searchQuery,
-        currentPage: currentPageContext ?? {},
-        listBookmarks: () => sidePanelServices.bookmarkRepository.list()
-      })
-      setRankedResults(results)
+    let cancelled = false
 
-      const hasCurrentPage = results.some((result) => result.document.sourceType === "current-page")
-      const hasSavedMatches = results.some((result) => result.document.sourceType === "saved-bookmark")
-      setActionCards(
-        buildActionCards({ hasCurrentPage, hasSavedMatches }).map((action) => ({
-          ...action,
-          label:
-            action.id === "ask-current-page"
-              ? t("hybrid.action.askCurrentPage")
-              : action.id === "ask-top-matches"
-                ? t("hybrid.action.askTopMatches")
-                : t("hybrid.action.openDashboard")
-        }))
-      )
-
-      const intent = detectQueryIntent(searchQuery)
-      if (intent === "answer" || intent === "mixed") {
-        setAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, searchQuery, results))
-      } else {
-        setAnswerBlock(null)
+    async function syncSearchResults() {
+      const { results, actions } = await runHybridRetrieval(query)
+      if (cancelled) {
+        return
       }
+
+      setSearchResults(results)
+      setSearchActionCards(actions)
+      setSearchAnswerBlock(null)
     }
 
-    void runHybridRetrieval()
-  }, [currentPageContext, searchQuery, sidePanelServices, t])
+    void syncSearchResults()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeView, runHybridRetrieval, searchQuery, submittedGhostreaderQuery])
+
+  const activeQuery = activeView === "search" ? searchQuery.trim() : submittedGhostreaderQuery
+  const activeRankedResults = activeView === "search" ? searchResults : ghostreaderResults
+  const activeActionCards = activeView === "search" ? searchActionCards : ghostreaderActionCards
+  const activeAnswerBlock = activeView === "search" ? searchAnswerBlock : ghostreaderAnswerBlock
+  const shouldShowQueryStream = Boolean(activeView && activeQuery)
 
   async function loadBookmarks(): Promise<void> {
     setIsLoadingBookmarks(true)
@@ -382,12 +410,15 @@ export default function SidePanel({ services }: SidePanelProps) {
   }
 
   async function handleGhostreaderSubmit(): Promise<void> {
-    const query = searchQuery.trim()
+    const query = ghostreaderInput.trim()
     if (!query) {
       return
     }
 
-    setSearchQuery(query)
+    setGhostreaderInput(query)
+    setSubmittedGhostreaderQuery(query)
+    setActiveView("ask")
+    setGhostreaderAnswerBlock(null)
     setErrorMessage(null)
     setIsGhostreaderSubmitting(true)
 
@@ -403,6 +434,10 @@ export default function SidePanel({ services }: SidePanelProps) {
         return
       }
 
+      const { results, actions } = await runHybridRetrieval(query)
+      setGhostreaderResults(results)
+      setGhostreaderActionCards(actions)
+
       const provider = sidePanelServices.createProvider(selectedProvider)
       const ghostreaderCopy = GHOSTREADER_PROMPT_COPY[displayLanguage]
       const analysis = await provider.analyze({
@@ -412,14 +447,14 @@ export default function SidePanel({ services }: SidePanelProps) {
           language: displayLanguage,
           query,
           currentPageContext,
-          rankedResults
+          rankedResults: results
         }),
         summaryLanguage: settings.summaryLanguage
       })
 
-      setAnswerBlock({
+      setGhostreaderAnswerBlock({
         text: analysis.summary,
-        citations: rankedResults.slice(0, 3).map((result) => ({
+        citations: results.slice(0, 3).map((result) => ({
           sourceType: result.document.sourceType,
           title: result.document.title,
           url: result.document.url,
@@ -427,6 +462,14 @@ export default function SidePanel({ services }: SidePanelProps) {
         }))
       })
     } catch (error) {
+      if (isProviderInvalidRequestError(error)) {
+        const { results, actions } = await runHybridRetrieval(query)
+        setGhostreaderResults(results)
+        setGhostreaderActionCards(actions)
+        setGhostreaderAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, query, results))
+        return
+      }
+
       setErrorMessage(getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.ghostreaderFailed"))
     } finally {
       setIsGhostreaderSubmitting(false)
@@ -439,15 +482,41 @@ export default function SidePanel({ services }: SidePanelProps) {
       return
     }
 
+    if (!activeQuery) {
+      return
+    }
+
+    const setActiveAnswer = (nextAnswer: AnswerBlock) => {
+      if (activeView === "search") {
+        setSearchAnswerBlock(nextAnswer)
+        return
+      }
+
+      setGhostreaderAnswerBlock(nextAnswer)
+    }
+
     if (actionId === "ask-current-page") {
-      const currentPageResults = rankedResults.filter((result) => result.document.sourceType === "current-page")
-      setAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, searchQuery, currentPageResults))
+      const currentPageResults = activeRankedResults.filter((result) => result.document.sourceType === "current-page")
+      setActiveAnswer(buildLocalizedAnswerBlock(displayLanguage, t, activeQuery, currentPageResults))
       return
     }
 
     if (actionId === "ask-top-matches") {
-      setAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, searchQuery, rankedResults.slice(0, 3)))
+      setActiveAnswer(buildLocalizedAnswerBlock(displayLanguage, t, activeQuery, activeRankedResults.slice(0, 3)))
     }
+  }
+
+  function handleSearchQueryChange(value: string): void {
+    setSearchQuery(value)
+    setActiveView(value.trim() ? "search" : submittedGhostreaderQuery ? "ask" : null)
+  }
+
+  function handleSearchQueryClear(): void {
+    setSearchQuery("")
+    setSearchResults([])
+    setSearchActionCards([])
+    setSearchAnswerBlock(null)
+    setActiveView(submittedGhostreaderQuery ? "ask" : null)
   }
 
   const pageStyle: React.CSSProperties = {
@@ -545,7 +614,7 @@ export default function SidePanel({ services }: SidePanelProps) {
             </span>
             <input
               id="sidepanel-search"
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => handleSearchQueryChange(event.target.value)}
               placeholder={t("sidepanel.search.placeholder")}
               style={{ ...searchInputStyle, paddingRight: searchQuery ? "36px" : "12px" }}
               type="search"
@@ -555,7 +624,7 @@ export default function SidePanel({ services }: SidePanelProps) {
               <button
                 aria-label={t("sidepanel.search.clear")}
                 data-testid="sidepanel-search-clear"
-                onClick={() => setSearchQuery("")}
+                onClick={handleSearchQueryClear}
                 style={{
                   position: "absolute",
                   right: "8px",
@@ -613,12 +682,12 @@ export default function SidePanel({ services }: SidePanelProps) {
           </div>
 
           <section style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: `0 ${spacing.md} ${spacing.md}` }}>
-            {searchQuery ? (
+            {shouldShowQueryStream ? (
               <HybridQueryStream
-                query={searchQuery}
-                rankedResults={rankedResults}
-                actions={actionCards}
-                answer={answerBlock}
+                query={activeQuery}
+                rankedResults={activeRankedResults}
+                actions={activeActionCards}
+                answer={activeAnswerBlock}
                 language={displayLanguage}
                 onOpenBookmark={(bookmarkId) => {
                   const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
@@ -664,11 +733,17 @@ export default function SidePanel({ services }: SidePanelProps) {
           <div style={{ position: "relative" }}>
             <input
               data-testid="ghostreader-input"
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => setGhostreaderInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  void handleGhostreaderSubmit()
+                }
+              }}
               placeholder={t("sidepanel.input.placeholder")}
               style={{ ...searchInputStyle, paddingRight: "42px", borderRadius: radius.large }}
               type="text"
-              value={searchQuery}
+              value={ghostreaderInput}
             />
             <button
               aria-label={t("sidepanel.input.submit")}
@@ -729,18 +804,18 @@ function buildGhostreaderContent(input: {
     ? [
         `${copy.currentPageTitle}: ${input.currentPageContext.title ?? "Unknown"}`,
         `${copy.currentPageUrl}: ${input.currentPageContext.url ?? "Unknown"}`,
-        `${copy.currentPageContent}: ${input.currentPageContext.extractedText ?? ""}`
+        `${copy.currentPageContent}: ${truncatePromptText(input.currentPageContext.extractedText ?? "", GHOSTREADER_MAX_CURRENT_PAGE_CHARS)}`
       ].join("\n")
     : copy.currentPageUnavailable
 
   const savedMatchesBlock = input.rankedResults
     .filter((result) => result.document.sourceType === "saved-bookmark")
-    .slice(0, 5)
+    .slice(0, GHOSTREADER_MAX_MATCHES)
     .map((result, index) => [
       `${copy.savedMatchTitle(index + 1)}: ${result.document.title}`,
       `${copy.savedMatchUrl(index + 1)}: ${result.document.url}`,
       `${copy.savedMatchReason(index + 1)}: ${result.matchReason}`,
-      `${copy.savedMatchContent(index + 1)}: ${result.document.bodyText ?? result.document.summary ?? ""}`
+      `${copy.savedMatchContent(index + 1)}: ${truncatePromptText(result.document.summary ?? result.document.bodyText ?? "", GHOSTREADER_MAX_MATCH_CHARS)}`
     ].join("\n"))
     .join("\n\n")
 
@@ -751,6 +826,19 @@ function buildGhostreaderContent(input: {
     currentPageBlock,
     savedMatchesBlock ? `${copy.savedMatchesHeading}:\n${savedMatchesBlock}` : `${copy.savedMatchesHeading}: ${copy.savedMatchesEmpty}`
   ].join("\n\n")
+}
+
+function truncatePromptText(text: string, maxChars: number): string {
+  const normalized = text.replace(/\s+/g, " ").trim()
+  if (normalized.length <= maxChars) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`
+}
+
+function isProviderInvalidRequestError(error: unknown): boolean {
+  return error instanceof Error && (error as { code?: string }).code === "invalid_request_error"
 }
 
 const visuallyHiddenStyle: React.CSSProperties = {

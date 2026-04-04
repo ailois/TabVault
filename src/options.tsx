@@ -17,6 +17,7 @@ import type { SettingsRepository } from "./lib/config/settings-repository"
 import { getLocalizedErrorMessage } from "./lib/i18n/error-messages"
 import { getMessage } from "./lib/i18n/messages"
 import { getProviderPresentation } from "./lib/i18n/provider-metadata"
+import { testOpenAiCompatibleConnection } from "./lib/providers/openai-compatible-provider"
 import { createProvider as defaultCreateProvider } from "./lib/providers/provider-factory"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
 import type { BookmarkRepository } from "./lib/storage/bookmark-repository"
@@ -73,10 +74,21 @@ type ThemeCardDefinition = {
   emoji?: string
 }
 
+const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
 const DEFAULT_OPTIONS_SERVICES: OptionsServices = {
   settingsRepository: new ChromeSettingsRepository(),
   bookmarkRepository: new IndexedDbBookmarkRepository(),
   testConnection: async (config: ProviderConfig) => {
+    if (config.provider === "openai" || config.provider === "openai-response") {
+      await testOpenAiCompatibleConnection({
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl ?? OPENAI_DEFAULT_BASE_URL,
+        model: config.model
+      })
+      return
+    }
+
     await defaultCreateProvider(config).analyze({
       title: "test",
       url: "https://test",
