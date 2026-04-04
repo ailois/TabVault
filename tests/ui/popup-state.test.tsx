@@ -15,14 +15,29 @@ import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+let storageChangeListener: ((changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) | null = null
 
 globalThis.chrome = {
   ...(globalThis.chrome ?? {}),
   storage: {
     ...((globalThis.chrome as any)?.storage ?? {}),
+    sync: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {})
+    },
     local: {
       get: vi.fn(async () => ({})),
       set: vi.fn(async () => {})
+    },
+    onChanged: {
+      addListener: vi.fn((listener) => {
+        storageChangeListener = listener
+      }),
+      removeListener: vi.fn((listener) => {
+        if (storageChangeListener === listener) {
+          storageChangeListener = null
+        }
+      })
     }
   },
   runtime: {
@@ -284,6 +299,21 @@ describe("Popup state", () => {
     const btn = container?.querySelector<HTMLButtonElement>("[data-testid='theme-toggle-button']")
 
     expect(btn?.getAttribute("aria-label")).toContain("\u5207\u6362\u5230\u6df1\u8272\u6a21\u5f0f")
+  })
+
+  it("reacts to synced display language changes after mount", async () => {
+    await renderPopup(createServices())
+
+    await act(async () => {
+      storageChangeListener?.({
+        "app-settings": {
+          oldValue: { displayLanguage: "en" },
+          newValue: { displayLanguage: "zh" }
+        } as chrome.storage.StorageChange
+      }, "sync")
+    })
+
+    expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("\u6253\u5f00\u4fa7\u8fb9\u680f")
   })
 
   it("uses localized save fallback for internal storage errors", async () => {

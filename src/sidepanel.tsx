@@ -13,7 +13,7 @@ import type { AnswerBlock } from "./features/hybrid-retrieval/build-answer-block
 import { detectQueryIntent } from "./features/hybrid-retrieval/query-intent"
 import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
 import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
-import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
+import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
@@ -182,8 +182,12 @@ export default function SidePanel({ services }: SidePanelProps) {
   }, [sidePanelServices])
 
   useEffect(() => {
-    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>) {
-      const newValue = changes["appSettings"]?.newValue
+    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>, areaName?: string) {
+      if (areaName && areaName !== "sync") {
+        return
+      }
+
+      const newValue = changes[APP_SETTINGS_KEY]?.newValue
       if (newValue && typeof newValue === "object" && "displayLanguage" in newValue) {
         const lang = (newValue as { displayLanguage: unknown }).displayLanguage
         if (lang === "en" || lang === "zh") {
@@ -191,8 +195,9 @@ export default function SidePanel({ services }: SidePanelProps) {
         }
       }
     }
-    globalThis.chrome?.storage?.local?.onChanged?.addListener(handleStorageChange)
-    return () => globalThis.chrome?.storage?.local?.onChanged?.removeListener(handleStorageChange)
+
+    globalThis.chrome?.storage?.onChanged?.addListener(handleStorageChange)
+    return () => globalThis.chrome?.storage?.onChanged?.removeListener(handleStorageChange)
   }, [])
 
   useEffect(() => {

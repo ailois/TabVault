@@ -15,14 +15,29 @@ import { TrialRepository } from "../../src/lib/trial/trial-repository"
 import * as trialHooks from "../../src/lib/trial/use-trial-status"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+let storageChangeListener: ((changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) | null = null
 
 globalThis.chrome = {
   ...(globalThis.chrome ?? {}),
   storage: {
     ...((globalThis.chrome as any)?.storage ?? {}),
+    sync: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {})
+    },
     local: {
       get: vi.fn(async () => ({})),
       set: vi.fn(async () => {})
+    },
+    onChanged: {
+      addListener: vi.fn((listener) => {
+        storageChangeListener = listener
+      }),
+      removeListener: vi.fn((listener) => {
+        if (storageChangeListener === listener) {
+          storageChangeListener = null
+        }
+      })
     }
   },
   runtime: {
@@ -265,6 +280,21 @@ describe("SidePanel", () => {
     await act(async () => { await Promise.resolve() })
 
     expect(container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-search-clear']")?.getAttribute("aria-label")).toContain("\u6e05\u7a7a\u641c\u7d22")
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.getAttribute("aria-label")).toContain("\u53d1\u9001\u7ed9 Ghostreader")
+  })
+
+  it("reacts to synced display language changes after mount", async () => {
+    await renderSidePanel()
+
+    await act(async () => {
+      storageChangeListener?.({
+        "app-settings": {
+          oldValue: { displayLanguage: "en" },
+          newValue: { displayLanguage: "zh" }
+        } as chrome.storage.StorageChange
+      }, "sync")
+    })
+
     expect(container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.getAttribute("aria-label")).toContain("\u53d1\u9001\u7ed9 Ghostreader")
   })
 

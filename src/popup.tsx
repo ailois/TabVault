@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react"
 import { ErrorBanner } from "./components/error-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { saveCurrentPage as defaultSaveCurrentPage } from "./features/bookmarks/save-current-page"
-import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
+import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
 import type { ThemeRepository } from "./lib/config/theme-repository"
@@ -95,8 +95,12 @@ function Popup({ services }: PopupProps) {
   }, [popupServices])
 
   useEffect(() => {
-    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>) {
-      const newValue = changes["appSettings"]?.newValue
+    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>, areaName?: string) {
+      if (areaName && areaName !== "sync") {
+        return
+      }
+
+      const newValue = changes[APP_SETTINGS_KEY]?.newValue
       if (newValue && typeof newValue === "object" && "displayLanguage" in newValue) {
         const lang = (newValue as { displayLanguage: unknown }).displayLanguage
         if (lang === "en" || lang === "zh") {
@@ -104,8 +108,9 @@ function Popup({ services }: PopupProps) {
         }
       }
     }
-    globalThis.chrome?.storage?.local?.onChanged?.addListener(handleStorageChange)
-    return () => globalThis.chrome?.storage?.local?.onChanged?.removeListener(handleStorageChange)
+
+    globalThis.chrome?.storage?.onChanged?.addListener(handleStorageChange)
+    return () => globalThis.chrome?.storage?.onChanged?.removeListener(handleStorageChange)
   }, [])
 
   useEffect(() => {

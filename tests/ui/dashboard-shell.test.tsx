@@ -2,7 +2,7 @@
 
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { DashboardShell } from "../../src/features/dashboard/dashboard-shell"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
@@ -11,6 +11,24 @@ import { ThemeProvider } from "../../src/ui/theme-context"
 import { buildThemeFromOverride } from "../../src/ui/use-theme"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+let storageChangeListener: ((changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) | null = null
+
+globalThis.chrome = {
+  ...(globalThis.chrome ?? {}),
+  storage: {
+    ...((globalThis.chrome as any)?.storage ?? {}),
+    onChanged: {
+      addListener: (listener: (changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) => {
+        storageChangeListener = listener
+      },
+      removeListener: (listener: (changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) => {
+        if (storageChangeListener === listener) {
+          storageChangeListener = null
+        }
+      }
+    }
+  }
+} as any
 
 const SAMPLE_TREE: chrome.bookmarks.BookmarkTreeNode[] = [
   {
@@ -99,6 +117,21 @@ describe("DashboardShell", () => {
     await renderDashboard([createBookmark({ id: "1", title: "React Docs" })], undefined, createSettingsRepository("zh"))
 
     expect(container?.textContent).toContain("\u77e5\u8bc6\u5e93")
+    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-search-input']")?.placeholder).toContain("\u641c\u7d22\u6807\u9898")
+  })
+
+  it("reacts to synced display language changes after mount", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "React Docs" })], undefined, createSettingsRepository("en"))
+
+    await act(async () => {
+      storageChangeListener?.({
+        "app-settings": {
+          oldValue: { displayLanguage: "en" },
+          newValue: { displayLanguage: "zh" }
+        } as chrome.storage.StorageChange
+      }, "sync")
+    })
+
     expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-search-input']")?.placeholder).toContain("\u641c\u7d22\u6807\u9898")
   })
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react"
 
-import { ChromeSettingsRepository } from "../../lib/config/chrome-settings-repository"
+import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "../../lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "../../lib/config/settings-repository"
 import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
 import { getMessage } from "../../lib/i18n/messages"
@@ -90,8 +90,12 @@ export function DashboardShell({
   }, [dashboardSettingsRepository])
 
   useEffect(() => {
-    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>) {
-      const newValue = changes["appSettings"]?.newValue
+    function handleStorageChange(changes: Record<string, chrome.storage.StorageChange>, areaName?: string) {
+      if (areaName && areaName !== "sync") {
+        return
+      }
+
+      const newValue = changes[APP_SETTINGS_KEY]?.newValue
       if (newValue && typeof newValue === "object" && "displayLanguage" in newValue) {
         const language = (newValue as { displayLanguage: unknown }).displayLanguage
         if (language === "en" || language === "zh") {
@@ -100,8 +104,8 @@ export function DashboardShell({
       }
     }
 
-    globalThis.chrome?.storage?.local?.onChanged?.addListener(handleStorageChange)
-    return () => globalThis.chrome?.storage?.local?.onChanged?.removeListener(handleStorageChange)
+    globalThis.chrome?.storage?.onChanged?.addListener(handleStorageChange)
+    return () => globalThis.chrome?.storage?.onChanged?.removeListener(handleStorageChange)
   }, [])
 
   const metadataMap = useMemo(() => {

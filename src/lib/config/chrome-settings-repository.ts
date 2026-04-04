@@ -3,8 +3,8 @@ import type { AppSettings, ProviderConfig } from "../../types/settings"
 
 import type { SettingsRepository } from "./settings-repository"
 
-const APP_SETTINGS_KEY = "app-settings"
-const PROVIDERS_KEY = "provider-configs"
+export const APP_SETTINGS_KEY = "app-settings"
+export const PROVIDERS_KEY = "provider-configs"
 
 export class ChromeSettingsRepository implements SettingsRepository {
   async getAppSettings(): Promise<AppSettings> {
