@@ -5,6 +5,11 @@ import type { BookmarkRecord } from "../../types/bookmark"
 import type { DisplayLanguage } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
 
+const NAV_PLACEHOLDER_COPY: Record<DisplayLanguage, string> = {
+  en: "Coming soon",
+  zh: "\u5373\u5c06\u4e0a\u7ebf"
+}
+
 type DashboardNavigationProps = {
   bookmarks: BookmarkRecord[]
   activeBookmarkId: string | null
@@ -24,6 +29,23 @@ export function DashboardNavigation({
 }: DashboardNavigationProps) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
+  const getPlaceholderTitle = (label: string) => `${label} - ${NAV_PLACEHOLDER_COPY[language]}`
+  const placeholderTitle = (label: string) => `${label} · ${NAV_PLACEHOLDER_COPY[language]}`
+  const placeholderButtonStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    width: "100%",
+    textAlign: "left",
+    padding: "8px 12px",
+    fontSize: "0.875rem",
+    color: theme.textMuted,
+    backgroundColor: "transparent",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "not-allowed",
+    opacity: 0.72
+  }
 
   return (
     <aside
@@ -73,23 +95,31 @@ export function DashboardNavigation({
               }}
               type="button"
             >
-              <span>A</span> {t("dashboard.navigation.allBookmarks")}
+              <span aria-hidden="true">A</span> {t("dashboard.navigation.allBookmarks")}
             </button>
           </li>
           <li>
             <button
-              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+              aria-disabled="true"
+              data-testid="dashboard-nav-recents"
+              disabled
+              style={placeholderButtonStyle}
+              title={getPlaceholderTitle(t("dashboard.navigation.recents"))}
               type="button"
             >
-              <span>R</span> {t("dashboard.navigation.recents")}
+              <span aria-hidden="true">R</span> {t("dashboard.navigation.recents")}
             </button>
           </li>
           <li>
             <button
-              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+              aria-disabled="true"
+              data-testid="dashboard-nav-highlights"
+              disabled
+              style={placeholderButtonStyle}
+              title={getPlaceholderTitle(t("dashboard.navigation.highlights"))}
               type="button"
             >
-              <span>H</span> {t("dashboard.navigation.highlights")}
+              <span aria-hidden="true">H</span> {t("dashboard.navigation.highlights")}
             </button>
           </li>
         </ul>
@@ -114,7 +144,11 @@ export function DashboardNavigation({
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "2px" }}>
             <li>
               <button
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                aria-disabled="true"
+                data-testid="dashboard-tag-frontend"
+                disabled
+                style={{ ...placeholderButtonStyle, justifyContent: "space-between" }}
+                title={getPlaceholderTitle(t("dashboard.navigation.tagFrontend"))}
                 type="button"
               >
                 <span>{t("dashboard.navigation.tagFrontend")}</span>
@@ -123,7 +157,11 @@ export function DashboardNavigation({
             </li>
             <li>
               <button
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                aria-disabled="true"
+                data-testid="dashboard-tag-ai"
+                disabled
+                style={{ ...placeholderButtonStyle, justifyContent: "space-between" }}
+                title={getPlaceholderTitle(t("dashboard.navigation.tagAi"))}
                 type="button"
               >
                 <span>{t("dashboard.navigation.tagAi")}</span>
@@ -136,10 +174,15 @@ export function DashboardNavigation({
 
       <div style={{ padding: "12px 16px", borderTop: `1px solid ${theme.border}` }}>
         <button
-          style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: "0.875rem", color: theme.textMuted, backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: "pointer" }}
+          aria-disabled="true"
+          data-testid="dashboard-nav-settings"
+          disabled
+          style={placeholderButtonStyle}
+          title={getPlaceholderTitle(t("dashboard.navigation.settings"))}
           type="button"
         >
-          S {t("dashboard.navigation.settings")}
+          <span aria-hidden="true">S</span>
+          <span>{t("dashboard.navigation.settings")}</span>
         </button>
       </div>
     </aside>
@@ -167,13 +210,13 @@ function FolderList({
         return (
           <div key={folder.id}>
             {folder.title ? (
-              <div
+              <button
+                aria-pressed={isSelected}
+                data-testid={`dashboard-folder-${folder.id}`}
                 onClick={() => onSelectFolder?.(folder.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") onSelectFolder?.(folder.id)
-                }}
-                role="button"
                 style={{
+                  width: "100%",
+                  textAlign: "left",
                   padding: "6px 10px",
                   borderRadius: "8px",
                   cursor: "pointer",
@@ -183,10 +226,10 @@ function FolderList({
                   backgroundColor: isSelected ? theme.accentSoft : "transparent",
                   border: `1px solid ${isSelected ? theme.borderFocus : "transparent"}`
                 }}
-                tabIndex={0}
+                type="button"
               >
                 {folder.title}
-              </div>
+              </button>
             ) : null}
             {folder.children && folder.children.length > 0 ? (
               <FolderList

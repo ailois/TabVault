@@ -62,10 +62,12 @@ describe("TrialBanner", () => {
   })
 
   it("renders localized Chinese default title", async () => {
-    await renderBanner({ status: "trial", language: "zh", message: "试用进行中" })
+    await renderBanner({ status: "trial", language: "zh", message: "\u8bd5\u7528\u6743\u76ca\u5df2\u5f00\u542f\u3002" })
 
-    expect(container?.textContent).toContain("试用中")
-    expect(container?.textContent).toContain("试用进行中")
+    const banner = container?.querySelector<HTMLElement>("[data-testid='trial-banner']")
+    expect(container?.textContent).toContain("\u8bd5\u7528\u4e2d")
+    expect(container?.textContent).toContain("\u8bd5\u7528\u6743\u76ca\u5df2\u5f00\u542f\u3002")
+    expect(banner?.getAttribute("aria-labelledby")).toBe("trial-banner-title-trial")
   })
 
   it("overrides default title when custom title is provided", async () => {
@@ -127,6 +129,7 @@ describe("TrialBanner", () => {
     await renderBanner({ status: "expired" })
     banner = container?.querySelector<HTMLElement>("[data-testid='trial-banner']")
     expect(banner?.getAttribute("data-trial-status")).toBe("expired")
+    expect(banner?.getAttribute("aria-labelledby")).toBe("trial-banner-title-expired")
   })
 
   it("renders content area and CTA at the same time", async () => {

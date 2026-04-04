@@ -585,6 +585,8 @@ describe("Options", () => {
       "zh"
     )
 
+    expect(container?.textContent).toContain("API \u5bc6\u94a5")
+    expect(container?.textContent).toContain("\u57fa\u7840 URL")
     expect(container?.textContent).toContain("\u6a21\u578b")
     expect(container?.textContent).toContain("\u6d4b\u8bd5\u8fde\u63a5")
     expect(container?.textContent).toContain("\u5fc5\u586b")

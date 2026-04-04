@@ -184,9 +184,11 @@ export type MessageKey =
   | "dashboard.ask.submit"
   | "dashboard.ask.answer.none"
   | "dashboard.ask.answer.found"
+  | "dashboard.aiSidebar.label"
   | "dashboard.summary.title"
   | "dashboard.summary.edit"
   | "dashboard.summary.editAria"
+  | "dashboard.summary.inputAria"
   | "dashboard.summary.cancel"
   | "dashboard.summary.cancelAria"
   | "dashboard.summary.save"
@@ -195,6 +197,7 @@ export type MessageKey =
   | "dashboard.tags.title"
   | "dashboard.tags.edit"
   | "dashboard.tags.editAria"
+  | "dashboard.tags.inputAria"
   | "dashboard.tags.cancel"
   | "dashboard.tags.cancelAria"
   | "dashboard.tags.save"
@@ -391,9 +394,11 @@ const en: Messages = {
   "dashboard.ask.submit": "Send question",
   "dashboard.ask.answer.none": "No local results found for: {query}",
   "dashboard.ask.answer.found": "Based on {titles}, here are the most relevant local results for: {query}",
+  "dashboard.aiSidebar.label": "AI tools",
   "dashboard.summary.title": "AI Summary",
   "dashboard.summary.edit": "Edit",
   "dashboard.summary.editAria": "Edit summary",
+  "dashboard.summary.inputAria": "Summary text",
   "dashboard.summary.cancel": "Cancel",
   "dashboard.summary.cancelAria": "Cancel summary edit",
   "dashboard.summary.save": "Save",
@@ -402,6 +407,7 @@ const en: Messages = {
   "dashboard.tags.title": "Smart Tags",
   "dashboard.tags.edit": "Edit",
   "dashboard.tags.editAria": "Edit tags",
+  "dashboard.tags.inputAria": "New tag",
   "dashboard.tags.cancel": "Cancel",
   "dashboard.tags.cancelAria": "Cancel tags edit",
   "dashboard.tags.save": "Save",
@@ -618,6 +624,9 @@ const zh: Messages = {
   "dashboard.bulkEdit.placeholder": "批量编辑即将上线",
   "common.theme.switchToLight": "切换到浅色模式",
   "common.theme.switchToDark": "切换到深色模式",
+  "dashboard.aiSidebar.label": "\u667a\u80fd\u5de5\u5177",
+  "dashboard.summary.inputAria": "\u6458\u8981\u5185\u5bb9",
+  "dashboard.tags.inputAria": "\u65b0\u6807\u7b7e",
 }
 
 const MESSAGES: Record<DisplayLanguage, Messages> = { en, zh }

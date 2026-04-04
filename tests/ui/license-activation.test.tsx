@@ -58,22 +58,22 @@ describe("LicenseActivation", () => {
   it("renders input and Activate button when not licensed", async () => {
     await renderLicenseActivation({ licenseKey: "TVLT-AAAA-BBBB-CCCC" })
 
-    expect(container?.querySelector("input[aria-label='License Key']")).not.toBeNull()
-    expect(container?.querySelector("button")?.textContent).toBe("Activate")
+    expect(container?.querySelector("[data-testid='license-key-input']")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='license-submit-button']")?.textContent).toBe("Activate")
     expect(container?.textContent).toContain("Activate TabVault")
   })
 
   it("disables Activate button when input is empty", async () => {
     await renderLicenseActivation({ licenseKey: "   " })
 
-    expect(container?.querySelector("button")?.hasAttribute("disabled")).toBe(true)
+    expect(container?.querySelector("[data-testid='license-submit-button']")?.hasAttribute("disabled")).toBe(true)
   })
 
   it("calls onLicenseKeyChange when input value changes", async () => {
     const onLicenseKeyChange = vi.fn()
     await renderLicenseActivation({ onLicenseKeyChange, licenseKey: "" })
 
-    const input = container?.querySelector("input[aria-label='License Key']") as HTMLInputElement
+    const input = container?.querySelector("[data-testid='license-key-input']") as HTMLInputElement
 
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
@@ -87,8 +87,8 @@ describe("LicenseActivation", () => {
   it("shows Activating... and disables controls while submitting", async () => {
     await renderLicenseActivation({ licenseKey: "TVLT-1234-5678-ABCD", isSubmitting: true })
 
-    const input = container?.querySelector("input[aria-label='License Key']") as HTMLInputElement
-    const button = container?.querySelector("button") as HTMLButtonElement
+    const input = container?.querySelector("[data-testid='license-key-input']") as HTMLInputElement
+    const button = container?.querySelector("[data-testid='license-submit-button']") as HTMLButtonElement
 
     expect(input.disabled).toBe(true)
     expect(button.disabled).toBe(true)
@@ -101,7 +101,7 @@ describe("LicenseActivation", () => {
       errorMessage: "Invalid license key"
     })
 
-    const input = container?.querySelector("input[aria-label='License Key']") as HTMLInputElement
+    const input = container?.querySelector("[data-testid='license-key-input']") as HTMLInputElement
 
     expect(container?.textContent).toContain("Invalid license key")
     expect(input.value).toBe("TVLT-1234-5678-ABCD")
@@ -113,9 +113,11 @@ describe("LicenseActivation", () => {
       isLicensed: true
     })
 
+    const card = container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")
     expect(container?.textContent).toContain("Activated")
     expect(container?.textContent).toContain("ABCD")
     expect(container?.textContent).not.toContain("TVLT-1234-5678-ABCD")
+    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-active")
   })
 
   it("renders localized Chinese defaults when language is zh", async () => {
@@ -124,9 +126,11 @@ describe("LicenseActivation", () => {
       licenseKey: "TVLT-1234-5678-ABCD"
     })
 
-    expect(container?.textContent).toContain("激活 TabVault")
-    expect(container?.querySelector("input[aria-label='许可密钥']")).not.toBeNull()
-    expect(container?.querySelector("button")?.textContent).toBe("激活")
+    const card = container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")
+    expect(container?.textContent).toContain("\u6fc0\u6d3b TabVault")
+    expect(container?.querySelector("[data-testid='license-key-input']")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='license-submit-button']")?.textContent).toBe("\u6fc0\u6d3b")
+    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
   })
 
   it("switches from edit state to activated state when isLicensed becomes true", async () => {
@@ -143,7 +147,7 @@ describe("LicenseActivation", () => {
     })
 
     expect(container?.textContent).toContain("Activated")
-    expect(container?.querySelector("input[aria-label='License Key']")).toBeNull()
+    expect(container?.querySelector("[data-testid='license-key-input']")).toBeNull()
   })
 
   it("returns to edit state and calls onEdit when clicking Change license key", async () => {
@@ -154,7 +158,7 @@ describe("LicenseActivation", () => {
       onEdit
     })
 
-    const changeButton = container?.querySelector("button") as HTMLButtonElement
+    const changeButton = container?.querySelector("[data-testid='license-change-button']") as HTMLButtonElement
 
     await act(async () => {
       changeButton.click()
@@ -162,7 +166,7 @@ describe("LicenseActivation", () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1)
     expect(container?.textContent).toContain("Activate TabVault")
-    expect(container?.querySelector("input[aria-label='License Key']")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='license-key-input']")).not.toBeNull()
   })
 
   it("calls onSubmit when clicking Activate", async () => {
@@ -172,7 +176,7 @@ describe("LicenseActivation", () => {
       onSubmit
     })
 
-    const button = container?.querySelector("button") as HTMLButtonElement
+    const button = container?.querySelector("[data-testid='license-submit-button']") as HTMLButtonElement
 
     await act(async () => {
       button.click()

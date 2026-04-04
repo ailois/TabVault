@@ -30,6 +30,7 @@ export function TrialBanner({ status, language = "en", title, message, detail, c
 
   const resolvedTitle = title ?? DEFAULT_TITLES[language][status]
   const isClickable = typeof onCtaClick === "function"
+  const titleId = `trial-banner-title-${status}`
 
   const statusPalette =
     status === "trial"
@@ -83,9 +84,14 @@ export function TrialBanner({ status, language = "en", title, message, detail, c
   }
 
   return (
-    <section data-testid="trial-banner" data-trial-status={status} style={containerStyle}>
+    <section
+      aria-labelledby={titleId}
+      data-testid="trial-banner"
+      data-trial-status={status}
+      style={containerStyle}
+    >
       <div style={contentStyle}>
-        <h3 style={titleStyle}>{resolvedTitle}</h3>
+        <h3 id={titleId} style={titleStyle}>{resolvedTitle}</h3>
         <p style={messageStyle}>{detail ?? message}</p>
       </div>
       <button

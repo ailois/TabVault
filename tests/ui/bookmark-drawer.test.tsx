@@ -66,7 +66,11 @@ describe("BookmarkDrawer", () => {
 
   it("renders the drawer when bookmark is provided", async () => {
     await render(makeBookmark())
-    expect(container?.querySelector("[data-testid='bookmark-drawer']")).not.toBeNull()
+    const drawer = container?.querySelector<HTMLElement>("[data-testid='bookmark-drawer']")
+    expect(drawer).not.toBeNull()
+    expect(drawer?.getAttribute("role")).toBe("dialog")
+    expect(drawer?.getAttribute("aria-modal")).toBe("true")
+    expect(drawer?.getAttribute("aria-label")).toBe("React Hooks")
   })
 
   it("shows title, URL, summary, and tags", async () => {
@@ -96,6 +100,7 @@ describe("BookmarkDrawer", () => {
     await act(async () => { editButton?.click() })
 
     const input = container?.querySelector<HTMLInputElement>("[data-testid='tag-input']")
+    expect(input?.getAttribute("aria-label")).toContain("Add custom tag")
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
       setter?.call(input, "custom-tag")

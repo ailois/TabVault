@@ -1,4 +1,4 @@
-import type { AppSettings, ProviderConfig, ProviderType } from "../../types/settings"
+import type { AppSettings, DisplayLanguage, ProviderConfig, ProviderType } from "../../types/settings"
 
 export type ProviderValidation = {
   apiKey?: string
@@ -14,7 +14,30 @@ export type SettingsValidation = {
 
 const PROVIDERS: ProviderType[] = ["openai", "openai-response", "claude", "gemini"]
 
-export function validateSettingsForm(appSettings: AppSettings, providers: ProviderConfig[]): SettingsValidation {
+const VALIDATION_COPY: Record<DisplayLanguage, {
+  apiKeyRequired: string
+  modelRequired: string
+  baseUrlRequired: string
+  baseUrlInvalid: string
+  defaultProviderDisabled: string
+}> = {
+  en: {
+    apiKeyRequired: "API key is required",
+    modelRequired: "Model is required",
+    baseUrlRequired: "Base URL is required",
+    baseUrlInvalid: "Base URL must be a valid URL",
+    defaultProviderDisabled: "Default provider must be enabled"
+  },
+  zh: {
+    apiKeyRequired: "API \u5bc6\u94a5\u4e3a\u5fc5\u586b\u9879",
+    modelRequired: "\u6a21\u578b\u4e3a\u5fc5\u586b\u9879",
+    baseUrlRequired: "\u57fa\u7840 URL \u4e3a\u5fc5\u586b\u9879",
+    baseUrlInvalid: "\u57fa\u7840 URL \u5fc5\u987b\u662f\u6709\u6548\u7684 URL",
+    defaultProviderDisabled: "\u9ed8\u8ba4 Provider \u5fc5\u987b\u5904\u4e8e\u542f\u7528\u72b6\u6001"
+  }
+}
+
+export function validateSettingsForm(appSettings: AppSettings, providers: ProviderConfig[], language: DisplayLanguage = "en"): SettingsValidation {
   const validation: SettingsValidation = {
     providers: {
       openai: {},
@@ -24,6 +47,7 @@ export function validateSettingsForm(appSettings: AppSettings, providers: Provid
     },
     hasErrors: false
   }
+  const copy = VALIDATION_COPY[language]
 
   const providerByType = new Map(providers.map((provider) => [provider.provider, provider]))
 
@@ -35,20 +59,20 @@ export function validateSettingsForm(appSettings: AppSettings, providers: Provid
     }
 
     if (!provider.apiKey.trim()) {
-      validation.providers[providerType].apiKey = "API key is required"
+      validation.providers[providerType].apiKey = copy.apiKeyRequired
     }
 
     if (!provider.model.trim()) {
-      validation.providers[providerType].model = "Model is required"
+      validation.providers[providerType].model = copy.modelRequired
     }
 
     if (providerType === "openai" || providerType === "openai-response") {
-      validateOpenAiBaseUrl(provider, validation.providers[providerType])
+      validateOpenAiBaseUrl(provider, validation.providers[providerType], copy)
     }
   }
 
   if (!isEnabledProvider(providerByType.get(appSettings.defaultProvider))) {
-    validation.defaultProvider = "Default provider must be enabled"
+    validation.defaultProvider = copy.defaultProviderDisabled
   }
 
   validation.hasErrors = hasProviderErrors(validation.providers) || Boolean(validation.defaultProvider)
@@ -60,11 +84,15 @@ function isEnabledProvider(provider: ProviderConfig | undefined): provider is Pr
   return Boolean(provider?.enabled)
 }
 
-function validateOpenAiBaseUrl(provider: ProviderConfig, validation: ProviderValidation): void {
+function validateOpenAiBaseUrl(
+  provider: ProviderConfig,
+  validation: ProviderValidation,
+  copy: (typeof VALIDATION_COPY)["en"]
+): void {
   const baseUrl = provider.baseUrl?.trim() ?? ""
 
   if (!baseUrl) {
-    validation.baseUrl = "Base URL is required"
+    validation.baseUrl = copy.baseUrlRequired
 
     return
   }
@@ -72,7 +100,7 @@ function validateOpenAiBaseUrl(provider: ProviderConfig, validation: ProviderVal
   try {
     new URL(baseUrl)
   } catch {
-    validation.baseUrl = "Base URL must be a valid URL"
+    validation.baseUrl = copy.baseUrlInvalid
   }
 }
 

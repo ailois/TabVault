@@ -72,20 +72,26 @@ function Popup({ services }: PopupProps) {
 
   const [displayLanguage, setDisplayLanguage] = useState<"en" | "zh">("en")
   const t = useMemo(() => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key), [displayLanguage])
-  const [statusMessage, setStatusMessage] = useState(() => getMessage("en", "popup.status.ready"))
+  const [isSettingsReady, setIsSettingsReady] = useState(false)
+  const [statusMessage, setStatusMessage] = useState("")
   const [statusTone, setStatusTone] = useState<"info" | "success">("info")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [currentPageTitle, setCurrentPageTitle] = useState(() => getMessage("en", "popup.currentPage.loading"))
+  const [currentPageTitle, setCurrentPageTitle] = useState("")
   const [currentPageUrl, setCurrentPageUrl] = useState<string | null>(null)
   const [savedBookmark, setSavedBookmark] = useState<BookmarkRecord | null>(null)
 
   useEffect(() => {
-    void popupServices.settingsRepository.getAppSettings().then((settings) => {
-      setDisplayLanguage(settings.displayLanguage)
-      setStatusMessage(getMessage(settings.displayLanguage, "popup.status.ready"))
-    })
+    void popupServices.settingsRepository
+      .getAppSettings()
+      .then((settings) => {
+        setDisplayLanguage(settings.displayLanguage)
+        setStatusMessage(getMessage(settings.displayLanguage, "popup.status.ready"))
+      })
+      .finally(() => {
+        setIsSettingsReady(true)
+      })
   }, [popupServices])
 
   useEffect(() => {
@@ -103,6 +109,10 @@ function Popup({ services }: PopupProps) {
   }, [])
 
   useEffect(() => {
+    if (!isSettingsReady) {
+      return
+    }
+
     async function loadCurrentPage(): Promise<void> {
       try {
         const activeTab = await popupServices.queryActiveTab()
@@ -127,7 +137,7 @@ function Popup({ services }: PopupProps) {
     }
 
     void loadCurrentPage()
-  }, [popupServices, t])
+  }, [isSettingsReady, popupServices, t])
 
   async function handleSaveCurrentPage(): Promise<void> {
     setIsSaving(true)
@@ -252,7 +262,7 @@ function Popup({ services }: PopupProps) {
         <div data-testid="popup-shell">
           <header style={headerStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div style={{ width: "20px", height: "20px", borderRadius: "4px", backgroundColor: theme.accent, color: "#fff", fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div aria-hidden="true" style={{ width: "20px", height: "20px", borderRadius: "4px", backgroundColor: theme.accent, color: "#fff", fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 TV
               </div>
               <span id="popup-title" style={{ fontWeight: 700, fontSize: "14px" }}>TabVault</span>
@@ -265,20 +275,21 @@ function Popup({ services }: PopupProps) {
                 style={iconButtonStyle}
                 type="button"
               >
-                {theme.isDark ? "L" : "D"}
+                <span aria-hidden="true">{theme.isDark ? "L" : "D"}</span>
               </button>
               <button
                 aria-label={t("popup.actions.openSettings")}
+                data-testid="popup-settings-button"
                 onClick={() => void openSettingsPage()}
                 style={iconButtonStyle}
                 type="button"
               >
-                S
+                <span aria-hidden="true">S</span>
               </button>
             </div>
           </header>
 
-          {savedBookmark ? (
+          {!isSettingsReady ? null : savedBookmark ? (
             <PopupSyncedView
               bookmark={savedBookmark}
               errorMessage={errorMessage}
@@ -362,7 +373,7 @@ function PopupUnsyncedView({
 
         <section style={{ borderRadius: "12px", backgroundColor: theme.surface, border: `1px solid ${theme.border}`, padding: "12px" }}>
           <div style={{ border: `1px dashed ${theme.accent}`, borderRadius: "8px", padding: "20px 12px", backgroundColor: theme.surfaceSubtle, textAlign: "center" }}>
-            <div style={{ fontSize: "20px", marginBottom: "8px" }}>AI</div>
+            <div aria-hidden="true" style={{ fontSize: "20px", marginBottom: "8px" }}>AI</div>
             <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px" }}>{t("popup.unsynced.helperTitle")}</div>
             <div style={{ fontSize: "10px", color: theme.textSecondary, lineHeight: 1.6 }}>
               {t("popup.unsynced.helperBody")}

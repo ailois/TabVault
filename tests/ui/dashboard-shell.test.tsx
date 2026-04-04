@@ -62,9 +62,7 @@ describe("DashboardShell", () => {
     expect(container?.textContent).toContain("React Docs")
     expect(container?.textContent).toContain("Vue Docs")
 
-    const otherBookmarks = Array.from(container?.querySelectorAll('[role="button"]') ?? []).find((element) =>
-      element.textContent?.includes("Other Bookmarks")
-    )
+    const otherBookmarks = container?.querySelector<HTMLElement>("[data-testid='dashboard-folder-2']")
     await act(async () => {
       ;(otherBookmarks as HTMLElement | undefined)?.click()
     })
@@ -100,8 +98,8 @@ describe("DashboardShell", () => {
   it("renders localized dashboard copy when display language is zh", async () => {
     await renderDashboard([createBookmark({ id: "1", title: "React Docs" })], undefined, createSettingsRepository("zh"))
 
-    expect(container?.textContent).toContain("全部书签")
-    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-search-input']")?.placeholder).toContain("搜索标题")
+    expect(container?.textContent).toContain("\u77e5\u8bc6\u5e93")
+    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-search-input']")?.placeholder).toContain("\u641c\u7d22\u6807\u9898")
   })
 
   it("switches the dashboard results column to search mode when typing", async () => {
@@ -122,6 +120,38 @@ describe("DashboardShell", () => {
 
     expect(container?.textContent).toContain("Svelte Docs")
     expect(container?.textContent).not.toContain("React Docs")
+  })
+
+  it("marks the selected result with accessible current-state semantics", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", url: "https://react.dev" }),
+      createBookmark({ id: "2", title: "Vue Docs", url: "https://vuejs.org" })
+    ])
+
+    const resultButtons = Array.from(
+      container?.querySelectorAll<HTMLButtonElement>("[data-testid='dashboard-result-button']") ?? []
+    )
+    const vueButton = resultButtons.find((element) => element.textContent?.includes("Vue Docs"))
+    const reactButton = resultButtons.find((element) => element.textContent?.includes("React Docs"))
+
+    expect(vueButton?.getAttribute("aria-pressed")).toBe("false")
+    expect(vueButton?.getAttribute("aria-current")).toBeNull()
+
+    await act(async () => {
+      vueButton?.click()
+    })
+
+    const updatedButtons = Array.from(
+      container?.querySelectorAll<HTMLButtonElement>("[data-testid='dashboard-result-button']") ?? []
+    )
+    const updatedVueButton = updatedButtons.find((element) => element.textContent?.includes("Vue Docs"))
+    const updatedReactButton = updatedButtons.find((element) => element.textContent?.includes("React Docs"))
+
+    expect(updatedVueButton?.getAttribute("aria-pressed")).toBe("true")
+    expect(updatedVueButton?.getAttribute("aria-current")).toBe("true")
+    expect(updatedReactButton?.getAttribute("aria-pressed")).toBe("false")
+    expect(updatedReactButton?.getAttribute("aria-current")).toBeNull()
+    expect(reactButton).not.toBeNull()
   })
 
   it("enters bulk edit mode when a result is selected", async () => {
@@ -151,6 +181,45 @@ describe("DashboardShell", () => {
     expect(metadata).not.toBeNull()
     expect(metadata?.style.borderBottom).toContain("1px solid")
   })
+
+  it("marks placeholder navigation buttons as disabled until their views are wired", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "React Docs" })])
+
+    const recentsButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-recents']")
+    const highlightsButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-highlights']")
+    const settingsButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-settings']")
+    const frontendTagButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tag-frontend']")
+
+    expect(recentsButton?.disabled).toBe(true)
+    expect(recentsButton?.title).toContain("Coming soon")
+    expect(highlightsButton?.disabled).toBe(true)
+    expect(settingsButton?.disabled).toBe(true)
+    expect(frontendTagButton?.disabled).toBe(true)
+  })
+
+  it("uses tab semantics in the reading pane and disables note-format placeholders", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })
+    ])
+
+    const resultButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")
+    await act(async () => {
+      resultButton?.click()
+    })
+
+    const notesTab = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-notes-tab']")
+    const aiTab = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ai-tab']")
+    const boldButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-format-bold']")
+    const italicButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-format-italic']")
+    const quoteButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-format-quote']")
+
+    expect(notesTab?.getAttribute("aria-selected")).toBe("true")
+    expect(aiTab?.getAttribute("aria-selected")).toBe("false")
+    expect(boldButton?.disabled).toBe(true)
+    expect(italicButton?.disabled).toBe(true)
+    expect(quoteButton?.disabled).toBe(true)
+    expect(boldButton?.title).toContain("Coming soon")
+  })
 })
 
 let container: HTMLDivElement | null = null
@@ -172,6 +241,10 @@ async function renderDashboard(
       </ThemeProvider>
     )
   })
+
+  await act(async () => {
+    await Promise.resolve()
+  })
 }
 
 async function renderDashboardWithTree(bookmarks: BookmarkRecord[], tree: chrome.bookmarks.BookmarkTreeNode[]) {
@@ -185,6 +258,10 @@ async function renderDashboardWithTree(bookmarks: BookmarkRecord[], tree: chrome
         <DashboardShell initialBookmarks={bookmarks} initialTree={tree} />
       </ThemeProvider>
     )
+  })
+
+  await act(async () => {
+    await Promise.resolve()
   })
 }
 

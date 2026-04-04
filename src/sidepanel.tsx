@@ -459,7 +459,7 @@ export default function SidePanel({ services }: SidePanelProps) {
         <header style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
             <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-              <div style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>TV</div>
+              <div aria-hidden="true" style={{ width: "28px", height: "28px", backgroundColor: theme.accent, borderRadius: radius.medium, display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "0.875rem" }}>TV</div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: theme.textPrimary }}>Ghostreader</div>
                 <div style={{ marginTop: 2, fontSize: "0.75rem", color: theme.textMuted }}>{t("sidepanel.header.tagline")}</div>
@@ -481,7 +481,7 @@ export default function SidePanel({ services }: SidePanelProps) {
               }}
               type="button"
             >
-              {theme.isDark ? "L" : "D"}
+              <span aria-hidden="true">{theme.isDark ? "L" : "D"}</span>
             </button>
           </div>
 
@@ -529,7 +529,7 @@ export default function SidePanel({ services }: SidePanelProps) {
                 }}
                 type="button"
               >
-                X
+                <span aria-hidden="true">X</span>
               </button>
             ) : null}
           </div>
@@ -648,11 +648,11 @@ export default function SidePanel({ services }: SidePanelProps) {
               }}
               type="button"
             >
-              {isGhostreaderSubmitting ? "..." : "->"}
+              <span aria-hidden="true">{isGhostreaderSubmitting ? "..." : "->"}</span>
             </button>
           </div>
           <div style={{ marginTop: spacing.sm }}>
-            <button disabled={isImporting} onClick={() => void handleImport()} style={importButtonStyle} type="button">
+            <button data-testid="sidepanel-import-button" disabled={isImporting} onClick={() => void handleImport()} style={importButtonStyle} type="button">
               {isImporting ? t("sidepanel.import.syncing") : t("sidepanel.import.button")}
             </button>
           </div>

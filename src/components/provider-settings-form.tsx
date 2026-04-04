@@ -71,9 +71,9 @@ const LOCALIZED_FORM_COPY: typeof FORM_COPY = {
   en: FORM_COPY.en,
   zh: {
     required: "\u5fc5\u586b",
-    apiKey: "API Key",
+    apiKey: "API \u5bc6\u94a5",
     model: "\u6a21\u578b",
-    baseUrl: "Base URL",
+    baseUrl: "\u57fa\u7840 URL",
     baseUrlOptional: (url) => `\u53ef\u9009\uff0c\u9ed8\u8ba4\u4f7f\u7528 ${url}`,
     connectionIdle: "\u5c1a\u672a\u6d4b\u8bd5\u8fde\u63a5",
     connectionTesting: "\u6b63\u5728\u6d4b\u8bd5\u8fde\u63a5...",

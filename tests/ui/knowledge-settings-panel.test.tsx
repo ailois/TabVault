@@ -38,6 +38,8 @@ describe("KnowledgeSettingsPanel", () => {
     expect(container?.textContent).toContain("\u5b58\u50a8\u6982\u89c8")
     expect(container?.textContent).toContain("\u5bfc\u5165\u4e0e\u5bfc\u51fa")
     expect(container?.textContent).toContain("\u4fdd\u5b58\u77e5\u8bc6\u5e93\u8bbe\u7f6e")
+    expect(container?.querySelector<HTMLSelectElement>('[data-testid="knowledge-embedding-model"]')?.textContent).toContain("OpenAI\uff08text-embedding-3-small\uff09")
+    expect(container?.querySelector<HTMLButtonElement>('[data-testid="knowledge-privacy-toggle"]')?.getAttribute("aria-checked")).toBe("true")
   })
 
   it("renders stable storage summary separators in English", async () => {

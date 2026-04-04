@@ -27,8 +27,9 @@ describe("Dashboard ask box", () => {
   it("renders ask input and submit button", async () => {
     await renderSidebar(createBookmark())
 
+    expect(container?.querySelector("[data-testid='dashboard-ai-sidebar']")?.getAttribute("aria-label")).toBe("AI tools")
     expect(container?.querySelector("[data-testid='dashboard-ask-input']")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-ask-submit']")).not.toBeNull()
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.disabled).toBe(true)
   })
 
   it("shows an answer block after submitting a question", async () => {
@@ -46,6 +47,7 @@ describe("Dashboard ask box", () => {
     })
 
     const submit = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")
+    expect(submit?.disabled).toBe(false)
     await act(async () => {
       submit?.click()
     })
@@ -57,8 +59,9 @@ describe("Dashboard ask box", () => {
   it("renders localized ask box copy in zh", async () => {
     await renderSidebar(createBookmark(), "zh")
 
-    expect(container?.textContent).toContain("询问 Ghostreader")
-    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")?.placeholder).toContain("Ghostreader")
+    expect(container?.querySelector("[data-testid='dashboard-ai-sidebar']")?.getAttribute("aria-label")).toContain("\u667a\u80fd\u5de5\u5177")
+    expect(container?.textContent).toContain("\u8be2\u95ee Ghostreader")
+    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")?.placeholder).toContain("Ghostreader \u8be2\u95ee\u8fd9\u4e2a\u4e66\u7b7e")
   })
 })
 
@@ -76,6 +79,10 @@ async function renderSidebar(bookmark: BookmarkRecord, language: DisplayLanguage
         <DashboardAiSidebar bookmark={bookmark} language={language} />
       </ThemeProvider>
     )
+  })
+
+  await act(async () => {
+    await Promise.resolve()
   })
 }
 

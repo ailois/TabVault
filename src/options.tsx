@@ -210,7 +210,10 @@ function Options({ services }: OptionsProps) {
     (key: Parameters<typeof getMessage>[1]) => getMessage(appSettings.displayLanguage, key),
     [appSettings.displayLanguage]
   )
-  const validation = React.useMemo(() => validateSettingsForm(appSettings, providers), [appSettings, providers])
+  const validation = React.useMemo(
+    () => validateSettingsForm(appSettings, providers, appSettings.displayLanguage),
+    [appSettings, providers]
+  )
 
   React.useEffect(() => {
     let mounted = true

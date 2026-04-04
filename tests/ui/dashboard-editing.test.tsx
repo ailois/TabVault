@@ -40,6 +40,7 @@ describe("Dashboard editing", () => {
     const textarea = container?.querySelector<HTMLTextAreaElement>("[data-testid='dashboard-summary-input']")
     expect(textarea).not.toBeNull()
     expect(textarea?.value).toBe("Original summary")
+    expect(textarea?.getAttribute("aria-label")).toBe("Summary text")
   })
 
   it("saves updated summary through the callback", async () => {
@@ -103,6 +104,32 @@ describe("Dashboard editing", () => {
     expect(cancelButton?.style.padding).toBe("4px 10px")
     expect(saveButton?.style.borderRadius).toBe("8px")
     expect(saveButton?.style.padding).toBe("4px 10px")
+  })
+
+  it("disables tag saving until a new tag is entered", async () => {
+    await renderSidebar(createBookmark(), {
+      onSaveSummary: vi.fn(async () => undefined),
+      onSaveTags: vi.fn(async () => undefined)
+    })
+
+    const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit tags']")
+    await act(async () => {
+      editButton?.click()
+    })
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-tag-input']")
+    const saveButton = container?.querySelector<HTMLButtonElement>("[aria-label='Save tags']")
+
+    expect(input?.getAttribute("aria-label")).toBe("New tag")
+    expect(saveButton?.disabled).toBe(true)
+
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setter?.call(input, "favorite")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    expect(saveButton?.disabled).toBe(false)
   })
 
 

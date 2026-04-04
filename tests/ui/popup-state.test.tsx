@@ -312,7 +312,7 @@ describe("Popup state", () => {
 
     await renderPopup(createServices())
 
-    const settingsButton = container?.querySelector<HTMLButtonElement>("button[aria-label='\u6253\u5f00\u8bbe\u7f6e']")
+    const settingsButton = container?.querySelector<HTMLButtonElement>("[data-testid='popup-settings-button']")
     await act(async () => { settingsButton?.click() })
     await flush()
 

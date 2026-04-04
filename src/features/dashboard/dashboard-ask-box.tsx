@@ -53,6 +53,8 @@ export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxPr
     }
   }, [bookmark])
 
+  const canSubmit = Boolean(searchDocument && query.trim())
+
   function handleSubmit(): void {
     const trimmedQuery = query.trim()
     if (!searchDocument || !trimmedQuery) {
@@ -91,6 +93,7 @@ export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxPr
         <button
           aria-label={t("dashboard.ask.submit")}
           data-testid="dashboard-ask-submit"
+          disabled={!canSubmit}
           onClick={handleSubmit}
           style={{
             position: "absolute",
@@ -103,15 +106,17 @@ export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxPr
             borderRadius: radius.medium,
             backgroundColor: theme.accent,
             color: "#ffffff",
-            cursor: "pointer"
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            opacity: canSubmit ? 1 : 0.7
           }}
+          title={t("dashboard.ask.submit")}
           type="button"
         >
-          {">"}
+          <span aria-hidden="true">{">"}</span>
         </button>
       </div>
       {answerText ? (
-        <div style={{ marginTop: spacing.sm, color: theme.textPrimary, fontSize: "0.875rem", lineHeight: 1.5 }}>
+        <div aria-live="polite" style={{ marginTop: spacing.sm, color: theme.textPrimary, fontSize: "0.875rem", lineHeight: 1.5 }}>
           {answerText}
         </div>
       ) : null}

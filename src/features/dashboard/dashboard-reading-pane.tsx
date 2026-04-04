@@ -7,6 +7,11 @@ import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
 
+const READING_PLACEHOLDER_COPY: Record<DisplayLanguage, string> = {
+  en: "Coming soon",
+  zh: "\u5373\u5c06\u4e0a\u7ebf"
+}
+
 type DashboardReadingPaneProps = {
   bookmark: BookmarkRecord | null
   language?: DisplayLanguage
@@ -27,6 +32,12 @@ export function DashboardReadingPane({
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
   const [activeTab, setActiveTab] = useState<ReadingTab>("notes")
+  const notesTabId = "dashboard-reading-tab-notes"
+  const aiTabId = "dashboard-reading-tab-ai"
+  const notesPanelId = "dashboard-reading-panel-notes"
+  const aiPanelId = "dashboard-reading-panel-ai"
+  const getPlaceholderTitle = (label: string) => `${label} - ${READING_PLACEHOLDER_COPY[language]}`
+  const placeholderTitle = (label: string) => `${label} · ${READING_PLACEHOLDER_COPY[language]}`
 
   const tabStyle = (tab: ReadingTab): React.CSSProperties => ({
     padding: "8px 16px",
@@ -143,18 +154,37 @@ export function DashboardReadingPane({
           padding: "0 24px",
           flexShrink: 0
         }}
+        role="tablist"
       >
-        <button type="button" style={tabStyle("notes")} onClick={() => setActiveTab("notes")}>
+        <button
+          aria-controls={notesPanelId}
+          aria-selected={activeTab === "notes"}
+          data-testid="dashboard-notes-tab"
+          id={notesTabId}
+          onClick={() => setActiveTab("notes")}
+          role="tab"
+          style={tabStyle("notes")}
+          type="button"
+        >
           {t("dashboard.reading.tab.notes")}
         </button>
-        <button type="button" style={tabStyle("ai")} onClick={() => setActiveTab("ai")}>
+        <button
+          aria-controls={aiPanelId}
+          aria-selected={activeTab === "ai"}
+          data-testid="dashboard-ai-tab"
+          id={aiTabId}
+          onClick={() => setActiveTab("ai")}
+          role="tab"
+          style={tabStyle("ai")}
+          type="button"
+        >
           {t("dashboard.reading.tab.ai")}
         </button>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
         {activeTab === "notes" ? (
-          <div style={{ display: "grid", gap: "28px" }}>
+          <div aria-labelledby={notesTabId} id={notesPanelId} role="tabpanel" style={{ display: "grid", gap: "28px" }}>
             <section>
               <h3 style={{ margin: "0 0 10px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 {t("dashboard.reading.section.tags")}
@@ -204,9 +234,9 @@ export function DashboardReadingPane({
                 </div>
                 <div style={{ borderTop: `1px solid ${theme.border}`, backgroundColor: theme.page, padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", gap: "12px", color: theme.textMuted, fontSize: "0.875rem" }}>
-                    <button style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit", fontWeight: 700 }} title={t("dashboard.reading.format.bold")} type="button">B</button>
-                    <button style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit", fontStyle: "italic" }} title={t("dashboard.reading.format.italic")} type="button">I</button>
-                    <button style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit" }} title={t("dashboard.reading.format.quote")} type="button">{">"}</button>
+                    <button aria-disabled="true" data-testid="dashboard-format-bold" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", fontWeight: 700, opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.bold"))} type="button"><span aria-hidden="true">B</span></button>
+                    <button aria-disabled="true" data-testid="dashboard-format-italic" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", fontStyle: "italic", opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.italic"))} type="button"><span aria-hidden="true">I</span></button>
+                    <button aria-disabled="true" data-testid="dashboard-format-quote" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.quote"))} type="button"><span aria-hidden="true">{">"}</span></button>
                   </div>
                   <span style={{ fontSize: "0.625rem", color: theme.textMuted }}>{t("dashboard.reading.autosave")}</span>
                 </div>
@@ -214,12 +244,14 @@ export function DashboardReadingPane({
             </section>
           </div>
         ) : (
-          <DashboardAiSidebar
-            bookmark={bookmark}
-            language={language}
-            onSaveSummary={onSaveSummary}
-            onSaveTags={onSaveTags}
-          />
+          <div aria-labelledby={aiTabId} id={aiPanelId} role="tabpanel">
+            <DashboardAiSidebar
+              bookmark={bookmark}
+              language={language}
+              onSaveSummary={onSaveSummary}
+              onSaveTags={onSaveTags}
+            />
+          </div>
         )}
       </div>
     </section>

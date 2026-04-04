@@ -27,9 +27,11 @@ export function DashboardResultsList({
 }: DashboardResultsListProps) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
+  const headingId = "dashboard-results-heading"
 
   return (
     <section
+      aria-labelledby={headingId}
       data-testid="dashboard-results-column"
       style={{
         display: "flex",
@@ -43,7 +45,7 @@ export function DashboardResultsList({
       }}
     >
       <header style={{ padding: "24px 24px 12px", flexShrink: 0 }}>
-        <h2 style={{ margin: "0 0 16px", fontSize: "1.25rem", fontWeight: 700, color: theme.textPrimary }}>
+        <h2 id={headingId} style={{ margin: "0 0 16px", fontSize: "1.25rem", fontWeight: 700, color: theme.textPrimary }}>
           {heading ?? t("dashboard.results.heading")}
         </h2>
         <div style={{ position: "relative" }}>
@@ -70,7 +72,7 @@ export function DashboardResultsList({
           <span aria-hidden="true" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>
             S
           </span>
-          <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.625rem", color: theme.textMuted, border: `1px solid ${theme.border}`, padding: "2px 6px", borderRadius: "6px", backgroundColor: theme.page }}>
+          <span aria-hidden="true" style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.625rem", color: theme.textMuted, border: `1px solid ${theme.border}`, padding: "2px 6px", borderRadius: "6px", backgroundColor: theme.page }}>
             {t("dashboard.results.searchShortcut")}
           </span>
         </div>
@@ -93,6 +95,8 @@ export function DashboardResultsList({
 
           return (
             <button
+              aria-current={selected ? "true" : undefined}
+              aria-pressed={selected}
               key={bookmark.id}
               data-testid="dashboard-result-button"
               onClick={() => onSelectUrl(bookmark.url)}
@@ -117,7 +121,7 @@ export function DashboardResultsList({
               ) : null}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm }}>
                 <div style={{ fontWeight: selected ? 600 : 500, fontSize: "0.9375rem" }}>{bookmark.title}</div>
-                <div style={{ color: selected ? "#FBBF24" : "#D0D6D1" }}>*</div>
+                <div aria-hidden="true" style={{ color: selected ? "#FBBF24" : "#D0D6D1" }}>*</div>
               </div>
               <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginTop: "6px" }}>
                 {(bookmark.summary ?? bookmark.extractedText ?? "").slice(0, 120) || t("dashboard.results.noSummary")}

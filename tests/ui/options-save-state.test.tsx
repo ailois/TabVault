@@ -379,6 +379,55 @@ describe("Options save state", () => {
     expect(saveProviders).not.toHaveBeenCalled()
   })
 
+  it("localizes provider validation errors when display language is zh", async () => {
+    await renderOptions(
+      createSettingsRepository({
+        getAppSettings: async () => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto" as const,
+          autoRetryOnError: false,
+          displayLanguage: "zh" as const,
+          theme: "sage" as const
+        }),
+        getProviders: async () => [
+          {
+            provider: "openai",
+            apiKey: "openai-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4o-mini",
+            enabled: true
+          },
+          {
+            provider: "openai-response",
+            apiKey: "response-key",
+            baseUrl: "https://api.openai.com/v1",
+            model: "gpt-4.1-mini",
+            enabled: false
+          },
+          {
+            provider: "claude",
+            apiKey: "claude-key",
+            model: "claude-sonnet-4-5",
+            enabled: false
+          },
+          {
+            provider: "gemini",
+            apiKey: "gemini-key",
+            model: "gemini-1.5-flash",
+            enabled: false
+          }
+        ]
+      })
+    )
+
+    await changeInputValue("openai-base-url", "not-a-url")
+    await clickSave()
+
+    expect(getSaveButton()?.disabled).toBe(true)
+    expect(getSectionByHeading("OpenAI \u804a\u5929\u8865\u5168")?.textContent).toContain("\u57fa\u7840 URL \u5fc5\u987b\u662f\u6709\u6548\u7684 URL")
+  })
+
   it("disables save when the default provider has an empty API key", async () => {
     const saveAppSettings = vi.fn<SettingsRepository["saveAppSettings"]>(async () => {})
     const saveProviders = vi.fn<SettingsRepository["saveProviders"]>(async () => {})
@@ -655,9 +704,7 @@ function getSaveActionArea(): HTMLElement | undefined {
 }
 
 function getSaveButton(): HTMLButtonElement | undefined {
-  return Array.from(container?.querySelectorAll("button") ?? []).find(
-    (candidate): candidate is HTMLButtonElement => candidate.textContent === "Save settings"
-  )
+  return getSaveActionArea()?.querySelector<HTMLButtonElement>("button") ?? undefined
 }
 
 function createDeferred<T>(): {

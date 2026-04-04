@@ -84,6 +84,7 @@ export function LicenseActivation({
 }: LicenseActivationProps) {
   const theme = useThemeContext()
   const [isEditing, setIsEditing] = useState(!isLicensed)
+  const headingId = isLicensed && !isEditing ? "license-activation-heading-active" : "license-activation-heading-edit"
 
   useEffect(() => {
     setIsEditing(!isLicensed)
@@ -152,11 +153,12 @@ export function LicenseActivation({
 
   if (isLicensed && !isEditing) {
     return (
-      <section data-testid="license-activation-card" style={cardStyle}>
-        <h2 style={headingStyle}>{resolvedCopy.headingActivated}</h2>
+      <section aria-labelledby={headingId} data-testid="license-activation-card" style={cardStyle}>
+        <h2 id={headingId} style={headingStyle}>{resolvedCopy.headingActivated}</h2>
         <p style={descriptionStyle}>{resolvedCopy.descriptionActivated}</p>
         <p style={{ margin: 0, color: theme.textMuted, fontSize: "0.8125rem" }}>{maskedKey}</p>
         <button
+          data-testid="license-change-button"
           onClick={() => {
             setIsEditing(true)
             onEdit?.()
@@ -171,8 +173,8 @@ export function LicenseActivation({
   }
 
   return (
-    <section data-testid="license-activation-card" style={cardStyle}>
-      <h2 style={headingStyle}>{resolvedCopy.headingActivate}</h2>
+    <section aria-labelledby={headingId} data-testid="license-activation-card" style={cardStyle}>
+      <h2 id={headingId} style={headingStyle}>{resolvedCopy.headingActivate}</h2>
       <p style={descriptionStyle}>{resolvedCopy.descriptionActivate}</p>
 
       <div style={{ display: "grid", gap: spacing.xs }}>
@@ -181,6 +183,7 @@ export function LicenseActivation({
         </label>
         <input
           aria-label={resolvedCopy.fieldLabel}
+          data-testid="license-key-input"
           disabled={isSubmitting}
           id="license-key-input"
           onChange={(event) => onLicenseKeyChange(event.target.value)}
@@ -192,7 +195,7 @@ export function LicenseActivation({
 
       {errorMessage ? <ErrorBanner language={language} message={errorMessage} /> : null}
 
-      <button disabled={!canSubmit} onClick={() => void onSubmit()} style={primaryButtonStyle} type="button">
+      <button data-testid="license-submit-button" disabled={!canSubmit} onClick={() => void onSubmit()} style={primaryButtonStyle} type="button">
         {isSubmitting ? resolvedCopy.activatingButton : resolvedCopy.activateButton}
       </button>
     </section>

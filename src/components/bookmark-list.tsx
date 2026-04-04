@@ -229,9 +229,10 @@ function BookmarkCard({
               data-testid="bookmark-delete-button"
               onClick={() => void handleDelete()}
               style={{ ...compactActionButtonStyle, color: theme.textMuted }}
+              title={copy.delete}
               type="button"
             >
-              X
+              <span aria-hidden="true">X</span>
             </button>
           </div>
         </div>
@@ -285,9 +286,10 @@ function BookmarkCard({
           opacity: hovered ? 1 : 0,
           transition: "opacity 0.15s ease"
         }}
+        title={copy.delete}
         type="button"
       >
-        X
+        <span aria-hidden="true">X</span>
       </button>
 
       <div style={cardBodyStyle}>

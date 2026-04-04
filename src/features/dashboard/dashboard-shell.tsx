@@ -52,6 +52,7 @@ export function DashboardShell({
   const [searchQuery, setSearchQuery] = useState("")
   const [activeBookmark, setActiveBookmark] = useState<BookmarkRecord | null>(null)
   const [displayLanguage, setDisplayLanguage] = useState<DisplayLanguage>("en")
+  const [isSettingsReady, setIsSettingsReady] = useState(false)
   const t = useMemo(
     () => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key),
     [displayLanguage]
@@ -78,9 +79,14 @@ export function DashboardShell({
   }, [chromeTree, selectedFolderId])
 
   useEffect(() => {
-    void dashboardSettingsRepository.getAppSettings().then((settings) => {
-      setDisplayLanguage(settings.displayLanguage)
-    })
+    void dashboardSettingsRepository
+      .getAppSettings()
+      .then((settings) => {
+        setDisplayLanguage(settings.displayLanguage)
+      })
+      .finally(() => {
+        setIsSettingsReady(true)
+      })
   }, [dashboardSettingsRepository])
 
   useEffect(() => {
@@ -186,24 +192,28 @@ export function DashboardShell({
       />
 
       <div data-testid="dashboard-browse-view" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <DashboardResultsList
-          activeUrl={activeBookmark?.url ?? null}
-          bookmarks={visibleBookmarks}
-          language={displayLanguage}
-          onSearchQueryChange={setSearchQuery}
-          onSelectUrl={(url) => {
-            const bookmark = bookmarks.find((item) => item.url === url) ?? null
-            setActiveBookmark(bookmark)
-          }}
-          searchQuery={searchQuery}
-        />
+        {isSettingsReady ? (
+          <>
+            <DashboardResultsList
+              activeUrl={activeBookmark?.url ?? null}
+              bookmarks={visibleBookmarks}
+              language={displayLanguage}
+              onSearchQueryChange={setSearchQuery}
+              onSelectUrl={(url) => {
+                const bookmark = bookmarks.find((item) => item.url === url) ?? null
+                setActiveBookmark(bookmark)
+              }}
+              searchQuery={searchQuery}
+            />
 
-        <DashboardReadingPane
-          bookmark={activeBookmark}
-          language={displayLanguage}
-          onSaveSummary={handleSaveSummary}
-          onSaveTags={handleSaveTags}
-        />
+            <DashboardReadingPane
+              bookmark={activeBookmark}
+              language={displayLanguage}
+              onSaveSummary={handleSaveSummary}
+              onSaveTags={handleSaveTags}
+            />
+          </>
+        ) : null}
       </div>
 
       <div data-testid="dashboard-bulk-edit-view" style={{ display: "none" }}>

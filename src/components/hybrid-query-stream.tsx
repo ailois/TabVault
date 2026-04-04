@@ -102,7 +102,8 @@ export function HybridQueryStream(input: {
         <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs }}>
           {input.actions.map((action) => (
             <button
-              data-testid="hybrid-action-card"
+              data-action-id={action.id}
+              data-testid={`hybrid-action-${action.id}`}
               key={action.id}
               onClick={() => input.onAction?.(action.id)}
               style={{

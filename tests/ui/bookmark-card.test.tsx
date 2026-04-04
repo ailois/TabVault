@@ -197,6 +197,15 @@ describe("BookmarkCard", () => {
     expect(onDelete).toHaveBeenCalledWith("bm-1")
   })
 
+  it("keeps delete action text decorative while exposing a localized label", async () => {
+    await renderList([createBookmark({ id: "bm-1" })], vi.fn(async () => undefined), undefined, undefined, false, "zh")
+
+    const deleteBtn = getCard()?.querySelector<HTMLButtonElement>("[data-testid='bookmark-delete-button']")
+    expect(deleteBtn?.getAttribute("aria-label")).toContain("\u5220\u9664")
+    expect(deleteBtn?.getAttribute("title")).toBe("\u5220\u9664")
+    expect(deleteBtn?.textContent).toBe("X")
+  })
+
   it("does not call onDelete when delete is cancelled", async () => {
     const onDelete = vi.fn(async () => undefined)
     vi.spyOn(window, "confirm").mockReturnValue(false)

@@ -98,6 +98,7 @@ export function BookmarkDrawer({ bookmark, language = "en", onClose, onAnalyze, 
     <>
       {/* Backdrop */}
       <div
+        aria-hidden="true"
         onClick={() => void handleClose()}
         style={{
           position: "fixed",
@@ -108,7 +109,10 @@ export function BookmarkDrawer({ bookmark, language = "en", onClose, onAnalyze, 
       />
       {/* Drawer panel */}
       <aside
+        aria-label={bookmark.title}
+        aria-modal="true"
         data-testid="bookmark-drawer"
+        role="dialog"
         style={{
           position: "fixed",
           top: 0,
@@ -167,7 +171,7 @@ export function BookmarkDrawer({ bookmark, language = "en", onClose, onAnalyze, 
               style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "1.125rem", padding: "2px", borderRadius: radius.small, flexShrink: 0 }}
               type="button"
             >
-              X
+              <span aria-hidden="true">X</span>
             </button>
           </div>
         </div>
@@ -278,7 +282,7 @@ export function BookmarkDrawer({ bookmark, language = "en", onClose, onAnalyze, 
                       style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "0 0 0 2px", lineHeight: 1 }}
                       type="button"
                     >
-                      x
+                      <span aria-hidden="true">x</span>
                     </button>
                   ) : null}
                 </span>
@@ -295,13 +299,14 @@ export function BookmarkDrawer({ bookmark, language = "en", onClose, onAnalyze, 
                       style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "0 0 0 2px", lineHeight: 1 }}
                       type="button"
                     >
-                      x
+                      <span aria-hidden="true">x</span>
                     </button>
                   ) : null}
                 </span>
               ))}
               {isEditingTags ? (
                 <input
+                  aria-label={t("drawer.tags.inputPlaceholder")}
                   data-testid="tag-input"
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleTagInputKeyDown}

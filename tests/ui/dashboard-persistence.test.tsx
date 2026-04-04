@@ -146,7 +146,7 @@ async function selectBookmark(title: string) {
 }
 
 async function switchToAiWorkspace() {
-  const button = Array.from(container?.querySelectorAll("button") ?? []).find((element) => element.textContent?.includes("AI workspace")) as HTMLButtonElement | undefined
+  const button = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ai-tab']") ?? undefined
   await act(async () => {
     button?.click()
   })

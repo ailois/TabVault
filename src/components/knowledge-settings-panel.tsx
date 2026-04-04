@@ -35,7 +35,7 @@ const DEFAULT_KNOWLEDGE_DRAFT: KnowledgeDraft = {
   strictUrlSanitization: true
 }
 
-const KNOWLEDGE_COPY: Record<DisplayLanguage, {
+type KnowledgeCopy = {
   statusReady: string
   statusImporting: string
   statusImported: (count: number) => string
@@ -68,6 +68,8 @@ const KNOWLEDGE_COPY: Record<DisplayLanguage, {
   retrievalTitle: string
   embeddingLabel: string
   embeddingLocal: string
+  embeddingOpenAi: string
+  embeddingGemini: string
   embeddingDescription: string
   chunkSizeLabel: string
   overlapLabel: string
@@ -80,7 +82,9 @@ const KNOWLEDGE_COPY: Record<DisplayLanguage, {
   sanitizationLabel: string
   sanitizationDescription: string
   saveButton: string
-}> = {
+}
+
+const KNOWLEDGE_COPY: Record<DisplayLanguage, Partial<KnowledgeCopy>> = {
   en: {
     statusReady: "Ready to save knowledge settings",
     statusImporting: "Importing Chrome bookmarks...",
@@ -114,6 +118,8 @@ const KNOWLEDGE_COPY: Record<DisplayLanguage, {
     retrievalTitle: "Retrieval & Vector Architecture",
     embeddingLabel: "Embedding model",
     embeddingLocal: "Local only (BGE-M3-Lite) - recommended",
+    embeddingOpenAi: "OpenAI (text-embedding-3-small)",
+    embeddingGemini: "Gemini (text-embedding-004)",
     embeddingDescription: "Local embedding avoids sending bookmark content to remote APIs before retrieval is fully finalized.",
     chunkSizeLabel: "Chunk size",
     overlapLabel: "Overlap",
@@ -175,8 +181,8 @@ const KNOWLEDGE_COPY: Record<DisplayLanguage, {
   }
 }
 
-const LOCALIZED_KNOWLEDGE_COPY: typeof KNOWLEDGE_COPY = {
-  en: KNOWLEDGE_COPY.en,
+const LOCALIZED_KNOWLEDGE_COPY: Record<DisplayLanguage, KnowledgeCopy> = {
+  en: KNOWLEDGE_COPY.en as KnowledgeCopy,
   zh: {
     statusReady: "\u53ef\u4ee5\u4fdd\u5b58\u77e5\u8bc6\u5e93\u8bbe\u7f6e",
     statusImporting: "\u6b63\u5728\u5bfc\u5165 Chrome \u4e66\u7b7e...",
@@ -210,6 +216,8 @@ const LOCALIZED_KNOWLEDGE_COPY: typeof KNOWLEDGE_COPY = {
     retrievalTitle: "\u68c0\u7d22\u4e0e\u5411\u91cf\u67b6\u6784",
     embeddingLabel: "Embedding \u6a21\u578b",
     embeddingLocal: "\u4ec5\u672c\u5730\uff08BGE-M3-Lite\uff09- \u63a8\u8350",
+    embeddingOpenAi: "OpenAI\uff08text-embedding-3-small\uff09",
+    embeddingGemini: "Gemini\uff08text-embedding-004\uff09",
     embeddingDescription: "\u5728\u68c0\u7d22\u94fe\u8def\u5b8c\u5168\u5b9a\u578b\u524d\uff0c\u672c\u5730 embedding \u53ef\u907f\u514d\u628a\u4e66\u7b7e\u5185\u5bb9\u63d0\u524d\u53d1\u9001\u5230\u8fdc\u7a0b API\u3002",
     chunkSizeLabel: "\u5206\u5757\u5927\u5c0f",
     overlapLabel: "\u91cd\u53e0\u957f\u5ea6",
@@ -462,8 +470,8 @@ export default function KnowledgeSettingsPanel({
                 <label htmlFor="knowledge-embedding-model" style={{ display: "block", marginBottom: "6px", fontSize: "0.75rem", fontWeight: 500, color: theme.textMuted }}>{copy.embeddingLabel}</label>
                 <select data-testid="knowledge-embedding-model" id="knowledge-embedding-model" onChange={(event) => setDraft((current) => ({ ...current, embeddingModel: event.target.value }))} style={selectStyle} value={draft.embeddingModel}>
                   <option value="local-bge-m3-lite">{copy.embeddingLocal}</option>
-                  <option value="openai-text-embedding-3-small">OpenAI (text-embedding-3-small)</option>
-                  <option value="gemini-text-embedding-004">Gemini (text-embedding-004)</option>
+                  <option value="openai-text-embedding-3-small">{copy.embeddingOpenAi}</option>
+                  <option value="gemini-text-embedding-004">{copy.embeddingGemini}</option>
                 </select>
                 <p style={{ margin: "6px 0 0", fontSize: "0.625rem", color: theme.textMuted }}>{copy.embeddingDescription}</p>
               </div>
@@ -480,7 +488,7 @@ export default function KnowledgeSettingsPanel({
               </div>
 
               <div style={{ backgroundColor: theme.page, border: `1px solid ${theme.border}`, padding: "12px", borderRadius: "10px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                <span style={{ fontSize: "1rem" }}>i</span>
+                <span aria-hidden="true" style={{ fontSize: "1rem" }}>i</span>
                 <div>
                   <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 500, color: theme.textPrimary }}>{copy.rerankingTitle}</p>
                   <p style={{ margin: "4px 0 0", fontSize: "0.625rem", color: theme.textMuted, lineHeight: 1.6 }}>{copy.rerankingDescription}</p>
@@ -507,6 +515,7 @@ export default function KnowledgeSettingsPanel({
                   <span style={{ display: "block", marginTop: "4px", fontSize: "0.625rem", color: theme.textMuted }}>{copy.sanitizationDescription}</span>
                 </div>
                 <button
+                  aria-checked={draft.strictUrlSanitization}
                   aria-label={copy.sanitizationLabel}
                   data-testid="knowledge-privacy-toggle"
                   onClick={() => setDraft((current) => ({ ...current, strictUrlSanitization: !current.strictUrlSanitization }))}

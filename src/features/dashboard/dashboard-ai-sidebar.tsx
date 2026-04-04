@@ -1,5 +1,6 @@
 import React from "react"
 
+import { getMessage } from "../../lib/i18n/messages"
 import type { BookmarkRecord } from "../../types/bookmark"
 import type { DisplayLanguage } from "../../types/settings"
 import { spacing } from "../../ui/design-tokens"
@@ -20,8 +21,11 @@ export function DashboardAiSidebar({
   onSaveSummary = async () => {},
   onSaveTags = async () => {}
 }: DashboardAiSidebarProps) {
+  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
+
   return (
-    <div
+    <aside
+      aria-label={t("dashboard.aiSidebar.label")}
       data-testid="dashboard-ai-sidebar"
       style={{
         display: "grid",
@@ -32,6 +36,6 @@ export function DashboardAiSidebar({
       <EditableTagsCard aiTags={bookmark?.aiTags ?? []} language={language} userTags={bookmark?.userTags ?? []} onSave={onSaveTags} />
       <EditableSummaryCard language={language} summary={bookmark?.summary} onSave={onSaveSummary} />
       <DashboardAskBox bookmark={bookmark} language={language} />
-    </div>
+    </aside>
   )
 }

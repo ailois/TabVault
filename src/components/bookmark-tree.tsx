@@ -251,17 +251,13 @@ function BookmarkTreeNodeItem({
 
     return (
       <div>
-        <div
+        <button
+          aria-expanded={hasChildren ? expanded : undefined}
+          aria-pressed={showBookmarks ? undefined : isFolderSelected}
+          data-testid={`bookmark-tree-folder-${node.id}`}
           onClick={handleClick}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault()
-              handleClick()
-            }
-          }}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          role="button"
           style={{
             display: "flex",
             alignItems: "center",
@@ -273,6 +269,10 @@ function BookmarkTreeNodeItem({
             borderRadius: variant === "options" ? "12px" : radius.medium,
             cursor: "pointer",
             userSelect: "none",
+            width: "100%",
+            textAlign: "left",
+            borderWidth: "1px",
+            borderStyle: "solid",
             transition: "background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease",
             backgroundColor: isHighlighted
               ? theme.accentSoft
@@ -281,9 +281,10 @@ function BookmarkTreeNodeItem({
                 : "transparent",
             boxShadow: isHighlighted && variant === "sidepanel" ? "0 1px 2px rgba(99,102,241,0.12)" : "none"
           }}
-          tabIndex={0}
+          type="button"
         >
           <span
+            aria-hidden="true"
             style={{
               flexShrink: 0,
               width: "12px",
@@ -314,7 +315,7 @@ function BookmarkTreeNodeItem({
           >
             {node.title || copy.untitledFolder}
           </span>
-        </div>
+        </button>
         {expanded
           ? visibleChildren.map((child) => (
               <BookmarkTreeNodeItem
@@ -491,11 +492,12 @@ function BookmarkTreeNodeItem({
         ) : null}
         <button
           aria-label={copy.deleteAria(node.title || node.url || copy.untitledFolder)}
+          title={copy.deleteAria(node.title || node.url || copy.untitledFolder)}
           onClick={() => void handleDelete()}
           style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted, fontSize: "0.75rem", padding: "2px 4px", borderRadius: radius.small }}
           type="button"
         >
-          X
+          <span aria-hidden="true">X</span>
         </button>
       </div>
     </div>

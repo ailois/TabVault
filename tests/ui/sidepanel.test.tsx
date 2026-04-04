@@ -154,16 +154,14 @@ describe("SidePanel", () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")?.click()
     })
 
-    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
       valueSetter?.call(input, "LSKEY-VALID")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
-    const activateButton = Array.from(
-      container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []
-    ).find((btn): btn is HTMLButtonElement => btn.textContent === "Activate")
+    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
 
     await act(async () => { activateButton?.click() })
 
@@ -192,16 +190,14 @@ describe("SidePanel", () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")?.click()
     })
 
-    const input = container?.querySelector<HTMLInputElement>('input[aria-label="License Key"]')
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
       valueSetter?.call(input, "LSKEY-BAD")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
-    const activateButton = Array.from(
-      container?.querySelectorAll('[data-testid="license-activation-card"] button') ?? []
-    ).find((btn): btn is HTMLButtonElement => btn.textContent === "Activate")
+    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
 
     await act(async () => { activateButton?.click() })
 
@@ -376,8 +372,7 @@ describe("SidePanel", () => {
 
     await renderSidePanel()
 
-    const importBtn = Array.from(container?.querySelectorAll("button") ?? [])
-      .find(b => b.textContent?.match(/Sync Bookmarks|同步书签/))
+    const importBtn = container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-import-button']")
 
     await act(async () => {
       importBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
@@ -658,7 +653,7 @@ describe("SidePanel", () => {
     })
     await act(async () => { await Promise.resolve() })
 
-    const actionButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Ask current page"))
+    const actionButton = container?.querySelector<HTMLButtonElement>("[data-testid='hybrid-action-ask-current-page']")
     expect(actionButton).not.toBeNull()
 
     await act(async () => { actionButton?.click() })
@@ -690,7 +685,7 @@ describe("SidePanel", () => {
     })
     await act(async () => { await Promise.resolve() })
 
-    const actionButton = Array.from(container?.querySelectorAll("button") ?? []).find((btn) => btn.textContent?.includes("Ask top matches"))
+    const actionButton = container?.querySelector<HTMLButtonElement>("[data-testid='hybrid-action-ask-top-matches']")
     expect(actionButton).not.toBeNull()
 
     await act(async () => { actionButton?.click() })
@@ -766,3 +761,4 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
     ...overrides
   }
 }
+
