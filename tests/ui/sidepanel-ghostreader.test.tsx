@@ -215,6 +215,7 @@ describe("SidePanel Ghostreader", () => {
     await act(async () => { await Promise.resolve() })
 
     expect(analyze).toHaveBeenCalledTimes(1)
+    expect(composerInput?.value).toBe("")
     expect(container?.textContent).toContain("\u6768\u5e42\u91c7\u8bbf\u5408\u96c6")
     expect(container?.textContent).not.toContain("\u5173\u4e8e\u6211\u4eec - UniVibe")
     expect(container?.textContent).not.toContain("\u5173\u4e8e Keras \u7684\u201c\u5c42\u201d")
