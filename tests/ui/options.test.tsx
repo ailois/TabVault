@@ -200,6 +200,22 @@ describe("Options", () => {
     expect(getSectionByHeading("Gemini")).toBeUndefined()
   })
 
+  it("renders the left sidebar as a structured navigation rail", async () => {
+    await renderOptions()
+
+    const sidebar = container?.querySelector<HTMLElement>('[data-testid="options-sidebar"]')
+    const settingsNavButton = container?.querySelector<HTMLButtonElement>('[data-testid="options-nav-settings"]')
+    const knowledgeNavButton = container?.querySelector<HTMLButtonElement>('[data-testid="settings-nav-knowledge"]')
+
+    expect(sidebar?.style.minWidth).toBe("256px")
+    expect(sidebar?.style.minHeight).toBe("100vh")
+    expect(sidebar?.textContent).toContain("Local-first bookmark workspace")
+    expect(settingsNavButton?.style.display).toBe("flex")
+    expect(settingsNavButton?.style.justifyContent).toBe("space-between")
+    expect(settingsNavButton?.style.minHeight).toBe("44px")
+    expect(knowledgeNavButton?.style.display).toBe("flex")
+  })
+
   it("switching provider rail selection makes the selected provider form visible", async () => {
     await renderOptions()
 

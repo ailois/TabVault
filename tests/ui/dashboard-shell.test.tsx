@@ -12,6 +12,10 @@ import { buildThemeFromOverride } from "../../src/ui/use-theme"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 let storageChangeListener: ((changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) | null = null
+let runtimeMessageListener: ((message: Record<string, unknown>) => void) | null = null
+const sendMessageMock = vi.fn(async (message?: { type?: string }) =>
+  message?.type === "GET_ANALYSIS_STATUS" ? { running: false, current: 0, total: 0 } : { success: true }
+)
 
 globalThis.chrome = {
   ...(globalThis.chrome ?? {}),
@@ -24,6 +28,19 @@ globalThis.chrome = {
       removeListener: (listener: (changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) => {
         if (storageChangeListener === listener) {
           storageChangeListener = null
+        }
+      }
+    }
+  },
+  runtime: {
+    sendMessage: sendMessageMock,
+    onMessage: {
+      addListener: (listener: (message: Record<string, unknown>) => void) => {
+        runtimeMessageListener = listener
+      },
+      removeListener: (listener: (message: Record<string, unknown>) => void) => {
+        if (runtimeMessageListener === listener) {
+          runtimeMessageListener = null
         }
       }
     }
@@ -65,6 +82,9 @@ describe("DashboardShell", () => {
     container?.remove()
     container = null
     root = null
+    storageChangeListener = null
+    runtimeMessageListener = null
+    sendMessageMock.mockClear()
   })
 
   it("renders a dashboard folder tree and updates results when a folder is selected", async () => {
@@ -153,6 +173,76 @@ describe("DashboardShell", () => {
 
     expect(container?.textContent).toContain("Svelte Docs")
     expect(container?.textContent).not.toContain("React Docs")
+  })
+
+  it("shows analysis status chips and filters by analyzed state", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", status: "done", url: "https://react.dev" }),
+      createBookmark({ id: "2", title: "Vue Docs", status: "saved", url: "https://vuejs.org" }),
+      createBookmark({ id: "3", title: "Svelte Docs", status: "error", url: "https://svelte.dev" })
+    ])
+
+    expect(container?.querySelector("[data-testid='dashboard-status-1']")?.textContent).toContain("Analyzed")
+    expect(container?.querySelector("[data-testid='dashboard-status-2']")?.textContent).toContain("Saved")
+    expect(container?.querySelector("[data-testid='dashboard-status-3']")?.textContent).toContain("Error")
+
+    const unanalyzedFilter = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-filter-unanalyzed']")
+    await act(async () => {
+      unanalyzedFilter?.click()
+    })
+
+    expect(container?.textContent).toContain("Vue Docs")
+    expect(container?.textContent).toContain("Svelte Docs")
+    expect(container?.textContent).not.toContain("React Docs")
+  })
+
+  it("dispatches dashboard bulk analysis actions through runtime messaging", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", status: "saved", url: "https://react.dev" }),
+      createBookmark({ id: "2", title: "Vue Docs", status: "done", url: "https://vuejs.org" })
+    ])
+    sendMessageMock.mockClear()
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-all']")?.click()
+    })
+    await act(async () => {
+      runtimeMessageListener?.({ type: "ANALYSIS_COMPLETE" })
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-unanalyzed']")?.click()
+    })
+    await act(async () => {
+      runtimeMessageListener?.({ type: "ANALYSIS_COMPLETE" })
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-selected']")?.click()
+    })
+
+    expect(sendMessageMock.mock.calls.map((call) => call[0])).toEqual([
+      { type: "ANALYZE_ALL" },
+      { type: "ANALYZE_PENDING" },
+      { type: "ANALYZE_BOOKMARKS", bookmarkIds: ["1"] }
+    ])
+  })
+
+  it("updates dashboard progress state from analysis runtime events", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", status: "saved", url: "https://react.dev" }),
+      createBookmark({ id: "2", title: "Vue Docs", status: "saved", url: "https://vuejs.org" })
+    ])
+
+    await act(async () => {
+      runtimeMessageListener?.({ type: "ANALYSIS_PROGRESS", current: 1, total: 2, bookmarkId: "2" })
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-analysis-progress']")?.textContent).toContain("Analyzing 1/2")
+    expect(container?.querySelector("[data-testid='dashboard-status-2']")?.textContent).toContain("Analyzing")
   })
 
   it("marks the selected result with accessible current-state semantics", async () => {

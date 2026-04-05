@@ -1,15 +1,21 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 
+import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "../../lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "../../lib/config/settings-repository"
-import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
 import { getMessage } from "../../lib/i18n/messages"
 import { IndexedDbBookmarkRepository } from "../../lib/storage/indexeddb-bookmark-repository"
 import { updateBookmarkMetadata } from "../../lib/storage/update-bookmark-metadata"
 import type { BookmarkRecord } from "../../types/bookmark"
 import type { DisplayLanguage } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
-import { collectBookmarksWithFolderContext, findDefaultFolderId, matchesSearch } from "./bookmark-workspace"
+import {
+  collectBookmarksWithFolderContext,
+  findDefaultFolderId,
+  matchesFilterMode,
+  matchesSearch,
+  type BookmarkFilterMode
+} from "./bookmark-workspace"
 import { DashboardNavigation } from "./dashboard-navigation"
 import { DashboardReadingPane } from "./dashboard-reading-pane"
 import { DashboardResultsList } from "./dashboard-results-list"
@@ -21,6 +27,12 @@ type DashboardShellProps = {
   getBookmarkTree?: () => Promise<chrome.bookmarks.BookmarkTreeNode[]>
   updateBookmark?: (bookmark: BookmarkRecord) => Promise<void>
   settingsRepository?: SettingsRepository
+}
+
+type AnalysisProgressState = {
+  running: boolean
+  current: number
+  total: number
 }
 
 export function DashboardShell({
@@ -46,31 +58,54 @@ export function DashboardShell({
           }),
     [settingsRepository]
   )
+  const loadBookmarksSource = useMemo(
+    () =>
+      listBookmarks ??
+      (initialBookmarks !== undefined ? async () => initialBookmarks : () => bookmarkRepository.list()),
+    [bookmarkRepository, initialBookmarks, listBookmarks]
+  )
+  const loadTreeSource = useMemo(
+    () =>
+      getBookmarkTree ??
+      (initialTree !== undefined
+        ? async () => initialTree
+        : () => (typeof chrome !== "undefined" && chrome.bookmarks ? chrome.bookmarks.getTree() : Promise.resolve([]))),
+    [getBookmarkTree, initialTree]
+  )
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>(initialBookmarks ?? [])
   const [chromeTree, setChromeTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>(initialTree ?? [])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [filterMode, setFilterMode] = useState<BookmarkFilterMode>("all")
+  const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([])
   const [activeBookmark, setActiveBookmark] = useState<BookmarkRecord | null>(null)
   const [displayLanguage, setDisplayLanguage] = useState<DisplayLanguage>("en")
   const [isSettingsReady, setIsSettingsReady] = useState(false)
+  const [analysisState, setAnalysisState] = useState<AnalysisProgressState>({ running: false, current: 0, total: 0 })
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
   const t = useMemo(
     () => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key),
     [displayLanguage]
   )
 
+  const refreshBookmarkState = useCallback((records: BookmarkRecord[]) => {
+    setBookmarks(records)
+    setActiveBookmark((current) => (current ? records.find((bookmark) => bookmark.id === current.id) ?? null : null))
+    setSelectedBookmarkIds((current) =>
+      current.filter((bookmarkId) => records.some((bookmark) => bookmark.id === bookmarkId))
+    )
+  }, [])
+
+  const reloadWorkspace = useCallback(async () => {
+    const [records, tree] = await Promise.all([loadBookmarksSource(), loadTreeSource()])
+    refreshBookmarkState(records)
+    setChromeTree(tree)
+  }, [loadBookmarksSource, loadTreeSource, refreshBookmarkState])
+
   useEffect(() => {
-    if (initialBookmarks !== undefined) return
-
-    const loadBookmarks = listBookmarks ?? (() => bookmarkRepository.list())
-    const loadTree =
-      getBookmarkTree ??
-      (() => (typeof chrome !== "undefined" && chrome.bookmarks ? chrome.bookmarks.getTree() : Promise.resolve([])))
-
-    void Promise.all([loadBookmarks(), loadTree()]).then(([records, tree]) => {
-      setBookmarks(records)
-      setChromeTree(tree)
-    })
-  }, [bookmarkRepository, getBookmarkTree, initialBookmarks, listBookmarks])
+    if (initialBookmarks !== undefined && initialTree !== undefined) return
+    void reloadWorkspace()
+  }, [initialBookmarks, initialTree, reloadWorkspace])
 
   useEffect(() => {
     if (selectedFolderId !== null) return
@@ -108,32 +143,102 @@ export function DashboardShell({
     return () => globalThis.chrome?.storage?.onChanged?.removeListener(handleStorageChange)
   }, [])
 
+  useEffect(() => {
+    const sendMessage = globalThis.chrome?.runtime?.sendMessage
+    if (!sendMessage) return
+
+    void sendMessage({ type: "GET_ANALYSIS_STATUS" })
+      .then((response: Partial<AnalysisProgressState> | undefined) => {
+        if (!response) return
+        setAnalysisState({
+          running: Boolean(response.running),
+          current: response.current ?? 0,
+          total: response.total ?? 0
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const listener = (message: {
+      type?: string
+      current?: number
+      total?: number
+      bookmarkId?: string
+    }) => {
+      if (message.type === "IMPORT_COMPLETE" || message.type === "BOOKMARKS_CHANGED" || message.type === "ANALYSIS_COMPLETE") {
+        if (message.type === "ANALYSIS_COMPLETE") {
+          setAnalysisState({ running: false, current: 0, total: 0 })
+        }
+        void reloadWorkspace()
+        return
+      }
+
+      if (message.type === "ANALYSIS_PROGRESS") {
+        setAnalysisState({
+          running: true,
+          current: message.current ?? 0,
+          total: message.total ?? 0
+        })
+
+        if (!message.bookmarkId) return
+
+        setBookmarks((current) =>
+          current.map((bookmark) =>
+            bookmark.id === message.bookmarkId ? { ...bookmark, status: "analyzing" } : bookmark
+          )
+        )
+        setActiveBookmark((current) =>
+          current?.id === message.bookmarkId ? { ...current, status: "analyzing" } : current
+        )
+      }
+    }
+
+    globalThis.chrome?.runtime?.onMessage?.addListener(listener)
+    return () => globalThis.chrome?.runtime?.onMessage?.removeListener(listener)
+  }, [reloadWorkspace])
+
   const metadataMap = useMemo(() => {
     const map: Record<string, BookmarkRecord> = {}
     for (const bookmark of bookmarks) map[bookmark.url] = bookmark
     return map
   }, [bookmarks])
 
-  const visibleBookmarks = useMemo(() => {
-    let folderItems: BookmarkRecord[]
+  const folderBookmarks = useMemo(() => {
     if (chromeTree.length === 0) {
-      folderItems = bookmarks
-    } else {
-      const allItems = collectBookmarksWithFolderContext(chromeTree)
-      const filtered = selectedFolderId ? allItems.filter((item) => item.folderId === selectedFolderId) : allItems
-      folderItems = filtered.map((item) => metadataMap[item.url]).filter(Boolean) as BookmarkRecord[]
+      return bookmarks
     }
 
-    if (!searchQuery.trim()) return folderItems
+    const allItems = collectBookmarksWithFolderContext(chromeTree)
+    const filtered = selectedFolderId ? allItems.filter((item) => item.folderId === selectedFolderId) : allItems
+    return filtered.map((item) => metadataMap[item.url]).filter(Boolean) as BookmarkRecord[]
+  }, [bookmarks, chromeTree, metadataMap, selectedFolderId])
 
-    return folderItems.filter((bookmark) =>
+  const searchedBookmarks = useMemo(() => {
+    if (!searchQuery.trim()) return folderBookmarks
+
+    return folderBookmarks.filter((bookmark) =>
       matchesSearch(
         { id: bookmark.id, title: bookmark.title, url: bookmark.url, folderId: null, folderTitle: "" },
         searchQuery,
         metadataMap
       )
     )
-  }, [bookmarks, chromeTree, metadataMap, searchQuery, selectedFolderId])
+  }, [folderBookmarks, metadataMap, searchQuery])
+
+  const visibleBookmarks = useMemo(
+    () => searchedBookmarks.filter((bookmark) => matchesFilterMode(bookmark.url, filterMode, metadataMap)),
+    [filterMode, metadataMap, searchedBookmarks]
+  )
+  const analyzedCount = useMemo(
+    () => searchedBookmarks.filter((bookmark) => bookmark.status === "done").length,
+    [searchedBookmarks]
+  )
+  const pendingCount = useMemo(
+    () => searchedBookmarks.filter((bookmark) => bookmark.status !== "done").length,
+    [searchedBookmarks]
+  )
+  const selectedBookmarkIdSet = useMemo(() => new Set(selectedBookmarkIds), [selectedBookmarkIds])
 
   async function persistBookmark(nextBookmark: BookmarkRecord): Promise<void> {
     if (updateBookmark) {
@@ -172,6 +277,62 @@ export function DashboardShell({
     setActiveBookmark(nextBookmark)
   }
 
+  function toggleBookmarkSelection(bookmarkId: string) {
+    setSelectedBookmarkIds((current) =>
+      current.includes(bookmarkId) ? current.filter((id) => id !== bookmarkId) : [...current, bookmarkId]
+    )
+  }
+
+  function selectVisibleBookmarks() {
+    setSelectedBookmarkIds((current) => {
+      const next = new Set(current)
+      for (const bookmark of visibleBookmarks) {
+        next.add(bookmark.id)
+      }
+      return Array.from(next)
+    })
+  }
+
+  async function startAnalysis(message: { type: "ANALYZE_ALL" | "ANALYZE_PENDING" | "ANALYZE_BOOKMARKS"; bookmarkIds?: string[] }) {
+    const sendMessage = globalThis.chrome?.runtime?.sendMessage
+    if (!sendMessage) {
+      setAnalysisError(t("sidepanel.error.analyzeFailed"))
+      return false
+    }
+
+    setAnalysisError(null)
+
+    const total =
+      message.type === "ANALYZE_ALL"
+        ? bookmarks.length
+        : message.type === "ANALYZE_PENDING"
+          ? bookmarks.filter((bookmark) => bookmark.status === "saved" || bookmark.status === "error").length
+          : message.bookmarkIds?.length ?? 0
+
+    if (total === 0) {
+      setAnalysisState({ running: false, current: 0, total: 0 })
+      return false
+    }
+
+    const response = await sendMessage(message).catch((error: unknown) => ({
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    }))
+
+    if (response && typeof response === "object" && "success" in response && response.success === false) {
+      setAnalysisError(typeof response.error === "string" ? response.error : t("sidepanel.error.analyzeFailed"))
+      return false
+    }
+
+    setAnalysisState({
+      running: true,
+      current: 0,
+      total
+    })
+
+    return true
+  }
+
   return (
     <div
       data-testid="dashboard-shell"
@@ -200,14 +361,41 @@ export function DashboardShell({
           <>
             <DashboardResultsList
               activeUrl={activeBookmark?.url ?? null}
+              analyzedCount={analyzedCount}
+              analysisError={analysisError}
+              analysisProgress={analysisState}
               bookmarks={visibleBookmarks}
+              filterMode={filterMode}
               language={displayLanguage}
+              onAnalyzeAll={() => {
+                void startAnalysis({ type: "ANALYZE_ALL" })
+              }}
+              onAnalyzeSelected={() => {
+                const ids = visibleBookmarks
+                  .filter((bookmark) => selectedBookmarkIdSet.has(bookmark.id))
+                  .map((bookmark) => bookmark.id)
+                if (ids.length === 0) return
+                void startAnalysis({ type: "ANALYZE_BOOKMARKS", bookmarkIds: ids }).then((started) => {
+                  if (started) {
+                    setSelectedBookmarkIds([])
+                  }
+                })
+              }}
+              onAnalyzeUnanalyzed={() => {
+                void startAnalysis({ type: "ANALYZE_PENDING" })
+              }}
+              onClearSelection={() => setSelectedBookmarkIds([])}
+              onFilterModeChange={setFilterMode}
               onSearchQueryChange={setSearchQuery}
               onSelectUrl={(url) => {
                 const bookmark = bookmarks.find((item) => item.url === url) ?? null
                 setActiveBookmark(bookmark)
               }}
+              onSelectVisible={selectVisibleBookmarks}
+              onToggleSelection={toggleBookmarkSelection}
+              pendingCount={pendingCount}
               searchQuery={searchQuery}
+              selectedBookmarkIds={selectedBookmarkIdSet}
             />
 
             <DashboardReadingPane

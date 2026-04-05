@@ -7,6 +7,7 @@ import { TrialRepository } from "./lib/trial/trial-repository"
 import { getTrialStatus } from "./lib/trial/get-trial-status"
 import { getBuiltInKeyConfig } from "./lib/trial/built-in-key"
 import { INTERNAL_ERROR_MESSAGES } from "./lib/i18n/error-messages"
+import type { BookmarkRecord } from "./types/bookmark"
 
 const repo = new IndexedDbBookmarkRepository()
 const settingsRepo = new ChromeSettingsRepository()
@@ -15,60 +16,91 @@ let analysisRunning = false
 let analysisCurrent = 0
 let analysisTotal = 0
 
-async function processAnalysisQueue() {
-  if (analysisRunning) return // Prevent concurrent runs
-
-  const bookmarks = await repo.list()
-  const pending = bookmarks.filter(b => b.status === "saved" || b.status === "error")
-
-  if (pending.length === 0) return
-
+async function createAnalysisProvider() {
   const settings = await settingsRepo.getAppSettings()
   const providers = await settingsRepo.getProviders()
   const selectedProvider = providers.find(p => p.enabled && p.provider === settings.defaultProvider)
 
-  if (!selectedProvider?.apiKey.trim()) return
-
-  const provider = createProvider(selectedProvider)
-
-  analysisRunning = true
-  analysisTotal = pending.length
-  analysisCurrent = 0
-
-  for (let i = 0; i < pending.length; i++) {
-    const bookmark = pending[i]!
-    analysisCurrent = i + 1
-
-    // Notify frontend
-    chrome.runtime.sendMessage({
-      type: "ANALYSIS_PROGRESS",
-      current: analysisCurrent,
-      total: analysisTotal,
-      bookmarkId: bookmark.id
-    }).catch(() => {}) // Ignore if no listener
-
-    try {
-      const response = await fetch(bookmark.url)
-      const html = await response.text()
-      const textContent = html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').slice(0, 10000)
-
-      await analyzeBookmark({
-        bookmark,
-        provider,
-        bookmarkRepository: repo,
-        contentOverride: textContent,
-        summaryLanguage: settings.summaryLanguage
-      })
-    } catch {
-      // Errors are handled by analyzeBookmark internally
-    }
+  if (!selectedProvider?.apiKey.trim()) {
+    throw new Error("No enabled provider configured")
   }
 
-  analysisRunning = false
+  return {
+    provider: createProvider(selectedProvider),
+    summaryLanguage: settings.summaryLanguage
+  }
+}
+
+async function runAnalysisQueue(queue: BookmarkRecord[]) {
+  if (analysisRunning) {
+    throw new Error("Analysis already running")
+  }
+
+  if (queue.length === 0) return
+
+  const { provider, summaryLanguage } = await createAnalysisProvider()
+
+  analysisRunning = true
+  analysisTotal = queue.length
   analysisCurrent = 0
-  analysisTotal = 0
+
+  try {
+    for (let i = 0; i < queue.length; i++) {
+      const bookmark = queue[i]!
+      analysisCurrent = i + 1
+
+      chrome.runtime.sendMessage({
+        type: "ANALYSIS_PROGRESS",
+        current: analysisCurrent,
+        total: analysisTotal,
+        bookmarkId: bookmark.id
+      }).catch(() => {})
+
+      try {
+        const response = await fetch(bookmark.url)
+        const html = await response.text()
+        const textContent = html.replace(/<[^>]*>?/gm, " ").replace(/\s+/g, " ").slice(0, 10000)
+
+        await analyzeBookmark({
+          bookmark,
+          provider,
+          bookmarkRepository: repo,
+          contentOverride: textContent,
+          summaryLanguage
+        })
+      } catch {
+        // Errors are handled by analyzeBookmark internally.
+      }
+
+      chrome.runtime.sendMessage({ type: "BOOKMARKS_CHANGED" }).catch(() => {})
+    }
+  } finally {
+    analysisRunning = false
+    analysisCurrent = 0
+    analysisTotal = 0
+  }
 
   chrome.runtime.sendMessage({ type: "ANALYSIS_COMPLETE" }).catch(() => {})
+}
+
+async function processAnalysisQueue() {
+  const bookmarks = await repo.list()
+  await runAnalysisQueue(bookmarks)
+}
+
+async function processPendingAnalysisQueue() {
+  const bookmarks = await repo.list()
+  const pending = bookmarks.filter((bookmark) => bookmark.status === "saved" || bookmark.status === "error")
+  await runAnalysisQueue(pending)
+}
+
+async function processSelectedAnalysisQueue(bookmarkIds: string[]) {
+  const ids = new Set(bookmarkIds)
+  if (ids.size === 0) return
+
+  const bookmarks = await repo.list()
+  const selected = bookmarks.filter((bookmark) => ids.has(bookmark.id))
+  await runAnalysisQueue(selected)
 }
 
 async function retryErrorQueue() {
@@ -121,6 +153,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "ANALYZE_ALL") {
     processAnalysisQueue()
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: serializeBackgroundError(error) }))
+    return true
+  }
+
+  if (message.type === "ANALYZE_PENDING") {
+    processPendingAnalysisQueue()
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: serializeBackgroundError(error) }))
+    return true
+  }
+
+  if (message.type === "ANALYZE_BOOKMARKS") {
+    processSelectedAnalysisQueue(Array.isArray(message.bookmarkIds) ? message.bookmarkIds : [])
       .then(() => sendResponse({ success: true }))
       .catch(error => sendResponse({ success: false, error: serializeBackgroundError(error) }))
     return true
@@ -192,7 +238,7 @@ if (globalThis.chrome?.bookmarks) {
       try {
         const settings = await settingsRepo.getAppSettings()
         if (settings.autoAnalyzeOnSave) {
-          processAnalysisQueue()
+          processPendingAnalysisQueue()
         }
       } catch {
         // Settings not configured yet, skip auto-analyze

@@ -418,6 +418,24 @@ function Options({ services }: OptionsProps) {
     gap: spacing.lg,
     minWidth: 0
   }
+  const sidebarButtonStyle = (isActive: boolean): React.CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    width: "100%",
+    minHeight: "44px",
+    textAlign: "left",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: `1px solid ${isActive ? theme.borderFocus : "transparent"}`,
+    backgroundColor: isActive ? theme.accentSoft : "transparent",
+    color: isActive ? theme.accent : theme.textMuted,
+    fontSize: "0.875rem",
+    fontWeight: isActive ? 600 : 500,
+    cursor: "pointer",
+    boxSizing: "border-box"
+  })
 
   function selectProvider(provider: ProviderType): void {
     setAppSettings((current) => ({ ...current, defaultProvider: provider }))
@@ -767,62 +785,137 @@ function Options({ services }: OptionsProps) {
           style={{
             display: "flex",
             flexDirection: "column",
+            minWidth: "256px",
+            minHeight: "100vh",
             backgroundColor: theme.surface,
             borderRight: `1px solid ${theme.border}`,
             boxShadow: "2px 0 8px rgba(0,0,0,0.02)",
             zIndex: 10
           }}
         >
-          <div style={{ padding: "24px 24px 16px", marginBottom: "16px" }}>
+          <div style={{ padding: "24px 24px 16px", borderBottom: `1px solid ${theme.border}` }}>
             <h1 style={{ margin: 0, fontWeight: 700, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "10px", color: theme.textPrimary }}>
               <span style={{ display: "inline-block", width: "24px", height: "24px", borderRadius: "6px", backgroundColor: theme.accent, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
               TabVault
             </h1>
+            <p style={{ margin: "10px 0 0", fontSize: "0.8125rem", lineHeight: 1.5, color: theme.textMuted }}>
+              {t("settings.sidebar.tagline")}
+            </p>
           </div>
-          <nav style={{ display: "grid", gap: "4px", padding: "0 16px", flex: 1 }}>
-            <button
-              aria-current={activePage === "settings" ? "page" : undefined}
-              data-testid="options-nav-settings"
-              onClick={() => setActivePage("settings")}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: "10px 16px",
-                border: "none",
-                borderRadius: "8px",
-                backgroundColor: activePage === "settings" ? theme.page : "transparent",
-                color: activePage === "settings" ? theme.accent : theme.textMuted,
-                fontSize: "0.875rem",
-                fontWeight: 500,
-                cursor: "pointer"
-              }}
-              type="button"
-            >
-              {t("settings.nav.architecture")}
-            </button>
-            <button
-              aria-current={activePage === "knowledge" ? "page" : undefined}
-              data-testid="settings-nav-knowledge"
-              onClick={() => setActivePage("knowledge")}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: "10px 16px",
-                border: "none",
-                borderRadius: "8px",
-                backgroundColor: activePage === "knowledge" ? theme.page : "transparent",
-                color: activePage === "knowledge" ? theme.accent : theme.textMuted,
-                fontSize: "0.875rem",
-                fontWeight: 500,
-                cursor: "pointer"
-              }}
-              type="button"
-            >
-              {t("settings.nav.knowledge")}
-            </button>
+          <nav style={{ display: "grid", gap: "12px", padding: "20px 16px", flex: 1, alignContent: "start" }}>
+            <div>
+              <p
+                style={{
+                  margin: "0 0 10px",
+                  padding: "0 12px",
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  color: theme.textMuted,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase"
+                }}
+              >
+                {t("settings.nav.settings")}
+              </p>
+              <div style={{ display: "grid", gap: "4px" }}>
+                <button
+                  aria-current={activePage === "settings" ? "page" : undefined}
+                  data-testid="options-nav-settings"
+                  onClick={() => setActivePage("settings")}
+                  style={sidebarButtonStyle(activePage === "settings")}
+                  type="button"
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        display: "grid",
+                        placeItems: "center",
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "8px",
+                        backgroundColor: activePage === "settings" ? theme.page : theme.surfaceSubtle,
+                        color: activePage === "settings" ? theme.accent : theme.textMuted,
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        flexShrink: 0
+                      }}
+                    >
+                      A
+                    </span>
+                    <span>{t("settings.nav.architecture")}</span>
+                  </span>
+                  {activePage === "settings" ? (
+                    <span
+                      aria-hidden="true"
+                      style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: theme.accent, flexShrink: 0 }}
+                    />
+                  ) : null}
+                </button>
+                <button
+                  aria-current={activePage === "knowledge" ? "page" : undefined}
+                  data-testid="settings-nav-knowledge"
+                  onClick={() => setActivePage("knowledge")}
+                  style={sidebarButtonStyle(activePage === "knowledge")}
+                  type="button"
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        display: "grid",
+                        placeItems: "center",
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "8px",
+                        backgroundColor: activePage === "knowledge" ? theme.page : theme.surfaceSubtle,
+                        color: activePage === "knowledge" ? theme.accent : theme.textMuted,
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        flexShrink: 0
+                      }}
+                    >
+                      K
+                    </span>
+                    <span>{t("settings.nav.knowledge")}</span>
+                  </span>
+                  {activePage === "knowledge" ? (
+                    <span
+                      aria-hidden="true"
+                      style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: theme.accent, flexShrink: 0 }}
+                    />
+                  ) : null}
+                </button>
+              </div>
+            </div>
           </nav>
+          <div
+            style={{
+              padding: "12px 16px 16px",
+              borderTop: `1px solid ${theme.border}`,
+              display: "grid",
+              gap: "6px"
+            }}
+          >
+            <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              {activePage === "settings" ? t("settings.nav.architecture") : t("settings.nav.knowledge")}
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "0.75rem",
+                color: theme.textPrimary
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{ width: "8px", height: "8px", borderRadius: "999px", backgroundColor: theme.accent, flexShrink: 0 }}
+              />
+              {t("settings.save.title")}
+            </span>
+          </div>
         </aside>
 
         <div

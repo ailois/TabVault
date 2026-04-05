@@ -162,6 +162,17 @@ export type MessageKey =
   | "dashboard.results.searchShortcut"
   | "dashboard.results.empty"
   | "dashboard.results.noSummary"
+  | "dashboard.results.filter.all"
+  | "dashboard.results.filter.analyzed"
+  | "dashboard.results.filter.unanalyzed"
+  | "dashboard.results.selectBookmark"
+  | "dashboard.results.bulk.analyzeAll"
+  | "dashboard.results.bulk.analyzeUnanalyzed"
+  | "dashboard.results.bulk.analyzeSelected"
+  | "dashboard.results.bulk.selectVisible"
+  | "dashboard.results.bulk.clearSelection"
+  | "dashboard.results.bulk.selectedCount"
+  | "dashboard.results.bulk.running"
   | "dashboard.results.summaryBadge"
   | "dashboard.results.savedBadge"
   | "dashboard.reading.empty"
@@ -372,6 +383,17 @@ const en: Messages = {
   "dashboard.results.searchShortcut": "Ctrl+K",
   "dashboard.results.empty": "No bookmarks match your search.",
   "dashboard.results.noSummary": "No summary yet.",
+  "dashboard.results.filter.all": "All",
+  "dashboard.results.filter.analyzed": "Analyzed",
+  "dashboard.results.filter.unanalyzed": "Unanalyzed",
+  "dashboard.results.selectBookmark": "Select bookmark {title}",
+  "dashboard.results.bulk.analyzeAll": "Analyze all",
+  "dashboard.results.bulk.analyzeUnanalyzed": "Analyze unanalyzed",
+  "dashboard.results.bulk.analyzeSelected": "Analyze selected",
+  "dashboard.results.bulk.selectVisible": "Select visible",
+  "dashboard.results.bulk.clearSelection": "Clear selection",
+  "dashboard.results.bulk.selectedCount": "{count} selected",
+  "dashboard.results.bulk.running": "Analyzing {current}/{total}",
   "dashboard.results.summaryBadge": "Notes",
   "dashboard.results.savedBadge": "Saved",
   "dashboard.reading.empty": "Select a bookmark to start reading",
@@ -582,6 +604,17 @@ const zh: Messages = {
   "dashboard.results.searchShortcut": "Ctrl+K",
   "dashboard.results.empty": "没有匹配当前搜索的书签。",
   "dashboard.results.noSummary": "暂无摘要。",
+  "dashboard.results.filter.all": "全部",
+  "dashboard.results.filter.analyzed": "已分析",
+  "dashboard.results.filter.unanalyzed": "未分析",
+  "dashboard.results.selectBookmark": "选择书签 {title}",
+  "dashboard.results.bulk.analyzeAll": "一键分析全部",
+  "dashboard.results.bulk.analyzeUnanalyzed": "分析未分析",
+  "dashboard.results.bulk.analyzeSelected": "分析已选",
+  "dashboard.results.bulk.selectVisible": "全选当前列表",
+  "dashboard.results.bulk.clearSelection": "清空选中",
+  "dashboard.results.bulk.selectedCount": "已选 {count} 项",
+  "dashboard.results.bulk.running": "分析中 {current}/{total}",
   "dashboard.results.summaryBadge": "笔记",
   "dashboard.results.savedBadge": "已保存",
   "dashboard.reading.empty": "选择一个书签开始阅读",
