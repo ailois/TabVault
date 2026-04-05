@@ -75,7 +75,7 @@ describe("SidePanel", () => {
     })
   }
 
-  it("renders a trial banner below the search bar when trial is active", async () => {
+  it("does not render the sidepanel trial promotion UI when trial is active", async () => {
     vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
       status: "trial",
       state: {
@@ -87,12 +87,12 @@ describe("SidePanel", () => {
 
     await renderSidePanel()
 
-    expect(container?.querySelector("[data-testid='trial-banner']")).toBeTruthy()
-    expect(container?.textContent).toContain("Trial active")
+    expect(container?.querySelector("[data-testid='trial-banner']")).toBeNull()
+    expect(container?.textContent).not.toContain("Trial active")
     expect(container?.querySelector("#sidepanel-search")).toBeTruthy()
   })
 
-  it("renders an expired banner when the trial has expired", async () => {
+  it("does not render the sidepanel trial promotion UI when the trial has expired", async () => {
     vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
       status: "expired",
       state: {
@@ -104,29 +104,10 @@ describe("SidePanel", () => {
 
     await renderSidePanel()
 
-    expect(container?.querySelector("[data-testid='trial-banner']")).toBeTruthy()
-    expect(container?.textContent).toContain("Trial expired")
+    expect(container?.querySelector("[data-testid='trial-banner']")).toBeNull()
+    expect(container?.textContent).not.toContain("Trial expired")
   })
 
-  it("expands the license activation form when clicking the trial banner CTA", async () => {
-    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
-      status: "trial",
-      state: {
-        installedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        analysisUsed: 3
-      },
-      reload: vi.fn(async () => {})
-    })
-
-    await renderSidePanel()
-
-    const cta = container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")
-    await act(async () => { cta?.click() })
-
-    const card = container?.querySelector<HTMLElement>("[data-testid='license-activation-card']")
-    expect(card).toBeTruthy()
-    expect(card?.getAttribute("aria-labelledby")).toBe("license-activation-heading-edit")
-  })
 
   it("does not render any trial region when the user is licensed", async () => {
     vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
@@ -146,80 +127,8 @@ describe("SidePanel", () => {
     expect(container?.querySelector("[data-testid='trial-banner']")).toBeNull()
     expect(container?.querySelector("[data-testid='license-activation-card']")).toBeNull()
   })
-
-  it("validates and saves the license key when submitting from the sidepanel", async () => {
-    const reload = vi.fn(async () => {})
-    const save = vi.fn(async () => {})
-    const get = vi.fn(async () => ({
-      installedAt: "2026-03-20T00:00:00.000Z",
-      analysisUsed: 3
-    }))
-
-    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
-      status: "trial",
-      state: { installedAt: "2026-03-20T00:00:00.000Z", analysisUsed: 3 },
-      reload
-    })
-    vi.spyOn(licenseService, "validateLicenseKey").mockResolvedValue("valid")
-    vi.spyOn(TrialRepository.prototype, "get").mockImplementation(get)
-    vi.spyOn(TrialRepository.prototype, "save").mockImplementation(save)
-
-    await renderSidePanel()
-
-    await act(async () => {
-      container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")?.click()
-    })
-
-    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
-    await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
-      valueSetter?.call(input, "LSKEY-VALID")
-      input?.dispatchEvent(new Event("input", { bubbles: true }))
-    })
-
-    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
-
-    await act(async () => { activateButton?.click() })
-
-    expect(licenseService.validateLicenseKey).toHaveBeenCalledWith("LSKEY-VALID")
-    expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        licenseKey: "LSKEY-VALID",
-        licenseStatus: "valid",
-        licenseValidatedAt: expect.any(String)
-      })
-    )
-    expect(reload).toHaveBeenCalled()
-  })
-
-  it("shows an error when the license key is invalid", async () => {
-    vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
-      status: "trial",
-      state: { installedAt: "2026-03-20T00:00:00.000Z", analysisUsed: 3 },
-      reload: vi.fn(async () => {})
-    })
-    vi.spyOn(licenseService, "validateLicenseKey").mockResolvedValue("invalid")
-
-    await renderSidePanel()
-
-    await act(async () => {
-      container?.querySelector<HTMLButtonElement>("[data-testid='trial-banner-cta']")?.click()
-    })
-
-    const input = container?.querySelector<HTMLInputElement>("[data-testid='license-key-input']")
-    await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
-      valueSetter?.call(input, "LSKEY-BAD")
-      input?.dispatchEvent(new Event("input", { bubbles: true }))
-    })
-
-    const activateButton = container?.querySelector<HTMLButtonElement>("[data-testid='license-submit-button']")
-
-    await act(async () => { activateButton?.click() })
-
-    expect(container?.textContent).toContain("This license key is invalid.")
-    expect(input?.value).toBe("LSKEY-BAD")
-  })
+
+
 
   it("renders the Ghostreader header and search entry", async () => {
     await renderSidePanel()
@@ -243,7 +152,7 @@ describe("SidePanel", () => {
             theme: "sage"
           }))
         }),
-        queryActiveTab: vi.fn(async () => ({ id: 1, title: "当前 React 页面", url: "https://example.com/current" })),
+        queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
         extractPage: vi.fn(async () => "react compiler and useMemo")
       })
     )
@@ -446,15 +355,15 @@ describe("SidePanel", () => {
 
   it("finds Chinese-title bookmarks from a natural-language Chinese Ghostreader query", async () => {
     const bookmarks = [
-      createBookmark({ id: "1", title: "杨幂采访合集" }),
+      createBookmark({ id: "1", title: "\u6768\u5e42\u91c7\u8bbf\u5408\u96c6" }),
       createBookmark({ id: "2", title: "Vitest Guide" })
     ]
     const services = createServices({
       bookmarkRepository: createBookmarkRepository({
         list: vi.fn(async () => bookmarks)
       }),
-      queryActiveTab: vi.fn(async () => ({ id: 1, title: "娱乐资讯", url: "https://example.com/current" })),
-      extractPage: vi.fn(async () => "杨幂相关新闻整理")
+      queryActiveTab: vi.fn(async () => ({ id: 1, title: "\u5a31\u4e50\u8d44\u8baf", url: "https://example.com/current" })),
+      extractPage: vi.fn(async () => "\u6768\u5e42\u76f8\u5173\u65b0\u95fb\u6574\u7406")
     })
 
     await renderSidePanel(services)
@@ -462,12 +371,12 @@ describe("SidePanel", () => {
     const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
-      setter?.call(searchInput, "关于杨幂的书签有哪些？")
+      setter?.call(searchInput, "\u5173\u4e8e\u6768\u5e42\u7684\u4e66\u7b7e\u6709\u54ea\u4e9b\uff1f")
       searchInput.dispatchEvent(new Event("input", { bubbles: true }))
     })
     await act(async () => { await Promise.resolve() })
 
-    expect(container?.textContent).toContain("杨幂采访合集")
+    expect(container?.textContent).toContain("\u6768\u5e42\u91c7\u8bbf\u5408\u96c6")
   })
 
   it("renders bookmark list in compact mode with no summary or tags visible", async () => {

@@ -1,4 +1,4 @@
-﻿import "./styles/globals.css"
+import "./styles/globals.css"
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 
 import { BookmarkDrawer } from "./components/bookmark-drawer"
@@ -33,6 +33,8 @@ import { radius, spacing } from "./ui/design-tokens"
 import { ThemeProvider } from "./ui/theme-context"
 import { useGlobalStyles } from "./ui/use-global-styles"
 import { useTheme } from "./ui/use-theme"
+
+const SHOW_TRIAL_PROMOTION_UI = false
 
 type SidePanelProps = {
   services?: Partial<SidePanelServices>
@@ -148,6 +150,7 @@ export default function SidePanel({ services }: SidePanelProps) {
   useGlobalStyles(theme)
 
   const trial = useTrialStatus()
+  const trialUiStatus = !SHOW_TRIAL_PROMOTION_UI && trial.status && trial.status !== "licensed" ? "licensed" : trial.status
   const trialRepository = useMemo(() => new TrialRepository(), [])
   const [displayLanguage, setDisplayLanguage] = useState<"en" | "zh">("en")
   const t = useMemo(() => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key), [displayLanguage])
@@ -648,14 +651,14 @@ export default function SidePanel({ services }: SidePanelProps) {
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
 
-          {(trial.status === "trial" || trial.status === "expired") ? (
+          {SHOW_TRIAL_PROMOTION_UI && (trialUiStatus === "trial" || trialUiStatus === "expired") ? (
             <div style={{ padding: `0 ${spacing.md} ${spacing.sm}` }}>
               <TrialBanner
-                ctaLabel={trial.status === "trial" ? t("sidepanel.trial.activate") : t("sidepanel.trial.unlock")}
-                message={trial.status === "trial" ? t("sidepanel.trial.try") : t("sidepanel.trial.locked")}
+                ctaLabel={trialUiStatus === "trial" ? t("sidepanel.trial.activate") : t("sidepanel.trial.unlock")}
+                message={trialUiStatus === "trial" ? t("sidepanel.trial.try") : t("sidepanel.trial.locked")}
                 onCtaClick={() => setIsActivationExpanded(true)}
-                status={trial.status}
-                title={trial.status === "trial" ? t("trialBanner.title.trial") : t("trialBanner.title.expired")}
+                status={trialUiStatus}
+                title={trialUiStatus === "trial" ? t("trialBanner.title.trial") : t("trialBanner.title.expired")}
               />
               {isActivationExpanded ? (
                 <div style={{ marginTop: spacing.sm }}>

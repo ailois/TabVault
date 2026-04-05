@@ -1,4 +1,4 @@
-﻿
+
 import "./styles/globals.css"
 import React from "react"
 
@@ -30,6 +30,8 @@ import { spacing } from "./ui/design-tokens"
 import { ThemeProvider } from "./ui/theme-context"
 import { useGlobalStyles } from "./ui/use-global-styles"
 import { useTheme } from "./ui/use-theme"
+
+const SHOW_TRIAL_PROMOTION_UI = false
 
 type OptionsProps = {
   services?: Partial<OptionsServices>
@@ -201,6 +203,7 @@ function Options({ services }: OptionsProps) {
   useGlobalStyles(theme)
 
   const trial = useTrialStatus()
+  const trialUiStatus = !SHOW_TRIAL_PROMOTION_UI && trial.status && trial.status !== "licensed" ? "licensed" : trial.status
   const trialRepository = React.useMemo(() => new TrialRepository(), [])
   const [appSettings, setAppSettings] = React.useState(DEFAULT_APP_SETTINGS)
   const [providers, setProviders] = React.useState(() => buildProviderFormState([]))
@@ -358,7 +361,7 @@ function Options({ services }: OptionsProps) {
     }
   }, [licenseInput, t, trial, trialRepository])
 
-  const licenseEntryProps = trial.status
+  const licenseEntryProps = trialUiStatus
     ? {
         analysisUsed: trial.state?.analysisUsed,
         installedAt: trial.state?.installedAt,
@@ -381,6 +384,8 @@ function Options({ services }: OptionsProps) {
     : null
 
   const selectedProvider = providers.find((provider) => provider.provider === providerEditorSelection) ?? null
+  const shouldShowTrialBanner = SHOW_TRIAL_PROMOTION_UI && licenseEntryProps?.status === "trial"
+  const shouldShowExpiredBanner = SHOW_TRIAL_PROMOTION_UI && licenseEntryProps?.status === "expired"
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: theme.surface,
@@ -423,7 +428,7 @@ function Options({ services }: OptionsProps) {
   function renderSettingsPanel() {
     return (
       <div data-testid="settings-page-shell" style={panelStyle}>
-        {licenseEntryProps?.status === "trial" ? (
+        {shouldShowTrialBanner ? (
           <TrialBanner
             ctaLabel={t("settings.trial.cta.activate")}
             detail={getTrialBannerDetail(t, licenseEntryProps.installedAt, licenseEntryProps.analysisUsed)}
@@ -434,7 +439,7 @@ function Options({ services }: OptionsProps) {
           />
         ) : null}
 
-        {licenseEntryProps?.status === "expired" ? (
+        {shouldShowExpiredBanner ? (
           <TrialBanner
             ctaLabel={t("settings.trial.cta.unlock")}
             detail={t("settings.trial.detail.savedAnalysis")}
@@ -875,11 +880,11 @@ function OptionsLicenseEntry({
   licenseCopy: ReturnType<typeof getLicenseActivationCopy>
 }) {
   const detail = getTrialBannerDetail(t, installedAt, analysisUsed)
-  const shouldShowActivationForm = status !== "licensed" && isActivationExpanded
+  const shouldShowActivationForm = SHOW_TRIAL_PROMOTION_UI && status !== "licensed" && isActivationExpanded
 
   return (
     <div data-testid="settings-license-state" style={{ display: "grid", gap: spacing.md }}>
-      {status === "trial" ? (
+      {SHOW_TRIAL_PROMOTION_UI && status === "trial" ? (
         <TrialBanner
           ctaLabel={t("settings.trial.cta.activate")}
           detail={detail}
@@ -890,7 +895,7 @@ function OptionsLicenseEntry({
         />
       ) : null}
 
-      {status === "expired" ? (
+      {SHOW_TRIAL_PROMOTION_UI && status === "expired" ? (
         <TrialBanner
           ctaLabel={t("settings.trial.cta.unlock")}
           detail={t("settings.trial.detail.savedAnalysis")}
