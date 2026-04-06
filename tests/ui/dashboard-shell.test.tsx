@@ -72,6 +72,29 @@ const SAMPLE_TREE: chrome.bookmarks.BookmarkTreeNode[] = [
   }
 ]
 
+const NESTED_FOLDER_TREE: chrome.bookmarks.BookmarkTreeNode[] = [
+  {
+    id: "0",
+    title: "",
+    syncing: false,
+    children: [
+      {
+        id: "1",
+        title: "Bookmarks Bar",
+        syncing: false,
+        children: [
+          {
+            id: "10",
+            title: "Frontend",
+            syncing: false,
+            children: [{ id: "b10", title: "React Docs", url: "https://react.dev", syncing: false }]
+          }
+        ]
+      }
+    ]
+  }
+]
+
 describe("DashboardShell", () => {
   afterEach(async () => {
     if (root && container) {
@@ -115,6 +138,25 @@ describe("DashboardShell", () => {
 
     expect(container?.querySelector('[data-testid="dashboard-navigation"]')).not.toBeNull()
     expect(container?.querySelector('[data-testid="dashboard-folder-tree"]')).not.toBeNull()
+  })
+
+  it("allows dashboard folders to collapse and expand", async () => {
+    const bookmarks = [createBookmark({ id: "b10", title: "React Docs", url: "https://react.dev" })]
+    await renderDashboardWithTree(bookmarks, NESTED_FOLDER_TREE)
+
+    expect(container?.querySelector("[data-testid='dashboard-folder-10']")?.textContent).toContain("Frontend")
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-folder-toggle-1']")?.click()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-folder-10']")).toBeNull()
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-folder-toggle-1']")?.click()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-folder-10']")?.textContent).toContain("Frontend")
   })
 
   it("renders design-aligned dashboard with browse and bulk edit views", async () => {

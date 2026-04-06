@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useMemo, useState } from "react"
 
 import { getMessage } from "../../lib/i18n/messages"
 import type { BookmarkRecord } from "../../types/bookmark"
@@ -207,41 +207,116 @@ function FolderList({
     <div style={{ display: "flex", flexDirection: "column", gap: "2px", marginLeft: depth > 0 ? "12px" : 0 }}>
       {folders.map((folder) => {
         const isSelected = folder.id === selectedFolderId
+        const childFolders = (folder.children ?? []).filter((child) => !child.url)
+        const hasChildFolders = childFolders.length > 0
         return (
-          <div key={folder.id}>
-            {folder.title ? (
-              <button
-                aria-pressed={isSelected}
-                data-testid={`dashboard-folder-${folder.id}`}
-                onClick={() => onSelectFolder?.(folder.id)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "6px 10px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontSize: "0.8125rem",
-                  fontWeight: isSelected ? 600 : 500,
-                  color: isSelected ? theme.accent : theme.textMuted,
-                  backgroundColor: isSelected ? theme.accentSoft : "transparent",
-                  border: `1px solid ${isSelected ? theme.borderFocus : "transparent"}`
-                }}
-                type="button"
-              >
-                {folder.title}
-              </button>
-            ) : null}
-            {folder.children && folder.children.length > 0 ? (
-              <FolderList
-                depth={depth + (folder.title ? 1 : 0)}
-                nodes={folder.children}
-                onSelectFolder={onSelectFolder}
-                selectedFolderId={selectedFolderId}
-              />
-            ) : null}
-          </div>
+          <FolderTreeItem
+            depth={depth}
+            folder={folder}
+            hasChildFolders={hasChildFolders}
+            isSelected={isSelected}
+            key={folder.id}
+            onSelectFolder={onSelectFolder}
+            selectedFolderId={selectedFolderId}
+          />
         )
       })}
     </div>
   )
+}
+
+function FolderTreeItem({
+  folder,
+  selectedFolderId,
+  onSelectFolder,
+  isSelected,
+  hasChildFolders,
+  depth
+}: {
+  folder: chrome.bookmarks.BookmarkTreeNode
+  selectedFolderId: string | null
+  onSelectFolder?: (id: string) => void
+  isSelected: boolean
+  hasChildFolders: boolean
+  depth: number
+}) {
+  const theme = useThemeContext()
+  const childFolders = useMemo(() => (folder.children ?? []).filter((child) => !child.url), [folder.children])
+  const shouldStartExpanded = useMemo(
+    () => hasChildFolders && (depth === 0 || containsFolderId(childFolders, selectedFolderId)),
+    [childFolders, depth, hasChildFolders, selectedFolderId]
+  )
+  const [isExpanded, setIsExpanded] = useState(shouldStartExpanded)
+
+  return (
+    <div>
+      {folder.title ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button
+            aria-label={isExpanded ? `Collapse ${folder.title}` : `Expand ${folder.title}`}
+            data-testid={`dashboard-folder-toggle-${folder.id}`}
+            disabled={!hasChildFolders}
+            onClick={() => {
+              if (!hasChildFolders) return
+              setIsExpanded((current) => !current)
+            }}
+            style={{
+              width: "24px",
+              height: "24px",
+              border: "none",
+              borderRadius: "6px",
+              backgroundColor: hasChildFolders ? theme.page : "transparent",
+              color: hasChildFolders ? theme.textMuted : "transparent",
+              cursor: hasChildFolders ? "pointer" : "default",
+              flexShrink: 0
+            }}
+            type="button"
+          >
+            {hasChildFolders ? (isExpanded ? "v" : ">") : "."}
+          </button>
+          <button
+            aria-pressed={isSelected}
+            data-testid={`dashboard-folder-${folder.id}`}
+            onClick={() => onSelectFolder?.(folder.id)}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: "6px 10px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "0.8125rem",
+              fontWeight: isSelected ? 600 : 500,
+              color: isSelected ? theme.accent : theme.textMuted,
+              backgroundColor: isSelected ? theme.accentSoft : "transparent",
+              border: `1px solid ${isSelected ? theme.borderFocus : "transparent"}`
+            }}
+            type="button"
+          >
+            {folder.title}
+          </button>
+        </div>
+      ) : null}
+      {isExpanded && folder.children && folder.children.length > 0 ? (
+        <FolderList
+          depth={depth + (folder.title ? 1 : 0)}
+          nodes={folder.children}
+          onSelectFolder={onSelectFolder}
+          selectedFolderId={selectedFolderId}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function containsFolderId(nodes: chrome.bookmarks.BookmarkTreeNode[], folderId: string | null): boolean {
+  if (!folderId) return false
+
+  for (const node of nodes) {
+    if (node.id === folderId) return true
+    if (containsFolderId((node.children ?? []).filter((child) => !child.url), folderId)) {
+      return true
+    }
+  }
+
+  return false
 }

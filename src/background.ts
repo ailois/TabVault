@@ -11,6 +11,9 @@ import type { BookmarkRecord } from "./types/bookmark"
 
 const repo = new IndexedDbBookmarkRepository()
 const settingsRepo = new ChromeSettingsRepository()
+const FETCH_TIMEOUT_MS = 15000
+const ANALYSIS_TIMEOUT_MS = 45000
+const ANALYSIS_TIMEOUT_MESSAGE = "Analysis timed out"
 
 let analysisRunning = false
 let analysisCurrent = 0
@@ -57,17 +60,7 @@ async function runAnalysisQueue(queue: BookmarkRecord[]) {
       }).catch(() => {})
 
       try {
-        const response = await fetch(bookmark.url)
-        const html = await response.text()
-        const textContent = html.replace(/<[^>]*>?/gm, " ").replace(/\s+/g, " ").slice(0, 10000)
-
-        await analyzeBookmark({
-          bookmark,
-          provider,
-          bookmarkRepository: repo,
-          contentOverride: textContent,
-          summaryLanguage
-        })
+        await analyzeSingleBookmark(bookmark, provider, summaryLanguage)
       } catch {
         // Errors are handled by analyzeBookmark internally.
       }
@@ -119,20 +112,79 @@ async function retryErrorQueue() {
 
   for (const bookmark of errorBookmarks) {
     try {
-      const response = await fetch(bookmark.url)
-      const html = await response.text()
-      const textContent = html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').slice(0, 10000)
-      await analyzeBookmark({
-        bookmark,
-        provider,
-        bookmarkRepository: repo,
-        contentOverride: textContent,
-        summaryLanguage: settings.summaryLanguage
-      })
+      await analyzeSingleBookmark(bookmark, provider, settings.summaryLanguage)
     } catch {
       // leave as error, will retry next time
     }
   }
+}
+
+async function analyzeSingleBookmark(
+  bookmark: BookmarkRecord,
+  provider: ReturnType<typeof createProvider>,
+  summaryLanguage: Awaited<ReturnType<typeof settingsRepo.getAppSettings>>["summaryLanguage"]
+) {
+  try {
+    const textContent = await fetchBookmarkTextContent(bookmark.url)
+    await withTimeout(
+      analyzeBookmark({
+        bookmark,
+        provider,
+        bookmarkRepository: repo,
+        contentOverride: textContent,
+        summaryLanguage
+      }),
+      ANALYSIS_TIMEOUT_MS
+    )
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      await repo.update({
+        ...bookmark,
+        status: "error",
+        errorMessage: ANALYSIS_TIMEOUT_MESSAGE,
+        updatedAt: new Date().toISOString()
+      })
+    }
+
+    throw error
+  }
+}
+
+async function fetchBookmarkTextContent(url: string): Promise<string> {
+  const controller = new AbortController()
+  const timeout = globalThis.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    const html = await response.text()
+    return html.replace(/<[^>]*>?/gm, " ").replace(/\s+/g, " ").slice(0, 10000)
+  } finally {
+    globalThis.clearTimeout(timeout)
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = globalThis.setTimeout(() => reject(new Error(ANALYSIS_TIMEOUT_MESSAGE)), timeoutMs)
+      })
+    ])
+  } finally {
+    if (timeoutId !== undefined) {
+      globalThis.clearTimeout(timeoutId)
+    }
+  }
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.message === ANALYSIS_TIMEOUT_MESSAGE ||
+    error.name === "AbortError"
+  )
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
