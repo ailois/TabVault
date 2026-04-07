@@ -8,6 +8,7 @@ import type { AiProvider } from "../../lib/providers/provider"
 import { createProvider as defaultCreateProvider } from "../../lib/providers/provider-factory"
 import { IndexedDbBookmarkRepository } from "../../lib/storage/indexeddb-bookmark-repository"
 import { updateBookmarkMetadata } from "../../lib/storage/update-bookmark-metadata"
+import { openSettingsPage } from "../../lib/utils/navigation"
 import type { BookmarkRecord } from "../../types/bookmark"
 import type { DisplayLanguage, ProviderConfig } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
@@ -38,6 +39,8 @@ type AnalysisProgressState = {
   current: number
   total: number
 }
+
+type DashboardNavigationMode = "all" | "recents" | "highlights"
 
 export function DashboardShell({
   initialBookmarks,
@@ -80,6 +83,7 @@ export function DashboardShell({
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>(initialBookmarks ?? [])
   const [chromeTree, setChromeTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>(initialTree ?? [])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [navigationMode, setNavigationMode] = useState<DashboardNavigationMode>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [filterMode, setFilterMode] = useState<BookmarkFilterMode>("all")
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([])
@@ -219,17 +223,35 @@ export function DashboardShell({
     return filtered.map((item) => metadataMap[item.url]).filter(Boolean) as BookmarkRecord[]
   }, [bookmarks, chromeTree, metadataMap, selectedFolderId])
 
-  const searchedBookmarks = useMemo(() => {
-    if (!searchQuery.trim()) return folderBookmarks
+  const navigationBookmarks = useMemo(() => {
+    if (navigationMode === "recents") {
+      return [...bookmarks].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    }
 
-    return folderBookmarks.filter((bookmark) =>
+    if (navigationMode === "highlights") {
+      return bookmarks.filter(
+        (bookmark) =>
+          Boolean(bookmark.summary?.trim()) ||
+          Boolean(bookmark.userNotes?.trim()) ||
+          bookmark.aiTags.length > 0 ||
+          bookmark.userTags.length > 0
+      )
+    }
+
+    return folderBookmarks
+  }, [bookmarks, folderBookmarks, navigationMode])
+
+  const searchedBookmarks = useMemo(() => {
+    if (!searchQuery.trim()) return navigationBookmarks
+
+    return navigationBookmarks.filter((bookmark) =>
       matchesSearch(
         { id: bookmark.id, title: bookmark.title, url: bookmark.url, folderId: null, folderTitle: "" },
         searchQuery,
         metadataMap
       )
     )
-  }, [folderBookmarks, metadataMap, searchQuery])
+  }, [metadataMap, navigationBookmarks, searchQuery])
 
   const visibleBookmarks = useMemo(
     () => searchedBookmarks.filter((bookmark) => matchesFilterMode(bookmark.url, filterMode, metadataMap)),
@@ -403,10 +425,21 @@ export function DashboardShell({
     >
       <DashboardNavigation
         activeBookmarkId={activeBookmark?.id ?? null}
+        activeMode={navigationMode}
         bookmarks={bookmarks}
         chromeTree={chromeTree}
         language={displayLanguage}
+        onOpenSettings={() => {
+          void openSettingsPage()
+        }}
         onSelect={setActiveBookmark}
+        onSelectMode={(mode) => {
+          setNavigationMode(mode)
+          if (mode === "all") {
+            return
+          }
+          setSelectedFolderId(null)
+        }}
         onSelectFolder={(folderId) => setSelectedFolderId(folderId || null)}
         selectedFolderId={selectedFolderId}
         width={256}

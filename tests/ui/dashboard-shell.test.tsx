@@ -13,6 +13,7 @@ import { buildThemeFromOverride } from "../../src/ui/use-theme"
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 let storageChangeListener: ((changes: Record<string, chrome.storage.StorageChange>, areaName?: string) => void) | null = null
 let runtimeMessageListener: ((message: Record<string, unknown>) => void) | null = null
+const openOptionsPageMock = vi.fn(async () => undefined)
 const sendMessageMock = vi.fn(async (message?: { type?: string }) =>
   message?.type === "GET_ANALYSIS_STATUS" ? { running: false, current: 0, total: 0 } : { success: true }
 )
@@ -34,6 +35,7 @@ globalThis.chrome = {
   },
   runtime: {
     sendMessage: sendMessageMock,
+    openOptionsPage: openOptionsPageMock,
     onMessage: {
       addListener: (listener: (message: Record<string, unknown>) => void) => {
         runtimeMessageListener = listener
@@ -108,6 +110,7 @@ describe("DashboardShell", () => {
     storageChangeListener = null
     runtimeMessageListener = null
     sendMessageMock.mockClear()
+    openOptionsPageMock.mockClear()
   })
 
   it("renders a dashboard folder tree and updates results when a folder is selected", async () => {
@@ -353,19 +356,57 @@ describe("DashboardShell", () => {
     expect(metadata?.style.borderBottom).toContain("1px solid")
   })
 
-  it("marks placeholder navigation buttons as disabled until their views are wired", async () => {
-    await renderDashboard([createBookmark({ id: "1", title: "React Docs" })])
+  it("uses recents and highlights navigation entries as active filters", async () => {
+    await renderDashboard([
+      createBookmark({
+        id: "1",
+        title: "Old Bookmark",
+        summary: "",
+        updatedAt: "2026-03-01T00:00:00.000Z"
+      }),
+      createBookmark({
+        id: "2",
+        title: "Recent Highlight",
+        summary: "Saved summary",
+        updatedAt: "2026-04-01T00:00:00.000Z"
+      })
+    ])
 
     const recentsButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-recents']")
     const highlightsButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-highlights']")
-    const settingsButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-settings']")
-    const frontendTagButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tag-frontend']")
 
-    expect(recentsButton?.disabled).toBe(true)
-    expect((recentsButton?.title?.length ?? 0) > 0).toBe(true)
-    expect(highlightsButton?.disabled).toBe(true)
-    expect(settingsButton?.disabled).toBe(true)
-    expect(frontendTagButton?.disabled).toBe(true)
+    expect(recentsButton?.disabled).toBe(false)
+    expect(highlightsButton?.disabled).toBe(false)
+
+    await act(async () => {
+      recentsButton?.click()
+    })
+
+    const resultButtons = Array.from(
+      container?.querySelectorAll<HTMLButtonElement>("[data-testid='dashboard-result-button']") ?? []
+    )
+    expect(resultButtons.at(0)?.textContent).toContain("Recent Highlight")
+
+    await act(async () => {
+      highlightsButton?.click()
+    })
+
+    expect(container?.textContent).toContain("Recent Highlight")
+    expect(container?.textContent).not.toContain("Old Bookmark")
+  })
+
+  it("opens settings from the dashboard navigation", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "React Docs" })])
+
+    const settingsButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-settings']")
+
+    expect(settingsButton?.disabled).toBe(false)
+
+    await act(async () => {
+      settingsButton?.click()
+    })
+
+    expect(openOptionsPageMock).toHaveBeenCalledOnce()
   })
 
   it("uses tab semantics in the reading pane and enables note-format actions", async () => {
