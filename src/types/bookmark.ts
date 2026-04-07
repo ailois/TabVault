@@ -5,6 +5,7 @@ export type BookmarkRecord = {
   title: string
   selectedText?: string
   extractedText?: string
+  userNotes?: string
   summary?: string
   aiTags: string[]
   userTags: string[]

@@ -84,6 +84,8 @@ export function matchesSearch(
     item.folderTitle,
     record?.title ?? "",
     record?.summary ?? "",
+    record?.userNotes ?? "",
+    record?.extractedText ?? "",
     ...(record?.aiTags ?? []),
     ...(record?.userTags ?? [])
   ]

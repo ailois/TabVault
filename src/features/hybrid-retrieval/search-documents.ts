@@ -14,8 +14,8 @@ export type SearchDocument = {
 
 export function buildBookmarkSearchDocument(bookmark: BookmarkRecord): SearchDocument {
   const tagsText = [...bookmark.aiTags, ...bookmark.userTags].join(" ")
-  const bodyText = bookmark.extractedText ?? ""
-  const combinedText = [bookmark.title, bookmark.url, bookmark.summary ?? "", tagsText, bodyText]
+  const bodyText = [bookmark.userNotes ?? "", bookmark.extractedText ?? ""].filter(Boolean).join(" ")
+  const combinedText = [bookmark.title, bookmark.url, bookmark.summary ?? "", tagsText, bookmark.userNotes ?? "", bookmark.extractedText ?? ""]
     .filter(Boolean)
     .join(" ")
 

@@ -1,43 +1,92 @@
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 
+import type { SettingsRepository } from "../../lib/config/settings-repository"
 import { getMessage } from "../../lib/i18n/messages"
+import type { AiProvider } from "../../lib/providers/provider"
 import type { BookmarkRecord } from "../../types/bookmark"
-import type { DisplayLanguage } from "../../types/settings"
+import type { DisplayLanguage, ProviderConfig } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
 
 const READING_PLACEHOLDER_COPY: Record<DisplayLanguage, string> = {
   en: "Coming soon",
-  zh: "\u5373\u5c06\u4e0a\u7ebf"
+  zh: "即将上线"
 }
 
 type DashboardReadingPaneProps = {
   bookmark: BookmarkRecord | null
+  bookmarks?: BookmarkRecord[]
   language?: DisplayLanguage
   onSaveSummary?: (summary: string) => Promise<void>
   onSaveTags?: (aiTags: string[], userTags: string[]) => Promise<void>
+  onSaveNotes?: (notes: string) => Promise<void>
   onDelete?: () => void
+  settingsRepository?: SettingsRepository
+  createProvider?: (config: ProviderConfig) => AiProvider
+  onOpenBookmark?: (bookmarkId: string) => void
 }
 
 type ReadingTab = "notes" | "ai"
 
 export function DashboardReadingPane({
   bookmark,
+  bookmarks,
   language = "en",
   onSaveSummary = async () => {},
   onSaveTags = async () => {},
-  onDelete
+  onSaveNotes = async () => {},
+  onDelete,
+  settingsRepository,
+  createProvider,
+  onOpenBookmark
 }: DashboardReadingPaneProps) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
   const [activeTab, setActiveTab] = useState<ReadingTab>("notes")
+  const [notesDraft, setNotesDraft] = useState(bookmark?.userNotes ?? "")
+  const [isSavingNotes, setIsSavingNotes] = useState(false)
+  const hasHydratedNotesRef = useRef(false)
   const notesTabId = "dashboard-reading-tab-notes"
   const aiTabId = "dashboard-reading-tab-ai"
   const notesPanelId = "dashboard-reading-panel-notes"
   const aiPanelId = "dashboard-reading-panel-ai"
   const getPlaceholderTitle = (label: string) => `${label} - ${READING_PLACEHOLDER_COPY[language]}`
-  const placeholderTitle = (label: string) => `${label} · ${READING_PLACEHOLDER_COPY[language]}`
+  const extractedText = bookmark?.extractedText?.trim() ?? ""
+
+  useEffect(() => {
+    hasHydratedNotesRef.current = false
+    setNotesDraft(bookmark?.userNotes ?? "")
+  }, [bookmark?.id, bookmark?.userNotes])
+
+  useEffect(() => {
+    const currentNotes = bookmark?.userNotes ?? ""
+    if (!bookmark) {
+      return undefined
+    }
+
+    if (!hasHydratedNotesRef.current) {
+      hasHydratedNotesRef.current = true
+      return undefined
+    }
+
+    if (notesDraft === currentNotes || isSavingNotes) {
+      return undefined
+    }
+
+    let cancelled = false
+    setIsSavingNotes(true)
+
+    void onSaveNotes(notesDraft).finally(() => {
+      if (!cancelled) {
+        setIsSavingNotes(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [bookmark, isSavingNotes, notesDraft, onSaveNotes])
 
   const tabStyle = (tab: ReadingTab): React.CSSProperties => ({
     padding: "8px 16px",
@@ -115,7 +164,9 @@ export function DashboardReadingPane({
           <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
             <button
               aria-label={t("dashboard.reading.action.open")}
-              onClick={() => { globalThis.open?.(bookmark.url, "_blank") }}
+              onClick={() => {
+                globalThis.open?.(bookmark.url, "_blank")
+              }}
               style={{ padding: "6px", border: "none", backgroundColor: "transparent", color: theme.textMuted, cursor: "pointer", borderRadius: "6px", fontSize: "0.75rem" }}
               title={t("dashboard.reading.action.open")}
               type="button"
@@ -229,16 +280,43 @@ export function DashboardReadingPane({
                 {t("dashboard.reading.section.notes")}
               </h3>
               <div style={{ border: `1px solid ${theme.border}`, borderRadius: "12px", backgroundColor: theme.page, overflow: "hidden" }}>
-                <div style={{ padding: "16px", minHeight: "120px", fontSize: "0.875rem", color: bookmark.extractedText ? theme.textPrimary : theme.textMuted, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-                  {bookmark.extractedText ?? t("dashboard.reading.notes.empty")}
-                </div>
+                <textarea
+                  aria-label={t("dashboard.reading.section.notes")}
+                  data-testid="dashboard-notes-input"
+                  onChange={(event) => setNotesDraft(event.target.value)}
+                  placeholder={t("dashboard.reading.notes.empty")}
+                  style={{
+                    width: "100%",
+                    minHeight: "140px",
+                    boxSizing: "border-box",
+                    padding: "16px",
+                    border: "none",
+                    outline: "none",
+                    resize: "vertical",
+                    backgroundColor: theme.page,
+                    color: theme.textPrimary,
+                    fontSize: "0.875rem",
+                    lineHeight: 1.7
+                  }}
+                  value={notesDraft}
+                />
+                {extractedText ? (
+                  <div style={{ borderTop: `1px solid ${theme.border}`, padding: "16px", backgroundColor: theme.surface }}>
+                    <div style={{ marginBottom: "8px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      {t("dashboard.summary.title")}
+                    </div>
+                    <div style={{ fontSize: "0.8125rem", color: theme.textSecondary, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                      {extractedText}
+                    </div>
+                  </div>
+                ) : null}
                 <div style={{ borderTop: `1px solid ${theme.border}`, backgroundColor: theme.page, padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", gap: "12px", color: theme.textMuted, fontSize: "0.875rem" }}>
                     <button aria-disabled="true" data-testid="dashboard-format-bold" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", fontWeight: 700, opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.bold"))} type="button"><span aria-hidden="true">B</span></button>
                     <button aria-disabled="true" data-testid="dashboard-format-italic" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", fontStyle: "italic", opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.italic"))} type="button"><span aria-hidden="true">I</span></button>
                     <button aria-disabled="true" data-testid="dashboard-format-quote" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.quote"))} type="button"><span aria-hidden="true">{">"}</span></button>
                   </div>
-                  <span style={{ fontSize: "0.625rem", color: theme.textMuted }}>{t("dashboard.reading.autosave")}</span>
+                  <span style={{ fontSize: "0.625rem", color: theme.textMuted }}>{isSavingNotes ? "..." : t("dashboard.reading.autosave")}</span>
                 </div>
               </div>
             </section>
@@ -247,9 +325,13 @@ export function DashboardReadingPane({
           <div aria-labelledby={aiTabId} id={aiPanelId} role="tabpanel">
             <DashboardAiSidebar
               bookmark={bookmark}
+              bookmarks={bookmarks}
+              createProvider={createProvider}
               language={language}
+              onOpenBookmark={onOpenBookmark}
               onSaveSummary={onSaveSummary}
               onSaveTags={onSaveTags}
+              settingsRepository={settingsRepository}
             />
           </div>
         )}

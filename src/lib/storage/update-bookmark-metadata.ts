@@ -6,6 +6,7 @@ export function updateBookmarkMetadata(
     summary?: string
     aiTags: string[]
     userTags: string[]
+    userNotes?: string
   }
 ): BookmarkRecord {
   return {
@@ -13,6 +14,7 @@ export function updateBookmarkMetadata(
     summary: updates.summary,
     aiTags: updates.aiTags,
     userTags: updates.userTags,
+    userNotes: Object.prototype.hasOwnProperty.call(updates, "userNotes") ? updates.userNotes : bookmark.userNotes,
     updatedAt: new Date().toISOString()
   }
 }

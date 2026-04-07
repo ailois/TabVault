@@ -4,10 +4,12 @@ import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "../../lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "../../lib/config/settings-repository"
 import { getMessage } from "../../lib/i18n/messages"
+import type { AiProvider } from "../../lib/providers/provider"
+import { createProvider as defaultCreateProvider } from "../../lib/providers/provider-factory"
 import { IndexedDbBookmarkRepository } from "../../lib/storage/indexeddb-bookmark-repository"
 import { updateBookmarkMetadata } from "../../lib/storage/update-bookmark-metadata"
 import type { BookmarkRecord } from "../../types/bookmark"
-import type { DisplayLanguage } from "../../types/settings"
+import type { DisplayLanguage, ProviderConfig } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
 import {
   collectBookmarksWithFolderContext,
@@ -27,6 +29,7 @@ type DashboardShellProps = {
   getBookmarkTree?: () => Promise<chrome.bookmarks.BookmarkTreeNode[]>
   updateBookmark?: (bookmark: BookmarkRecord) => Promise<void>
   settingsRepository?: SettingsRepository
+  createProvider?: (config: ProviderConfig) => AiProvider
 }
 
 type AnalysisProgressState = {
@@ -41,7 +44,8 @@ export function DashboardShell({
   listBookmarks,
   getBookmarkTree,
   updateBookmark,
-  settingsRepository
+  settingsRepository,
+  createProvider = defaultCreateProvider
 }: DashboardShellProps) {
   const theme = useThemeContext()
   const bookmarkRepository = useMemo(() => new IndexedDbBookmarkRepository(), [])
@@ -277,6 +281,21 @@ export function DashboardShell({
     setActiveBookmark(nextBookmark)
   }
 
+  async function handleSaveNotes(userNotes: string): Promise<void> {
+    if (!activeBookmark) return
+
+    const nextBookmark = updateBookmarkMetadata(activeBookmark, {
+      summary: activeBookmark.summary,
+      aiTags: activeBookmark.aiTags,
+      userTags: activeBookmark.userTags,
+      userNotes
+    })
+
+    await persistBookmark(nextBookmark)
+    setBookmarks((prev) => prev.map((bookmark) => (bookmark.id === nextBookmark.id ? nextBookmark : bookmark)))
+    setActiveBookmark(nextBookmark)
+  }
+
   function toggleBookmarkSelection(bookmarkId: string) {
     setSelectedBookmarkIds((current) =>
       current.includes(bookmarkId) ? current.filter((id) => id !== bookmarkId) : [...current, bookmarkId]
@@ -400,9 +419,17 @@ export function DashboardShell({
 
             <DashboardReadingPane
               bookmark={activeBookmark}
+              bookmarks={bookmarks}
+              createProvider={createProvider}
               language={displayLanguage}
+              onOpenBookmark={(bookmarkId) => {
+                const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
+                setActiveBookmark(bookmark)
+              }}
+              onSaveNotes={handleSaveNotes}
               onSaveSummary={handleSaveSummary}
               onSaveTags={handleSaveTags}
+              settingsRepository={dashboardSettingsRepository}
             />
           </>
         ) : null}

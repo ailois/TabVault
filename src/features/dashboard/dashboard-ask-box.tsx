@@ -1,69 +1,196 @@
 import React, { useMemo, useState } from "react"
 
-import { rankHybridResults } from "../../features/hybrid-retrieval/rank-hybrid-results"
-import type { SearchDocument } from "../../features/hybrid-retrieval/search-documents"
+import { HybridQueryStream } from "../../components/hybrid-query-stream"
+import { buildActionCards, type ActionCard } from "../../features/hybrid-retrieval/build-action-cards"
+import type { AnswerBlock } from "../../features/hybrid-retrieval/build-answer-block"
+import {
+  buildGhostreaderContent,
+  buildLocalizedAnswerBlock,
+  getGhostreaderFallbackTitle,
+  shouldFallbackToLocalGhostreaderAnswer
+} from "../../features/hybrid-retrieval/ghostreader"
+import { retrieveHybridResults } from "../../features/hybrid-retrieval/retrieve-hybrid-results"
+import type { RankedHybridResult } from "../../features/hybrid-retrieval/rank-hybrid-results"
+import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
+import type { SettingsRepository } from "../../lib/config/settings-repository"
+import { getLocalizedErrorMessage } from "../../lib/i18n/error-messages"
 import { getMessage } from "../../lib/i18n/messages"
+import type { AiProvider } from "../../lib/providers/provider"
+import { createProvider as defaultCreateProvider } from "../../lib/providers/provider-factory"
 import type { BookmarkRecord } from "../../types/bookmark"
-import type { DisplayLanguage } from "../../types/settings"
+import type { DisplayLanguage, ProviderConfig } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 
 type DashboardAskBoxProps = {
   bookmark: BookmarkRecord | null
+  bookmarks?: BookmarkRecord[]
   language?: DisplayLanguage
+  settingsRepository?: SettingsRepository
+  createProvider?: (config: ProviderConfig) => AiProvider
+  onOpenBookmark?: (bookmarkId: string) => void
 }
 
-function formatAnswer(language: DisplayLanguage, query: string, titles: string[]): string {
-  const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
+function getLocalizedActions(
+  t: (key: Parameters<typeof getMessage>[1]) => string,
+  results: RankedHybridResult[]
+): ActionCard[] {
+  const hasCurrentPage = results.some((result) => result.document.sourceType === "current-page")
+  const hasSavedMatches = results.some((result) => result.document.sourceType === "saved-bookmark")
 
-  if (titles.length === 0) {
-    return t("dashboard.ask.answer.none").replace("{query}", query)
+  return buildActionCards({ hasCurrentPage, hasSavedMatches })
+    .filter((action) => action.id !== "open-dashboard")
+    .map((action) => ({
+      ...action,
+      label:
+        action.id === "ask-current-page"
+          ? t("hybrid.action.askCurrentPage")
+          : t("hybrid.action.askTopMatches")
+    }))
+}
+
+function buildBookmarkContext(bookmark: BookmarkRecord | null) {
+  if (!bookmark) {
+    return null
   }
 
-  return t("dashboard.ask.answer.found")
-    .replace("{titles}", titles.join(", "))
-    .replace("{query}", query)
+  const extractedText = [bookmark.userNotes ?? "", bookmark.extractedText ?? ""].filter(Boolean).join("\n\n")
+  return {
+    title: bookmark.title,
+    url: bookmark.url,
+    extractedText
+  }
 }
 
-export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxProps) {
+export function DashboardAskBox({
+  bookmark,
+  bookmarks,
+  language = "en",
+  settingsRepository,
+  createProvider = defaultCreateProvider,
+  onOpenBookmark
+}: DashboardAskBoxProps) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
   const [query, setQuery] = useState("")
-  const [answerText, setAnswerText] = useState<string | null>(null)
-
-  const searchDocument = useMemo<SearchDocument | null>(() => {
-    if (!bookmark) return null
-
-    const tagsText = [...bookmark.aiTags, ...bookmark.userTags].join(" ")
-    const bodyText = bookmark.extractedText ?? ""
-    const combinedText = [bookmark.title, bookmark.url, bookmark.summary ?? "", tagsText, bodyText]
-      .filter(Boolean)
-      .join(" ")
-
-    return {
-      sourceType: "saved-bookmark",
-      bookmarkId: bookmark.id,
-      title: bookmark.title,
-      url: bookmark.url,
-      summary: bookmark.summary,
-      tagsText,
-      bodyText,
-      combinedText,
-      updatedAt: bookmark.updatedAt
+  const [submittedQuery, setSubmittedQuery] = useState("")
+  const [rankedResults, setRankedResults] = useState<RankedHybridResult[]>([])
+  const [actions, setActions] = useState<ActionCard[]>([])
+  const [answer, setAnswer] = useState<AnswerBlock | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const bookmarkContext = useMemo(() => buildBookmarkContext(bookmark), [bookmark])
+  const availableBookmarks = useMemo(() => {
+    if (bookmarks && bookmarks.length > 0) {
+      return bookmarks
     }
-  }, [bookmark])
 
-  const canSubmit = Boolean(searchDocument && query.trim())
+    return bookmark ? [bookmark] : []
+  }, [bookmark, bookmarks])
+  const canSubmit = Boolean(bookmark && query.trim()) && !isSubmitting
 
-  function handleSubmit(): void {
+  async function runHybridRetrieval(nextQuery: string) {
+    const nextResults = await retrieveHybridResults({
+      query: nextQuery,
+      currentPage: bookmarkContext ?? {},
+      listBookmarks: async () => availableBookmarks
+    })
+    return {
+      results: nextResults,
+      actions: getLocalizedActions(t, nextResults)
+    }
+  }
+
+  async function handleSubmit(): Promise<void> {
     const trimmedQuery = query.trim()
-    if (!searchDocument || !trimmedQuery) {
+    if (!bookmark || !trimmedQuery) {
       return
     }
 
-    const results = rankHybridResults([searchDocument], trimmedQuery)
-    const titles = results.slice(0, 3).map((result) => result.document.title)
-    setAnswerText(formatAnswer(language, trimmedQuery, titles))
+    setQuery("")
+    setSubmittedQuery(trimmedQuery)
+    setAnswer(null)
+    setErrorMessage(null)
+    setIsSubmitting(true)
+
+    try {
+      const repository =
+        settingsRepository ??
+        ({
+          getAppSettings: async () => DEFAULT_APP_SETTINGS,
+          saveAppSettings: async () => {},
+          getProviders: async () => [],
+          saveProviders: async () => {}
+        } satisfies SettingsRepository)
+      const settings = await repository.getAppSettings()
+      const providers = await repository.getProviders()
+      const selectedProvider = providers.find(
+        (provider) => provider.enabled && provider.provider === settings.defaultProvider
+      )
+
+      if (!selectedProvider?.apiKey.trim()) {
+        setErrorMessage(t("sidepanel.apiKeyMissing"))
+        setRankedResults([])
+        setActions([])
+        return
+      }
+
+      const nextState = await runHybridRetrieval(trimmedQuery)
+      setRankedResults(nextState.results)
+      setActions(nextState.actions)
+
+      const analysis = await createProvider(selectedProvider).analyze({
+        title: bookmark.title ?? getGhostreaderFallbackTitle(language),
+        url: bookmark.url ?? "https://tabvault.local/dashboard-ghostreader",
+        content: buildGhostreaderContent({
+          language,
+          query: trimmedQuery,
+          currentPageContext: bookmarkContext,
+          rankedResults: nextState.results
+        }),
+        summaryLanguage: settings.summaryLanguage
+      })
+
+      setAnswer({
+        text: analysis.summary,
+        citations: nextState.results.slice(0, 3).map((result) => ({
+          sourceType: result.document.sourceType,
+          title: result.document.title,
+          url: result.document.url,
+          matchReason: result.matchReason
+        }))
+      })
+    } catch (error) {
+      if (shouldFallbackToLocalGhostreaderAnswer(error)) {
+        const nextState = rankedResults.length > 0 || actions.length > 0
+          ? { results: rankedResults, actions }
+          : await runHybridRetrieval(trimmedQuery)
+        setRankedResults(nextState.results)
+        setActions(nextState.actions)
+        setAnswer(buildLocalizedAnswerBlock(language, t("hybrid.query.query"), trimmedQuery, nextState.results))
+        return
+      }
+
+      setErrorMessage(getLocalizedErrorMessage(language, error, "sidepanel.error.ghostreaderFailed"))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function handleAction(actionId: ActionCard["id"]): void {
+    if (!submittedQuery) {
+      return
+    }
+
+    if (actionId === "ask-current-page") {
+      const currentPageResults = rankedResults.filter((result) => result.document.sourceType === "current-page")
+      setAnswer(buildLocalizedAnswerBlock(language, t("hybrid.query.query"), submittedQuery, currentPageResults))
+      return
+    }
+
+    if (actionId === "ask-top-matches") {
+      setAnswer(buildLocalizedAnswerBlock(language, t("hybrid.query.query"), submittedQuery, rankedResults.slice(0, 3)))
+    }
   }
 
   return (
@@ -76,6 +203,12 @@ export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxPr
           aria-label={t("dashboard.ask.title")}
           data-testid="dashboard-ask-input"
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              void handleSubmit()
+            }
+          }}
           placeholder={t("dashboard.ask.placeholder")}
           style={{
             width: "100%",
@@ -94,7 +227,7 @@ export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxPr
           aria-label={t("dashboard.ask.submit")}
           data-testid="dashboard-ask-submit"
           disabled={!canSubmit}
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
           style={{
             position: "absolute",
             right: "8px",
@@ -112,12 +245,25 @@ export function DashboardAskBox({ bookmark, language = "en" }: DashboardAskBoxPr
           title={t("dashboard.ask.submit")}
           type="button"
         >
-          <span aria-hidden="true">{">"}</span>
+          <span aria-hidden="true">{isSubmitting ? "..." : ">"}</span>
         </button>
       </div>
-      {answerText ? (
-        <div aria-live="polite" style={{ marginTop: spacing.sm, color: theme.textPrimary, fontSize: "0.875rem", lineHeight: 1.5 }}>
-          {answerText}
+      {errorMessage ? (
+        <div aria-live="polite" style={{ marginTop: spacing.sm, color: theme.textDanger, fontSize: "0.8125rem", lineHeight: 1.5 }}>
+          {errorMessage}
+        </div>
+      ) : null}
+      {submittedQuery ? (
+        <div style={{ marginTop: spacing.sm }}>
+          <HybridQueryStream
+            actions={actions}
+            answer={answer}
+            language={language}
+            onAction={handleAction}
+            onOpenBookmark={onOpenBookmark}
+            query={submittedQuery}
+            rankedResults={rankedResults}
+          />
         </div>
       ) : null}
     </div>

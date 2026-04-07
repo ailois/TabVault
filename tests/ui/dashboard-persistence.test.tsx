@@ -119,6 +119,43 @@ describe("DashboardShell persistence", () => {
     })
     expect(container?.textContent).toContain("favorite")
   })
+
+  it("saves edited notes through updateBookmark and refreshes the notes tab", async () => {
+    const bookmarks = [
+      createBookmark({
+        id: "1",
+        title: "React Docs",
+        userNotes: "Old notes"
+      })
+    ]
+    const updateBookmark = vi.fn(async () => undefined)
+
+    await renderDashboard(bookmarks, updateBookmark)
+
+    await selectBookmark("React Docs")
+
+    const textarea = container?.querySelector<HTMLTextAreaElement>("[data-testid='dashboard-notes-input']")
+    expect(textarea?.value).toBe("Old notes")
+
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(textarea, "New notes")
+      textarea?.dispatchEvent(new Event("input", { bubbles: true }))
+      textarea?.dispatchEvent(new FocusEvent("blur", { bubbles: true }))
+    })
+
+    expect(updateBookmark).toHaveBeenCalledOnce()
+    const firstUpdatedBookmark = updateBookmark.mock.calls.at(0)?.at(0) as BookmarkRecord | undefined
+    expect(firstUpdatedBookmark).toBeDefined()
+    expect(firstUpdatedBookmark).toMatchObject({
+      id: "1",
+      userNotes: "New notes"
+    })
+    expect(firstUpdatedBookmark?.summary).toBe("Example summary")
+    expect(firstUpdatedBookmark?.aiTags).toEqual([])
+    expect(firstUpdatedBookmark?.userTags).toEqual([])
+    expect(container?.querySelector<HTMLTextAreaElement>("[data-testid='dashboard-notes-input']")?.value).toBe("New notes")
+  })
 })
 
 let container: HTMLDivElement | null = null

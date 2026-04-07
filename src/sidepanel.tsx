@@ -10,6 +10,12 @@ import { TrialBanner } from "./components/trial-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { buildActionCards, type ActionCard } from "./features/hybrid-retrieval/build-action-cards"
 import type { AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
+import {
+  buildGhostreaderContent,
+  buildLocalizedAnswerBlock,
+  getGhostreaderFallbackTitle,
+  shouldFallbackToLocalGhostreaderAnswer
+} from "./features/hybrid-retrieval/ghostreader"
 import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
 import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
@@ -78,70 +84,6 @@ function getLicenseActivationCopy(t: (key: Parameters<typeof getMessage>[1]) => 
 
 function formatCurrentPageTitle(title?: string): string {
   return title ? `\u300a${title}\u300b` : ""
-}
-
-const GHOSTREADER_PROMPT_COPY = {
-  en: {
-    fallbackTitle: "Ghostreader question",
-    instruction: "Answer the user's Ghostreader question using the current page and saved bookmark context.",
-    responseShape: "Return strict JSON with shape {\"summary\":\"string\",\"tags\":[\"string\"]}.",
-    userQuestion: "User question",
-    currentPageTitle: "Current page title",
-    currentPageUrl: "Current page URL",
-    currentPageContent: "Current page content",
-    currentPageUnavailable: "Current page unavailable",
-    savedMatchesHeading: "Saved bookmark matches",
-    savedMatchesEmpty: "none",
-    savedMatchTitle: (index: number) => `Saved match ${index} title`,
-    savedMatchUrl: (index: number) => `Saved match ${index} URL`,
-    savedMatchReason: (index: number) => `Saved match ${index} reason`,
-    savedMatchContent: (index: number) => `Saved match ${index} content`
-  },
-  zh: {
-    fallbackTitle: "Ghostreader \u95ee\u9898",
-    instruction: "\u8bf7\u57fa\u4e8e\u5f53\u524d\u9875\u9762\u4e0e\u5df2\u4fdd\u5b58\u4e66\u7b7e\u4e0a\u4e0b\u6587\uff0c\u56de\u7b54\u7528\u6237\u7684 Ghostreader \u95ee\u9898\u3002",
-    responseShape: "\u8bf7\u4e25\u683c\u8fd4\u56de JSON\uff0c\u7ed3\u6784\u4e3a {\"summary\":\"string\",\"tags\":[\"string\"]}\u3002",
-    userQuestion: "\u7528\u6237\u95ee\u9898",
-    currentPageTitle: "\u5f53\u524d\u9875\u9762\u6807\u9898",
-    currentPageUrl: "\u5f53\u524d\u9875\u9762 URL",
-    currentPageContent: "\u5f53\u524d\u9875\u9762\u5185\u5bb9",
-    currentPageUnavailable: "\u5f53\u524d\u9875\u9762\u4e0d\u53ef\u7528",
-    savedMatchesHeading: "\u5df2\u4fdd\u5b58\u7684\u4e66\u7b7e\u5339\u914d",
-    savedMatchesEmpty: "\u65e0",
-    savedMatchTitle: (index: number) => `\u5339\u914d ${index} \u6807\u9898`,
-    savedMatchUrl: (index: number) => `\u5339\u914d ${index} URL`,
-    savedMatchReason: (index: number) => `\u5339\u914d ${index} \u539f\u56e0`,
-    savedMatchContent: (index: number) => `\u5339\u914d ${index} \u5185\u5bb9`
-  }
-} as const
-
-const GHOSTREADER_MAX_CURRENT_PAGE_CHARS = 3_000
-const GHOSTREADER_MAX_MATCH_CHARS = 900
-const GHOSTREADER_MAX_MATCHES = 3
-
-function buildLocalizedAnswerBlock(
-  language: "en" | "zh",
-  t: (key: Parameters<typeof getMessage>[1]) => string,
-  query: string,
-  rankedResults: RankedHybridResult[]
-): AnswerBlock {
-  const citations = rankedResults.slice(0, 3).map((result) => ({
-    sourceType: result.document.sourceType,
-    title: result.document.title,
-    url: result.document.url,
-    matchReason: result.matchReason
-  }))
-
-  const text =
-    language === "en"
-      ? citations.length > 0
-        ? `Based on ${citations.map((citation) => citation.title).join(", ")}, here are the most relevant local results for: ${query}`
-        : `No local results found for: ${query}`
-      : citations.length > 0
-        ? `${t("hybrid.query.query")}\uff1a${query} \u00b7 ${citations.map((citation) => citation.title).join(" / ")}`
-        : `${t("hybrid.query.query")}\uff1a${query}`
-
-  return { text, citations }
 }
 
 export default function SidePanel({ services }: SidePanelProps) {
@@ -442,9 +384,8 @@ export default function SidePanel({ services }: SidePanelProps) {
       setGhostreaderActionCards(actions)
 
       const provider = sidePanelServices.createProvider(selectedProvider)
-      const ghostreaderCopy = GHOSTREADER_PROMPT_COPY[displayLanguage]
       const analysis = await provider.analyze({
-        title: currentPageContext?.title ?? ghostreaderCopy.fallbackTitle,
+        title: currentPageContext?.title ?? getGhostreaderFallbackTitle(displayLanguage),
         url: currentPageContext?.url ?? "https://tabvault.local/ghostreader",
         content: buildGhostreaderContent({
           language: displayLanguage,
@@ -469,7 +410,7 @@ export default function SidePanel({ services }: SidePanelProps) {
         const { results, actions } = await runHybridRetrieval(query)
         setGhostreaderResults(results)
         setGhostreaderActionCards(actions)
-        setGhostreaderAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t, query, results))
+        setGhostreaderAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t("hybrid.query.query"), query, results))
         return
       }
 
@@ -500,12 +441,12 @@ export default function SidePanel({ services }: SidePanelProps) {
 
     if (actionId === "ask-current-page") {
       const currentPageResults = activeRankedResults.filter((result) => result.document.sourceType === "current-page")
-      setActiveAnswer(buildLocalizedAnswerBlock(displayLanguage, t, activeQuery, currentPageResults))
+      setActiveAnswer(buildLocalizedAnswerBlock(displayLanguage, t("hybrid.query.query"), activeQuery, currentPageResults))
       return
     }
 
     if (actionId === "ask-top-matches") {
-      setActiveAnswer(buildLocalizedAnswerBlock(displayLanguage, t, activeQuery, activeRankedResults.slice(0, 3)))
+      setActiveAnswer(buildLocalizedAnswerBlock(displayLanguage, t("hybrid.query.query"), activeQuery, activeRankedResults.slice(0, 3)))
     }
   }
 
@@ -794,59 +735,6 @@ export default function SidePanel({ services }: SidePanelProps) {
       </main>
     </ThemeProvider>
   )
-}
-
-function buildGhostreaderContent(input: {
-  language: "en" | "zh"
-  query: string
-  currentPageContext: { title?: string; url?: string; extractedText?: string } | null
-  rankedResults: RankedHybridResult[]
-}): string {
-  const copy = GHOSTREADER_PROMPT_COPY[input.language]
-  const currentPageBlock = input.currentPageContext
-    ? [
-        `${copy.currentPageTitle}: ${input.currentPageContext.title ?? "Unknown"}`,
-        `${copy.currentPageUrl}: ${input.currentPageContext.url ?? "Unknown"}`,
-        `${copy.currentPageContent}: ${truncatePromptText(input.currentPageContext.extractedText ?? "", GHOSTREADER_MAX_CURRENT_PAGE_CHARS)}`
-      ].join("\n")
-    : copy.currentPageUnavailable
-
-  const savedMatchesBlock = input.rankedResults
-    .filter((result) => result.document.sourceType === "saved-bookmark")
-    .slice(0, GHOSTREADER_MAX_MATCHES)
-    .map((result, index) => [
-      `${copy.savedMatchTitle(index + 1)}: ${result.document.title}`,
-      `${copy.savedMatchUrl(index + 1)}: ${result.document.url}`,
-      `${copy.savedMatchReason(index + 1)}: ${result.matchReason}`,
-      `${copy.savedMatchContent(index + 1)}: ${truncatePromptText(result.document.summary ?? result.document.bodyText ?? "", GHOSTREADER_MAX_MATCH_CHARS)}`
-    ].join("\n"))
-    .join("\n\n")
-
-  return [
-    copy.instruction,
-    copy.responseShape,
-    `${copy.userQuestion}: ${input.query}`,
-    currentPageBlock,
-    savedMatchesBlock ? `${copy.savedMatchesHeading}:\n${savedMatchesBlock}` : `${copy.savedMatchesHeading}: ${copy.savedMatchesEmpty}`
-  ].join("\n\n")
-}
-
-function truncatePromptText(text: string, maxChars: number): string {
-  const normalized = text.replace(/\s+/g, " ").trim()
-  if (normalized.length <= maxChars) {
-    return normalized
-  }
-
-  return `${normalized.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`
-}
-
-function shouldFallbackToLocalGhostreaderAnswer(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false
-  }
-
-  const code = (error as { code?: string }).code
-  return code !== "auth_error"
 }
 
 const visuallyHiddenStyle: React.CSSProperties = {

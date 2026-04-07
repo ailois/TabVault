@@ -2,10 +2,13 @@
 
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { DashboardAiSidebar } from "../../src/features/dashboard/dashboard-ai-sidebar"
-import type { DisplayLanguage } from "../../src/types/settings"
+import { DEFAULT_APP_SETTINGS } from "../../src/features/settings/default-settings"
+import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import type { AiProvider } from "../../src/lib/providers/provider"
+import type { DisplayLanguage, ProviderConfig } from "../../src/types/settings"
 import { ThemeProvider } from "../../src/ui/theme-context"
 import { buildThemeFromOverride } from "../../src/ui/use-theme"
 import type { BookmarkRecord } from "../../src/types/bookmark"
@@ -33,16 +36,34 @@ describe("Dashboard ask box", () => {
   })
 
   it("shows an answer block after submitting a question", async () => {
-    await renderSidebar(createBookmark({
+    const provider = {
+      analyze: vi.fn(async () => ({ summary: "杨幂相关书签的网站是 https://yangmi.example。", tags: [] }))
+    }
+    const createProvider = vi.fn(() => provider)
+    const settingsRepository = createSettingsRepository()
+    const activeBookmark = createBookmark({
+      id: "react-docs",
       title: "React Docs",
       extractedText: "React lets you build user interfaces.",
       summary: "React summary"
-    }))
+    })
+    const yangMiBookmark = createBookmark({
+      id: "yangmi-site",
+      title: "杨幂资讯站",
+      url: "https://yangmi.example",
+      extractedText: "杨幂 影视 资讯"
+    })
+
+    await renderSidebar(activeBookmark, "zh", {
+      bookmarks: [activeBookmark, yangMiBookmark],
+      createProvider,
+      settingsRepository
+    })
 
     const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
     const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
     await act(async () => {
-      setValue?.call(input, "What is this about?")
+      setValue?.call(input, "关于杨幂的书签，网站是哪个？")
       input?.dispatchEvent(new Event("input", { bubbles: true }))
     })
 
@@ -52,8 +73,16 @@ describe("Dashboard ask box", () => {
       submit?.click()
     })
 
-    expect(container?.textContent).toContain("No local results found for: What is this about?")
-    expect(container?.textContent).toContain("What is this about?")
+    expect(provider.analyze).toHaveBeenCalledOnce()
+    const analyzeInput = provider.analyze.mock.calls.at(0)?.at(0) as { content: string } | undefined
+    expect(analyzeInput).toBeDefined()
+    if (!analyzeInput) {
+      throw new Error("Expected analyze input")
+    }
+    expect(analyzeInput.content).toContain("杨幂资讯站")
+    expect(analyzeInput.content).toContain("https://yangmi.example")
+    expect(container?.textContent).toContain("杨幂相关书签的网站是 https://yangmi.example。")
+    expect(container?.textContent).toContain("杨幂资讯站")
   })
 
   it("renders localized ask box copy in zh", async () => {
@@ -68,7 +97,15 @@ describe("Dashboard ask box", () => {
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-async function renderSidebar(bookmark: BookmarkRecord, language: DisplayLanguage = "en") {
+async function renderSidebar(
+  bookmark: BookmarkRecord,
+  language: DisplayLanguage = "en",
+  overrides: {
+    bookmarks?: BookmarkRecord[]
+    settingsRepository?: SettingsRepository
+    createProvider?: (config: ProviderConfig) => AiProvider
+  } = {}
+) {
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
@@ -76,7 +113,7 @@ async function renderSidebar(bookmark: BookmarkRecord, language: DisplayLanguage
   await act(async () => {
     root?.render(
       <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
-        <DashboardAiSidebar bookmark={bookmark} language={language} />
+        <DashboardAiSidebar bookmark={bookmark} language={language} {...overrides} />
       </ThemeProvider>
     )
   })
@@ -84,6 +121,22 @@ async function renderSidebar(bookmark: BookmarkRecord, language: DisplayLanguage
   await act(async () => {
     await Promise.resolve()
   })
+}
+
+function createSettingsRepository(): SettingsRepository {
+  return {
+    getAppSettings: async () => ({ ...DEFAULT_APP_SETTINGS, defaultProvider: "openai", summaryLanguage: "zh" }),
+    saveAppSettings: async () => {},
+    getProviders: async () => [
+      {
+        provider: "openai",
+        enabled: true,
+        apiKey: "test-key",
+        model: "gpt-test"
+      }
+    ],
+    saveProviders: async () => {}
+  }
 }
 
 function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {
