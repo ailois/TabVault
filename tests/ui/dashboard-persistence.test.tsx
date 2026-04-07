@@ -157,6 +157,38 @@ describe("DashboardShell persistence", () => {
     expect(container?.querySelector<HTMLTextAreaElement>("[data-testid='dashboard-notes-input']")?.value).toBe("New notes")
   })
 
+  it("formats selected notes as bold and persists the change", async () => {
+    const bookmarks = [
+      createBookmark({
+        id: "1",
+        title: "React Docs",
+        userNotes: "Hello world"
+      })
+    ]
+    const updateBookmark = vi.fn(async () => undefined)
+
+    await renderDashboard(bookmarks, updateBookmark)
+    await selectBookmark("React Docs")
+
+    const textarea = container?.querySelector<HTMLTextAreaElement>("[data-testid='dashboard-notes-input']")
+    expect(textarea).not.toBeNull()
+    textarea?.focus()
+    if (textarea) {
+      textarea.selectionStart = 6
+      textarea.selectionEnd = 11
+    }
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-format-bold']")?.click()
+      await Promise.resolve()
+    })
+
+    expect(container?.querySelector<HTMLTextAreaElement>("[data-testid='dashboard-notes-input']")?.value).toBe("Hello **world**")
+    expect(updateBookmark).toHaveBeenCalledOnce()
+    const updatedBookmark = updateBookmark.mock.calls.at(0)?.at(0) as BookmarkRecord | undefined
+    expect(updatedBookmark?.userNotes).toBe("Hello **world**")
+  })
+
   it("applies bulk notes and tags to all selected bookmarks", async () => {
     const bookmarks = [
       createBookmark({

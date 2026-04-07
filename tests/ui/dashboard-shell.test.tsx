@@ -368,7 +368,7 @@ describe("DashboardShell", () => {
     expect(frontendTagButton?.disabled).toBe(true)
   })
 
-  it("uses tab semantics in the reading pane and disables note-format placeholders", async () => {
+  it("uses tab semantics in the reading pane and enables note-format actions", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })
     ])
@@ -386,9 +386,9 @@ describe("DashboardShell", () => {
 
     expect(notesTab?.getAttribute("aria-selected")).toBe("true")
     expect(aiTab?.getAttribute("aria-selected")).toBe("false")
-    expect(boldButton?.disabled).toBe(true)
-    expect(italicButton?.disabled).toBe(true)
-    expect(quoteButton?.disabled).toBe(true)
+    expect(boldButton?.disabled).toBe(false)
+    expect(italicButton?.disabled).toBe(false)
+    expect(quoteButton?.disabled).toBe(false)
     expect((boldButton?.title?.length ?? 0) > 0).toBe(true)
   })
 })

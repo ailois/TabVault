@@ -9,11 +9,6 @@ import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
 
-const READING_PLACEHOLDER_COPY: Record<DisplayLanguage, string> = {
-  en: "Coming soon",
-  zh: "即将上线"
-}
-
 type DashboardReadingPaneProps = {
   bookmark: BookmarkRecord | null
   bookmarks?: BookmarkRecord[]
@@ -47,11 +42,11 @@ export function DashboardReadingPane({
   const [notesDraft, setNotesDraft] = useState(bookmark?.userNotes ?? "")
   const [isSavingNotes, setIsSavingNotes] = useState(false)
   const hasHydratedNotesRef = useRef(false)
+  const notesInputRef = useRef<HTMLTextAreaElement | null>(null)
   const notesTabId = "dashboard-reading-tab-notes"
   const aiTabId = "dashboard-reading-tab-ai"
   const notesPanelId = "dashboard-reading-panel-notes"
   const aiPanelId = "dashboard-reading-panel-ai"
-  const getPlaceholderTitle = (label: string) => `${label} - ${READING_PLACEHOLDER_COPY[language]}`
   const extractedText = bookmark?.extractedText?.trim() ?? ""
 
   useEffect(() => {
@@ -100,6 +95,35 @@ export function DashboardReadingPane({
     borderBottomColor: activeTab === tab ? theme.accent : "transparent",
     cursor: "pointer"
   })
+
+  function applyNotesFormatting(kind: "bold" | "italic" | "quote"): void {
+    const textarea = notesInputRef.current
+    const selectionStart = textarea?.selectionStart ?? notesDraft.length
+    const selectionEnd = textarea?.selectionEnd ?? notesDraft.length
+    const selectedText = notesDraft.slice(selectionStart, selectionEnd)
+
+    let nextValue = notesDraft
+
+    if (kind === "bold") {
+      const wrapped = `**${selectedText || "text"}**`
+      nextValue = `${notesDraft.slice(0, selectionStart)}${wrapped}${notesDraft.slice(selectionEnd)}`
+    } else if (kind === "italic") {
+      const wrapped = `_${selectedText || "text"}_`
+      nextValue = `${notesDraft.slice(0, selectionStart)}${wrapped}${notesDraft.slice(selectionEnd)}`
+    } else {
+      const quoteSource = selectedText || notesDraft
+      const quoted = quoteSource
+        .split("\n")
+        .map((line) => (line.startsWith("> ") ? line : `> ${line}`))
+        .join("\n")
+      nextValue = selectedText
+        ? `${notesDraft.slice(0, selectionStart)}${quoted}${notesDraft.slice(selectionEnd)}`
+        : quoted
+    }
+
+    setNotesDraft(nextValue)
+    textarea?.focus()
+  }
 
   if (!bookmark) {
     return (
@@ -283,6 +307,7 @@ export function DashboardReadingPane({
                 <textarea
                   aria-label={t("dashboard.reading.section.notes")}
                   data-testid="dashboard-notes-input"
+                  ref={notesInputRef}
                   onChange={(event) => setNotesDraft(event.target.value)}
                   placeholder={t("dashboard.reading.notes.empty")}
                   style={{
@@ -312,9 +337,9 @@ export function DashboardReadingPane({
                 ) : null}
                 <div style={{ borderTop: `1px solid ${theme.border}`, backgroundColor: theme.page, padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", gap: "12px", color: theme.textMuted, fontSize: "0.875rem" }}>
-                    <button aria-disabled="true" data-testid="dashboard-format-bold" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", fontWeight: 700, opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.bold"))} type="button"><span aria-hidden="true">B</span></button>
-                    <button aria-disabled="true" data-testid="dashboard-format-italic" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", fontStyle: "italic", opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.italic"))} type="button"><span aria-hidden="true">I</span></button>
-                    <button aria-disabled="true" data-testid="dashboard-format-quote" disabled style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "not-allowed", color: "inherit", opacity: 0.6 }} title={getPlaceholderTitle(t("dashboard.reading.format.quote"))} type="button"><span aria-hidden="true">{">"}</span></button>
+                    <button aria-label={t("dashboard.reading.format.bold")} data-testid="dashboard-format-bold" onClick={() => applyNotesFormatting("bold")} style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit", fontWeight: 700 }} title={t("dashboard.reading.format.bold")} type="button"><span aria-hidden="true">B</span></button>
+                    <button aria-label={t("dashboard.reading.format.italic")} data-testid="dashboard-format-italic" onClick={() => applyNotesFormatting("italic")} style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit", fontStyle: "italic" }} title={t("dashboard.reading.format.italic")} type="button"><span aria-hidden="true">I</span></button>
+                    <button aria-label={t("dashboard.reading.format.quote")} data-testid="dashboard-format-quote" onClick={() => applyNotesFormatting("quote")} style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit" }} title={t("dashboard.reading.format.quote")} type="button"><span aria-hidden="true">{">"}</span></button>
                   </div>
                   <span style={{ fontSize: "0.625rem", color: theme.textMuted }}>{isSavingNotes ? "..." : t("dashboard.reading.autosave")}</span>
                 </div>
