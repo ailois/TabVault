@@ -435,7 +435,7 @@ describe("DashboardShell", () => {
 
     const searchIcon = container?.querySelector("[data-testid='dashboard-search-icon']")
     expect(searchIcon).not.toBeNull()
-    expect(searchIcon?.textContent).not.toBe("S")
+    expect(searchIcon?.querySelector("svg")).not.toBeNull()
 
     await act(async () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")?.click()
@@ -443,7 +443,17 @@ describe("DashboardShell", () => {
 
     const openButton = container?.querySelector("[data-testid='dashboard-reading-open']")
     expect(openButton).not.toBeNull()
-    expect(openButton?.textContent).not.toBe("O")
+    expect(openButton?.querySelector("svg")).not.toBeNull()
+  })
+
+  it("uses icon elements for dashboard navigation and folder toggles", async () => {
+    await renderDashboardWithTree([createBookmark({ id: "b10", title: "React Docs", url: "https://react.dev" })], NESTED_FOLDER_TREE)
+
+    expect(container?.querySelector("[data-testid='dashboard-nav-all-icon'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-nav-recents-icon'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-nav-highlights-icon'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-nav-settings-icon'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-folder-toggle-icon-1'] svg")).not.toBeNull()
   })
 
   it("uses dashboard tag shortcuts as toggle filters with real counts", async () => {

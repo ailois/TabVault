@@ -8,6 +8,7 @@ import type { DisplayLanguage, ProviderConfig } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
+import { DashboardIcon } from "./dashboard-icons"
 
 type DashboardReadingPaneProps = {
   bookmark: BookmarkRecord | null
@@ -196,7 +197,7 @@ export function DashboardReadingPane({
               title={t("dashboard.reading.action.open")}
               type="button"
             >
-              ↗
+              <DashboardIcon name="external" />
             </button>
             {onDelete ? (
               <button
@@ -207,7 +208,7 @@ export function DashboardReadingPane({
                 title={t("dashboard.reading.action.delete")}
                 type="button"
               >
-                🗑
+                <DashboardIcon name="delete" />
               </button>
             ) : null}
           </div>

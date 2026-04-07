@@ -4,6 +4,7 @@ import { getMessage } from "../../lib/i18n/messages"
 import type { BookmarkRecord } from "../../types/bookmark"
 import type { DisplayLanguage } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
+import { DashboardIcon } from "./dashboard-icons"
 
 const NAV_PLACEHOLDER_COPY: Record<DisplayLanguage, string> = {
   en: "Coming soon",
@@ -143,7 +144,7 @@ export function DashboardNavigation({
               style={buildNavigationButtonStyle(isAllBookmarksActive)}
               type="button"
             >
-              <span aria-hidden="true">A</span> {t("dashboard.navigation.allBookmarks")}
+              <DashboardIcon name="all" testId="dashboard-nav-all-icon" /> {t("dashboard.navigation.allBookmarks")}
             </button>
           </li>
           <li>
@@ -154,7 +155,7 @@ export function DashboardNavigation({
               style={buildNavigationButtonStyle(activeMode === "recents")}
               type="button"
             >
-              <span aria-hidden="true">R</span> {t("dashboard.navigation.recents")}
+              <DashboardIcon name="recents" testId="dashboard-nav-recents-icon" /> {t("dashboard.navigation.recents")}
             </button>
           </li>
           <li>
@@ -165,7 +166,7 @@ export function DashboardNavigation({
               style={buildNavigationButtonStyle(activeMode === "highlights")}
               type="button"
             >
-              <span aria-hidden="true">H</span> {t("dashboard.navigation.highlights")}
+              <DashboardIcon name="highlights" testId="dashboard-nav-highlights-icon" /> {t("dashboard.navigation.highlights")}
             </button>
           </li>
         </ul>
@@ -269,7 +270,7 @@ export function DashboardNavigation({
           style={buildNavigationButtonStyle(false)}
           type="button"
         >
-          <span aria-hidden="true">S</span>
+          <DashboardIcon name="settings" testId="dashboard-nav-settings-icon" />
           <span>{t("dashboard.navigation.settings")}</span>
         </button>
       </div>
@@ -359,7 +360,12 @@ function FolderTreeItem({
             }}
             type="button"
           >
-            {hasChildFolders ? (isExpanded ? "v" : ">") : "."}
+            {hasChildFolders ? (
+              <DashboardIcon
+                name={isExpanded ? "folderExpanded" : "folderCollapsed"}
+                testId={`dashboard-folder-toggle-icon-${folder.id}`}
+              />
+            ) : null}
           </button>
           <button
             aria-pressed={isSelected}

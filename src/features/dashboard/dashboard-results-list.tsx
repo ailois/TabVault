@@ -6,6 +6,7 @@ import type { DisplayLanguage } from "../../types/settings"
 import { spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 import type { BookmarkFilterMode } from "./bookmark-workspace"
+import { DashboardIcon } from "./dashboard-icons"
 
 type DashboardResultsListProps = {
   bookmarks: BookmarkRecord[]
@@ -132,7 +133,7 @@ export function DashboardResultsList({
             value={searchQuery}
           />
           <span aria-hidden="true" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>
-            <span data-testid="dashboard-search-icon">⌕</span>
+            <DashboardIcon name="search" testId="dashboard-search-icon" />
           </span>
           <span aria-hidden="true" style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.625rem", color: theme.textMuted, border: `1px solid ${theme.border}`, padding: "2px 6px", borderRadius: "6px", backgroundColor: theme.page }}>
             {t("dashboard.results.searchShortcut")}
@@ -310,7 +311,9 @@ export function DashboardResultsList({
                     </div>
                   </div>
                 </div>
-                <div aria-hidden="true" style={{ color: selected ? "#FBBF24" : "#D0D6D1" }}>★</div>
+                <div aria-hidden="true" style={{ color: selected ? "#FBBF24" : "#D0D6D1" }}>
+                  <DashboardIcon name="star" />
+                </div>
               </div>
 
               <div style={{ fontSize: "0.75rem", color: theme.textMuted, marginTop: "10px" }}>
