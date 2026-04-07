@@ -4,6 +4,7 @@ import { getMessage } from "../../lib/i18n/messages"
 import type { DisplayLanguage } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
+import { DashboardIcon } from "./dashboard-icons"
 
 type EditableSummaryCardProps = {
   summary?: string
@@ -42,11 +43,15 @@ export function EditableSummaryCard({ summary, language = "en", onSave }: Editab
         {isEditing ? null : (
           <button
             aria-label={t("dashboard.summary.editAria")}
+            data-testid="dashboard-summary-edit"
             onClick={() => setIsEditing(true)}
-            style={{ border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: theme.surface, color: theme.textPrimary, fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer" }}
+            style={secondaryActionButtonStyle(theme)}
             type="button"
           >
-            {t("dashboard.summary.edit")}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <DashboardIcon name="edit" />
+              {t("dashboard.summary.edit")}
+            </span>
           </button>
         )}
       </div>
@@ -58,35 +63,69 @@ export function EditableSummaryCard({ summary, language = "en", onSave }: Editab
             aria-labelledby={titleId}
             data-testid="dashboard-summary-input"
             onChange={(event) => setDraft(event.target.value)}
-            style={{ width: "100%", minHeight: "96px", boxSizing: "border-box", border: `1px solid ${theme.border}`, borderRadius: radius.medium, padding: spacing.sm }}
+            style={{ width: "100%", minHeight: "96px", boxSizing: "border-box", border: `1px solid ${theme.border}`, borderRadius: radius.medium, padding: spacing.sm, backgroundColor: theme.page, color: theme.textPrimary }}
             value={draft}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.sm }}>
             <button
               aria-label={t("dashboard.summary.cancelAria")}
+              data-testid="dashboard-summary-cancel"
               disabled={isSaving}
               onClick={() => { setDraft(summary ?? ""); setIsEditing(false) }}
-              style={{ border: `1px solid ${theme.border}`, borderRadius: radius.medium, backgroundColor: theme.surface, color: theme.textSecondary, fontSize: "0.75rem", padding: "4px 10px", cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1 }}
+              style={secondaryActionButtonStyle(theme, isSaving)}
               type="button"
             >
-              {t("dashboard.summary.cancel")}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <DashboardIcon name="close" />
+                {t("dashboard.summary.cancel")}
+              </span>
             </button>
             <button
               aria-label={t("dashboard.summary.saveAria")}
+              data-testid="dashboard-summary-save"
               disabled={isSaving}
               onClick={() => void handleSave()}
-              style={{ border: `1px solid ${theme.accent}`, borderRadius: radius.medium, backgroundColor: theme.accent, color: "#ffffff", fontSize: "0.75rem", padding: "4px 10px", cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1 }}
+              style={primaryActionButtonStyle(theme, isSaving)}
               type="button"
             >
-              {t("dashboard.summary.save")}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <DashboardIcon name="save" />
+                {t("dashboard.summary.save")}
+              </span>
             </button>
           </div>
         </>
       ) : (
-        <div style={{ color: theme.textPrimary, fontSize: "0.875rem", lineHeight: 1.5 }}>
+        <div style={{ color: summary ? theme.textPrimary : theme.textMuted, fontSize: "0.875rem", lineHeight: 1.6, padding: "12px 14px", borderRadius: radius.medium, backgroundColor: theme.page, border: `1px dashed ${theme.border}` }}>
           {summary ?? t("dashboard.summary.empty")}
         </div>
       )}
     </div>
   )
+}
+
+function secondaryActionButtonStyle(theme: ReturnType<typeof useThemeContext>, disabled = false): React.CSSProperties {
+  return {
+    border: `1px solid ${theme.border}`,
+    borderRadius: radius.medium,
+    backgroundColor: theme.surface,
+    color: disabled ? theme.textMuted : theme.textPrimary,
+    fontSize: "0.75rem",
+    padding: "6px 10px",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.7 : 1
+  }
+}
+
+function primaryActionButtonStyle(theme: ReturnType<typeof useThemeContext>, disabled = false): React.CSSProperties {
+  return {
+    border: `1px solid ${theme.accent}`,
+    borderRadius: radius.medium,
+    backgroundColor: theme.accent,
+    color: "#ffffff",
+    fontSize: "0.75rem",
+    padding: "6px 10px",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.7 : 1
+  }
 }

@@ -13,6 +13,14 @@ type DashboardIconName =
   | "folderExpanded"
   | "folderCollapsed"
   | "star"
+  | "edit"
+  | "save"
+  | "close"
+  | "bold"
+  | "italic"
+  | "quote"
+  | "spark"
+  | "select"
 
 type DashboardIconProps = {
   name: DashboardIconName
@@ -131,6 +139,80 @@ function renderIconPath(name: DashboardIconName): React.ReactNode {
 
   if (name === "folderCollapsed") {
     return <path d="M6.5 4.5L10 8l-3.5 3.5" />
+  }
+
+  if (name === "edit") {
+    return (
+      <>
+        <path d="M3 11.8l.4-2.6L9.9 2.7a1.2 1.2 0 0 1 1.7 0l1.7 1.7a1.2 1.2 0 0 1 0 1.7L6.8 12.6 4.2 13z" />
+        <path d="M8.9 3.7l3.4 3.4" />
+      </>
+    )
+  }
+
+  if (name === "save") {
+    return (
+      <>
+        <path d="M3 3.5h8l2 2V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+        <path d="M5 3.5V6h5V3.5" />
+        <path d="M5.2 10.2h5.6" />
+      </>
+    )
+  }
+
+  if (name === "close") {
+    return (
+      <>
+        <path d="M4.5 4.5l7 7" />
+        <path d="M11.5 4.5l-7 7" />
+      </>
+    )
+  }
+
+  if (name === "bold") {
+    return (
+      <>
+        <path d="M5.2 3.2h3.1a2.1 2.1 0 0 1 0 4.2H5.2z" />
+        <path d="M5.2 7.4h3.7a2.2 2.2 0 0 1 0 4.4H5.2z" />
+      </>
+    )
+  }
+
+  if (name === "italic") {
+    return (
+      <>
+        <path d="M9.8 3.2H6.5" />
+        <path d="M8.5 12.8H5.2" />
+        <path d="M8.1 3.2L6.9 12.8" />
+      </>
+    )
+  }
+
+  if (name === "quote") {
+    return (
+      <>
+        <path d="M4.5 5.2h2v2.2H4.9v1.5h1.6V11H3.7V8.1c0-1.6.5-2.6 1.8-2.9z" />
+        <path d="M9.5 5.2h2v2.2H9.9v1.5h1.6V11H8.7V8.1c0-1.6.5-2.6 1.8-2.9z" />
+      </>
+    )
+  }
+
+  if (name === "spark") {
+    return (
+      <>
+        <path d="M8 2.2l1 2.8L11.8 6l-2.8 1-1 2.8-1-2.8-2.8-1 2.8-1z" />
+        <path d="M12 10.4l.5 1.4 1.3.5-1.3.5-.5 1.4-.5-1.4-1.4-.5 1.4-.5z" />
+      </>
+    )
+  }
+
+  if (name === "select") {
+    return (
+      <>
+        <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+        <path d="M5.2 8l1.8 1.8 3.8-3.8" />
+      </>
+    )
   }
 
   return <path d="M8 2.5l1.7 3.5 3.8.6-2.8 2.7.7 3.7L8 11.6 4.6 13l.7-3.7L2.5 6.6l3.8-.6z" fill="currentColor" stroke="none" />

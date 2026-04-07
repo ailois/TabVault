@@ -5,6 +5,7 @@ import type { BookmarkRecord } from "../../types/bookmark"
 import type { DisplayLanguage } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
+import { DashboardIcon } from "./dashboard-icons"
 
 type DashboardBulkEditPanelProps = {
   bookmarks: BookmarkRecord[]
@@ -135,7 +136,8 @@ export function DashboardBulkEditPanel({
               color: theme.textPrimary,
               fontSize: "0.875rem",
               lineHeight: 1.6,
-              resize: "vertical"
+              resize: "vertical",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
             }}
             value={notesDraft}
           />
@@ -161,11 +163,33 @@ export function DashboardBulkEditPanel({
               borderRadius: radius.large,
               backgroundColor: theme.page,
               color: theme.textPrimary,
-              fontSize: "0.875rem"
+              fontSize: "0.875rem",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
             }}
             type="text"
             value={tagsDraft}
           />
+          {parsedTags.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {parsedTags.map((tag) => (
+                <span
+                  key={tag}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "4px 10px",
+                    borderRadius: radius.pill,
+                    backgroundColor: theme.accentSoft,
+                    color: theme.accent,
+                    fontSize: "0.75rem",
+                    fontWeight: 600
+                  }}
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -182,20 +206,13 @@ export function DashboardBulkEditPanel({
           data-testid="dashboard-bulk-cancel"
           disabled={isSaving}
           onClick={onCancel}
-          style={{
-            border: `1px solid ${theme.border}`,
-            borderRadius: radius.medium,
-            backgroundColor: theme.page,
-            color: theme.textPrimary,
-            padding: "10px 14px",
-            fontSize: "0.8125rem",
-            fontWeight: 600,
-            cursor: isSaving ? "not-allowed" : "pointer",
-            opacity: isSaving ? 0.7 : 1
-          }}
+          style={secondaryActionButtonStyle(theme, isSaving)}
           type="button"
         >
-          {t("dashboard.bulkEdit.cancel")}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <DashboardIcon name="close" />
+            {t("dashboard.bulkEdit.cancel")}
+          </span>
         </button>
         <button
           data-testid="dashboard-bulk-apply"
@@ -203,22 +220,55 @@ export function DashboardBulkEditPanel({
           onClick={() => {
             void handleApply()
           }}
-          style={{
-            border: `1px solid ${theme.accent}`,
-            borderRadius: radius.medium,
-            backgroundColor: theme.accent,
-            color: "#ffffff",
-            padding: "10px 14px",
-            fontSize: "0.8125rem",
-            fontWeight: 700,
-            cursor: canApply ? "pointer" : "not-allowed",
-            opacity: canApply ? 1 : 0.7
-          }}
+          style={primaryActionButtonStyle(theme, !canApply)}
           type="button"
         >
-          {isSaving ? t("dashboard.bulkEdit.saving") : t("dashboard.bulkEdit.apply")}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            {isSaving ? (
+              <span data-testid="dashboard-bulk-apply-loading" style={{ display: "inline-flex", animation: "dashboard-bulk-spin 0.8s linear infinite" }}>
+                <DashboardIcon name="loading" />
+              </span>
+            ) : (
+              <DashboardIcon name="save" />
+            )}
+            {isSaving ? t("dashboard.bulkEdit.saving") : t("dashboard.bulkEdit.apply")}
+          </span>
         </button>
       </footer>
+      <style>{`
+        @keyframes dashboard-bulk-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </section>
   )
+}
+
+function secondaryActionButtonStyle(theme: ReturnType<typeof useThemeContext>, disabled = false): React.CSSProperties {
+  return {
+    border: `1px solid ${theme.border}`,
+    borderRadius: radius.medium,
+    backgroundColor: theme.page,
+    color: disabled ? theme.textMuted : theme.textPrimary,
+    padding: "10px 14px",
+    fontSize: "0.8125rem",
+    fontWeight: 600,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.7 : 1
+  }
+}
+
+function primaryActionButtonStyle(theme: ReturnType<typeof useThemeContext>, disabled = false): React.CSSProperties {
+  return {
+    border: `1px solid ${theme.accent}`,
+    borderRadius: radius.medium,
+    backgroundColor: theme.accent,
+    color: "#ffffff",
+    padding: "10px 14px",
+    fontSize: "0.8125rem",
+    fontWeight: 700,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.7 : 1
+  }
 }

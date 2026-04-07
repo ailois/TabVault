@@ -339,12 +339,15 @@ export function DashboardReadingPane({
                   </div>
                 ) : null}
                 <div style={{ borderTop: `1px solid ${theme.border}`, backgroundColor: theme.page, padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: "12px", color: theme.textMuted, fontSize: "0.875rem" }}>
-                    <button aria-label={t("dashboard.reading.format.bold")} data-testid="dashboard-format-bold" onClick={() => applyNotesFormatting("bold")} style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit", fontWeight: 700 }} title={t("dashboard.reading.format.bold")} type="button"><span aria-hidden="true">B</span></button>
-                    <button aria-label={t("dashboard.reading.format.italic")} data-testid="dashboard-format-italic" onClick={() => applyNotesFormatting("italic")} style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit", fontStyle: "italic" }} title={t("dashboard.reading.format.italic")} type="button"><span aria-hidden="true">I</span></button>
-                    <button aria-label={t("dashboard.reading.format.quote")} data-testid="dashboard-format-quote" onClick={() => applyNotesFormatting("quote")} style={{ padding: 0, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "inherit" }} title={t("dashboard.reading.format.quote")} type="button"><span aria-hidden="true">{">"}</span></button>
+                  <div style={{ display: "flex", gap: "8px", color: theme.textMuted, fontSize: "0.875rem" }}>
+                    <button aria-label={t("dashboard.reading.format.bold")} data-testid="dashboard-format-bold" onClick={() => applyNotesFormatting("bold")} style={formatButtonStyle(theme)} title={t("dashboard.reading.format.bold")} type="button"><DashboardIcon name="bold" size={15} /></button>
+                    <button aria-label={t("dashboard.reading.format.italic")} data-testid="dashboard-format-italic" onClick={() => applyNotesFormatting("italic")} style={formatButtonStyle(theme)} title={t("dashboard.reading.format.italic")} type="button"><DashboardIcon name="italic" size={15} /></button>
+                    <button aria-label={t("dashboard.reading.format.quote")} data-testid="dashboard-format-quote" onClick={() => applyNotesFormatting("quote")} style={formatButtonStyle(theme)} title={t("dashboard.reading.format.quote")} type="button"><DashboardIcon name="quote" size={15} /></button>
                   </div>
-                  <span style={{ fontSize: "0.625rem", color: theme.textMuted }}>{isSavingNotes ? "..." : t("dashboard.reading.autosave")}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.625rem", color: theme.textMuted }}>
+                    {isSavingNotes ? <DashboardIcon name="loading" size={12} /> : <DashboardIcon name="save" size={12} />}
+                    {isSavingNotes ? "..." : t("dashboard.reading.autosave")}
+                  </span>
                 </div>
               </div>
             </section>
@@ -366,4 +369,20 @@ export function DashboardReadingPane({
       </div>
     </section>
   )
+}
+
+function formatButtonStyle(theme: ReturnType<typeof useThemeContext>): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "30px",
+    height: "30px",
+    padding: 0,
+    border: `1px solid ${theme.border}`,
+    borderRadius: "8px",
+    backgroundColor: theme.surface,
+    cursor: "pointer",
+    color: theme.textMuted
+  }
 }

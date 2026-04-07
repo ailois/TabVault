@@ -496,6 +496,20 @@ describe("DashboardShell", () => {
     expect(container?.textContent).toContain("Plain Bookmark")
   })
 
+  it("uses empty-result messaging instead of coming-soon copy for disabled tag shortcuts", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "Plain Bookmark" })])
+
+    const frontendButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tag-frontend']")
+    const aiButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tag-ai']")
+
+    expect(frontendButton?.disabled).toBe(true)
+    expect(aiButton?.disabled).toBe(true)
+    expect(frontendButton?.title).not.toContain("Coming soon")
+    expect(aiButton?.title).not.toContain("Coming soon")
+    expect(frontendButton?.title).toContain("No matching bookmarks")
+    expect(aiButton?.title).toContain("No matching bookmarks")
+  })
+
   it("uses tab semantics in the reading pane and enables note-format actions", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })
@@ -518,6 +532,74 @@ describe("DashboardShell", () => {
     expect(italicButton?.disabled).toBe(false)
     expect(quoteButton?.disabled).toBe(false)
     expect((boldButton?.title?.length ?? 0) > 0).toBe(true)
+    expect(boldButton?.querySelector("svg")).not.toBeNull()
+    expect(italicButton?.querySelector("svg")).not.toBeNull()
+    expect(quoteButton?.querySelector("svg")).not.toBeNull()
+  })
+
+  it("renders icon-based summary and tags actions in the ai workspace", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", summary: "React summary", userTags: ["frontend"] })
+    ])
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")?.click()
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ai-tab']")?.click()
+    })
+
+    const summaryEdit = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-summary-edit']")
+    const tagsEdit = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tags-edit']")
+
+    expect(summaryEdit?.querySelector("svg")).not.toBeNull()
+    expect(tagsEdit?.querySelector("svg")).not.toBeNull()
+
+    await act(async () => {
+      summaryEdit?.click()
+      tagsEdit?.click()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-summary-save'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-summary-cancel'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-tags-save'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-tags-cancel'] svg")).not.toBeNull()
+  })
+
+  it("renders icon-based actions in the bulk edit panel", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs" }),
+      createBookmark({ id: "2", title: "Vue Docs" })
+    ])
+
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
+    })
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-2']")?.click()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-bulk-apply'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-bulk-cancel'] svg")).not.toBeNull()
+  })
+
+  it("renders icon-based actions in the results bulk actions panel", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", status: "saved", url: "https://react.dev" }),
+      createBookmark({ id: "2", title: "Vue Docs", status: "done", url: "https://vuejs.org" })
+    ])
+
+    expect(container?.querySelector("[data-testid='dashboard-analyze-all'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-analyze-unanalyzed'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-select-visible'] svg")).not.toBeNull()
+
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-analyze-selected'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-clear-selection'] svg")).not.toBeNull()
   })
 })
 

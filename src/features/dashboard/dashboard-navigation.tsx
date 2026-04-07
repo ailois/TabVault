@@ -6,11 +6,6 @@ import type { DisplayLanguage } from "../../types/settings"
 import { useThemeContext } from "../../ui/theme-context"
 import { DashboardIcon } from "./dashboard-icons"
 
-const NAV_PLACEHOLDER_COPY: Record<DisplayLanguage, string> = {
-  en: "Coming soon",
-  zh: "\u5373\u5c06\u4e0a\u7ebf"
-}
-
 type DashboardNavigationMode = "all" | "recents" | "highlights"
 type DashboardTagFilter = "frontend" | "ai"
 
@@ -46,7 +41,7 @@ export function DashboardNavigation({
 }: DashboardNavigationProps) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
-  const getPlaceholderTitle = (label: string) => `${label} - ${NAV_PLACEHOLDER_COPY[language]}`
+  const getPlaceholderTitle = (label: string) => `${label} - ${t("dashboard.navigation.emptyTagHint")}`
   const placeholderButtonStyle: React.CSSProperties = {
     display: "flex",
     alignItems: "center",

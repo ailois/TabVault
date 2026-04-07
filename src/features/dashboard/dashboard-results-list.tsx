@@ -184,18 +184,21 @@ export function DashboardResultsList({
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
             <ActionButton
               disabled={analysisProgress.running}
+              iconName="spark"
               label={t("dashboard.results.bulk.analyzeAll")}
               onClick={onAnalyzeAll}
               testId="dashboard-analyze-all"
             />
             <ActionButton
               disabled={analysisProgress.running || pendingCount === 0}
+              iconName="spark"
               label={t("dashboard.results.bulk.analyzeUnanalyzed")}
               onClick={onAnalyzeUnanalyzed}
               testId="dashboard-analyze-unanalyzed"
             />
             <ActionButton
               disabled={analysisProgress.running || selectedCount === 0}
+              iconName="spark"
               label={t("dashboard.results.bulk.analyzeSelected")}
               onClick={onAnalyzeSelected}
               testId="dashboard-analyze-selected"
@@ -209,7 +212,10 @@ export function DashboardResultsList({
               style={secondaryActionStyle(theme)}
               type="button"
             >
-              {t("dashboard.results.bulk.selectVisible")}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <DashboardIcon name="select" />
+                {t("dashboard.results.bulk.selectVisible")}
+              </span>
             </button>
             <button
               data-testid="dashboard-clear-selection"
@@ -218,9 +224,13 @@ export function DashboardResultsList({
               style={secondaryActionStyle(theme, selectedCount === 0)}
               type="button"
             >
-              {t("dashboard.results.bulk.clearSelection")}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <DashboardIcon name="close" />
+                {t("dashboard.results.bulk.clearSelection")}
+              </span>
             </button>
-            <span style={{ fontSize: "0.75rem", color: theme.textMuted, fontWeight: 600 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", color: theme.textMuted, fontWeight: 600, padding: "7px 10px", borderRadius: "999px", backgroundColor: theme.page, border: `1px solid ${theme.border}` }}>
+              <DashboardIcon name="select" size={13} />
               {t("dashboard.results.bulk.selectedCount").replace("{count}", String(selectedCount))}
             </span>
           </div>
@@ -337,11 +347,13 @@ export function DashboardResultsList({
 
 function ActionButton({
   disabled,
+  iconName,
   label,
   onClick,
   testId
 }: {
   disabled?: boolean
+  iconName: React.ComponentProps<typeof DashboardIcon>["name"]
   label: string
   onClick: () => void
   testId: string
@@ -366,7 +378,10 @@ function ActionButton({
       }}
       type="button"
     >
-      {label}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+        <DashboardIcon name={iconName} />
+        {label}
+      </span>
     </button>
   )
 }

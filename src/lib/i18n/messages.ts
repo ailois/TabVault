@@ -156,6 +156,7 @@ export type MessageKey =
   | "dashboard.navigation.tags"
   | "dashboard.navigation.tagFrontend"
   | "dashboard.navigation.tagAi"
+  | "dashboard.navigation.emptyTagHint"
   | "dashboard.navigation.settings"
   | "dashboard.results.heading"
   | "dashboard.results.searchPlaceholder"
@@ -388,6 +389,7 @@ const en: Messages = {
   "dashboard.navigation.tags": "Smart tags",
   "dashboard.navigation.tagFrontend": "# frontend",
   "dashboard.navigation.tagAi": "# AI tutorials",
+  "dashboard.navigation.emptyTagHint": "No matching bookmarks yet",
   "dashboard.navigation.settings": "Architecture settings",
   "dashboard.results.heading": "All bookmarks",
   "dashboard.results.searchPlaceholder": "Search titles, full text, tags, or your notes...",
