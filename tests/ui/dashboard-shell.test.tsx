@@ -319,16 +319,22 @@ describe("DashboardShell", () => {
     expect(reactButton).not.toBeNull()
   })
 
-  it("enters bulk edit mode when a result is selected", async () => {
-    await renderDashboard([createBookmark({ id: "1", title: "React Docs", extractedText: "React content" })])
+  it("enters bulk edit mode when bookmarks are batch-selected", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", extractedText: "React content" }),
+      createBookmark({ id: "2", title: "Vue Docs", extractedText: "Vue content" })
+    ])
 
-    const resultButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")
     await act(async () => {
-      resultButton?.click()
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
+    })
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-2']")?.click()
     })
 
     expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).not.toBeNull()
-    expect(container?.textContent).toContain("Bulk edit coming soon")
+    expect(container?.textContent).toContain("2 selected")
+    expect(container?.textContent).toContain("React Docs")
   })
 
   it("styles navigation items and reading metadata closer to the design", async () => {

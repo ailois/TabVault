@@ -1,4 +1,4 @@
-import type { DisplayLanguage } from "../../types/settings"
+﻿import type { DisplayLanguage } from "../../types/settings"
 
 export type MessageKey =
   | "settings.title"
@@ -215,6 +215,17 @@ export type MessageKey =
   | "dashboard.tags.saveAria"
   | "dashboard.tags.empty"
   | "dashboard.tags.inputPlaceholder"
+  | "dashboard.bulkEdit.title"
+  | "dashboard.bulkEdit.selectedCount"
+  | "dashboard.bulkEdit.description"
+  | "dashboard.bulkEdit.selectedList"
+  | "dashboard.bulkEdit.notesLabel"
+  | "dashboard.bulkEdit.notesPlaceholder"
+  | "dashboard.bulkEdit.tagsLabel"
+  | "dashboard.bulkEdit.tagsPlaceholder"
+  | "dashboard.bulkEdit.cancel"
+  | "dashboard.bulkEdit.apply"
+  | "dashboard.bulkEdit.saving"
   | "dashboard.bulkEdit.placeholder"
   | "common.theme.switchToLight"
   | "common.theme.switchToDark"
@@ -436,6 +447,17 @@ const en: Messages = {
   "dashboard.tags.saveAria": "Save tags",
   "dashboard.tags.empty": "No tags yet.",
   "dashboard.tags.inputPlaceholder": "Add a tag...",
+  "dashboard.bulkEdit.title": "Bulk edit",
+  "dashboard.bulkEdit.selectedCount": "{count} selected",
+  "dashboard.bulkEdit.description": "Apply the same notes or tags to all selected bookmarks.",
+  "dashboard.bulkEdit.selectedList": "Selected bookmarks",
+  "dashboard.bulkEdit.notesLabel": "Shared notes",
+  "dashboard.bulkEdit.notesPlaceholder": "Add a note to all selected bookmarks...",
+  "dashboard.bulkEdit.tagsLabel": "Append tags",
+  "dashboard.bulkEdit.tagsPlaceholder": "Add tags, separated by commas",
+  "dashboard.bulkEdit.cancel": "Cancel",
+  "dashboard.bulkEdit.apply": "Apply changes",
+  "dashboard.bulkEdit.saving": "Saving...",
   "dashboard.bulkEdit.placeholder": "Bulk edit coming soon",
   "common.theme.switchToLight": "Switch to light mode",
   "common.theme.switchToDark": "Switch to dark mode"
@@ -654,6 +676,17 @@ const zh: Messages = {
   "dashboard.tags.saveAria": "保存标签",
   "dashboard.tags.empty": "暂无标签。",
   "dashboard.tags.inputPlaceholder": "添加标签...",
+  "dashboard.bulkEdit.title": "\u6279\u91cf\u7f16\u8f91",
+  "dashboard.bulkEdit.selectedCount": "\u5df2\u9009 {count} \u9879",
+  "dashboard.bulkEdit.description": "\u5c06\u76f8\u540c\u7684\u7b14\u8bb0\u6216\u6807\u7b7e\u5e94\u7528\u5230\u6240\u6709\u5df2\u9009\u4e66\u7b7e\u3002",
+  "dashboard.bulkEdit.selectedList": "\u5df2\u9009\u4e66\u7b7e",
+  "dashboard.bulkEdit.notesLabel": "\u5171\u4eab\u7b14\u8bb0",
+  "dashboard.bulkEdit.notesPlaceholder": "\u4e3a\u6240\u6709\u5df2\u9009\u4e66\u7b7e\u6dfb\u52a0\u4e00\u6bb5\u7b14\u8bb0...",
+  "dashboard.bulkEdit.tagsLabel": "\u8ffd\u52a0\u6807\u7b7e",
+  "dashboard.bulkEdit.tagsPlaceholder": "\u8f93\u5165\u6807\u7b7e\uff0c\u7528\u9017\u53f7\u5206\u9694",
+  "dashboard.bulkEdit.cancel": "\u53d6\u6d88",
+  "dashboard.bulkEdit.apply": "\u5e94\u7528\u66f4\u6539",
+  "dashboard.bulkEdit.saving": "\u4fdd\u5b58\u4e2d...",
   "dashboard.bulkEdit.placeholder": "批量编辑即将上线",
   "common.theme.switchToLight": "切换到浅色模式",
   "common.theme.switchToDark": "切换到深色模式",
