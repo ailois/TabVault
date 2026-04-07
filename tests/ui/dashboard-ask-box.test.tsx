@@ -33,6 +33,7 @@ describe("Dashboard ask box", () => {
     expect(container?.querySelector("[data-testid='dashboard-ai-sidebar']")?.getAttribute("aria-label")).toBe("AI tools")
     expect(container?.querySelector("[data-testid='dashboard-ask-input']")).not.toBeNull()
     expect(container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.disabled).toBe(true)
+    expect(container?.querySelector("[data-testid='dashboard-ask-submit-icon'] svg")).not.toBeNull()
   })
 
   it("shows an answer block after submitting a question", async () => {
@@ -91,6 +92,42 @@ describe("Dashboard ask box", () => {
     expect(container?.querySelector("[data-testid='dashboard-ai-sidebar']")?.getAttribute("aria-label")).toContain("\u667a\u80fd\u5de5\u5177")
     expect(container?.textContent).toContain("\u8be2\u95ee Ghostreader")
     expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")?.placeholder).toContain("Ghostreader \u8be2\u95ee\u8fd9\u4e2a\u4e66\u7b7e")
+  })
+
+  it("shows a loading icon while the dashboard ask request is in flight", async () => {
+    let resolveAnalyze: ((value: { summary: string; tags: string[] }) => void) | null = null
+    const provider = {
+      analyze: vi.fn(
+        () =>
+          new Promise<{ summary: string; tags: string[] }>((resolve) => {
+            resolveAnalyze = resolve
+          })
+      )
+    }
+    const createProvider = vi.fn(() => provider)
+
+    await renderSidebar(createBookmark(), "en", {
+      createProvider,
+      settingsRepository: createSettingsRepository()
+    })
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(input, "Which bookmarks mention React?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-ask-submit-loading'] svg")).not.toBeNull()
+
+    await act(async () => {
+      resolveAnalyze?.({ summary: "React bookmarks", tags: [] })
+      await Promise.resolve()
+    })
   })
 })
 

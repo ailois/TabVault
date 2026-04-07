@@ -8,6 +8,8 @@ type DashboardIconName =
   | "search"
   | "external"
   | "delete"
+  | "send"
+  | "loading"
   | "folderExpanded"
   | "folderCollapsed"
   | "star"
@@ -101,6 +103,24 @@ function renderIconPath(name: DashboardIconName): React.ReactNode {
         <path d="M6 4.5V3h4v1.5" />
         <path d="M5 6.5v5M8 6.5v5M11 6.5v5" />
         <path d="M4.5 4.5l.6 8a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8" />
+      </>
+    )
+  }
+
+  if (name === "send") {
+    return (
+      <>
+        <path d="M2.5 8L13 3.5l-2.7 9L7.3 8.7 2.5 8z" />
+        <path d="M7.2 8.8l2.2-2.2" />
+      </>
+    )
+  }
+
+  if (name === "loading") {
+    return (
+      <>
+        <path d="M8 2.4a5.6 5.6 0 1 1-4 1.6" opacity="0.35" />
+        <path d="M8 2.4a5.6 5.6 0 0 1 4 1.6" />
       </>
     )
   }

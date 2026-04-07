@@ -21,6 +21,7 @@ import type { BookmarkRecord } from "../../types/bookmark"
 import type { DisplayLanguage, ProviderConfig } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
+import { DashboardIcon } from "./dashboard-icons"
 
 type DashboardAskBoxProps = {
   bookmark: BookmarkRecord | null
@@ -245,7 +246,16 @@ export function DashboardAskBox({
           title={t("dashboard.ask.submit")}
           type="button"
         >
-          <span aria-hidden="true">{isSubmitting ? "..." : ">"}</span>
+          {isSubmitting ? (
+            <span
+              data-testid="dashboard-ask-submit-loading"
+              style={{ display: "inline-flex", animation: "dashboard-ask-spin 0.8s linear infinite" }}
+            >
+              <DashboardIcon name="loading" />
+            </span>
+          ) : (
+            <DashboardIcon name="send" testId="dashboard-ask-submit-icon" />
+          )}
         </button>
       </div>
       {errorMessage ? (
