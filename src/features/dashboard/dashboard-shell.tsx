@@ -41,6 +41,7 @@ type AnalysisProgressState = {
 }
 
 type DashboardNavigationMode = "all" | "recents" | "highlights"
+type DashboardTagFilter = "frontend" | "ai"
 
 export function DashboardShell({
   initialBookmarks,
@@ -84,6 +85,7 @@ export function DashboardShell({
   const [chromeTree, setChromeTree] = useState<chrome.bookmarks.BookmarkTreeNode[]>(initialTree ?? [])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [navigationMode, setNavigationMode] = useState<DashboardNavigationMode>("all")
+  const [activeTagFilter, setActiveTagFilter] = useState<DashboardTagFilter | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterMode, setFilterMode] = useState<BookmarkFilterMode>("all")
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([])
@@ -241,22 +243,57 @@ export function DashboardShell({
     return folderBookmarks
   }, [bookmarks, folderBookmarks, navigationMode])
 
-  const searchedBookmarks = useMemo(() => {
-    if (!searchQuery.trim()) return navigationBookmarks
+  const tagCounts = useMemo(
+    () => ({
+      frontend: bookmarks.filter((bookmark) => matchesTagFilter(bookmark, "frontend")).length,
+      ai: bookmarks.filter((bookmark) => matchesTagFilter(bookmark, "ai")).length
+    }),
+    [bookmarks]
+  )
 
-    return navigationBookmarks.filter((bookmark) =>
+  const tagFilteredBookmarks = useMemo(() => {
+    if (!activeTagFilter) {
+      return navigationBookmarks
+    }
+
+    return navigationBookmarks.filter((bookmark) => matchesTagFilter(bookmark, activeTagFilter))
+  }, [activeTagFilter, navigationBookmarks])
+
+  const searchedBookmarks = useMemo(() => {
+    if (!searchQuery.trim()) return tagFilteredBookmarks
+
+    return tagFilteredBookmarks.filter((bookmark) =>
       matchesSearch(
         { id: bookmark.id, title: bookmark.title, url: bookmark.url, folderId: null, folderTitle: "" },
         searchQuery,
         metadataMap
       )
     )
-  }, [metadataMap, navigationBookmarks, searchQuery])
+  }, [metadataMap, searchQuery, tagFilteredBookmarks])
 
   const visibleBookmarks = useMemo(
     () => searchedBookmarks.filter((bookmark) => matchesFilterMode(bookmark.url, filterMode, metadataMap)),
     [filterMode, metadataMap, searchedBookmarks]
   )
+  const resultsHeading = useMemo(() => {
+    if (activeTagFilter === "frontend") {
+      return t("dashboard.navigation.tagFrontend")
+    }
+
+    if (activeTagFilter === "ai") {
+      return t("dashboard.navigation.tagAi")
+    }
+
+    if (navigationMode === "recents") {
+      return t("dashboard.navigation.recents")
+    }
+
+    if (navigationMode === "highlights") {
+      return t("dashboard.navigation.highlights")
+    }
+
+    return t("dashboard.results.heading")
+  }, [activeTagFilter, navigationMode, t])
   const analyzedCount = useMemo(
     () => searchedBookmarks.filter((bookmark) => bookmark.status === "done").length,
     [searchedBookmarks]
@@ -426,6 +463,7 @@ export function DashboardShell({
       <DashboardNavigation
         activeBookmarkId={activeBookmark?.id ?? null}
         activeMode={navigationMode}
+        activeTagFilter={activeTagFilter}
         bookmarks={bookmarks}
         chromeTree={chromeTree}
         language={displayLanguage}
@@ -440,8 +478,12 @@ export function DashboardShell({
           }
           setSelectedFolderId(null)
         }}
+        onToggleTagFilter={(tag) => {
+          setActiveTagFilter((current) => (current === tag ? null : tag))
+        }}
         onSelectFolder={(folderId) => setSelectedFolderId(folderId || null)}
         selectedFolderId={selectedFolderId}
+        tagCounts={tagCounts}
         width={256}
       />
 
@@ -456,6 +498,7 @@ export function DashboardShell({
               bookmarks={visibleBookmarks}
               filterMode={filterMode}
               language={displayLanguage}
+              heading={resultsHeading}
               onAnalyzeAll={() => {
                 void startAnalysis({ type: "ANALYZE_ALL" })
               }}
@@ -515,4 +558,13 @@ export function DashboardShell({
       </div>
     </div>
   )
+}
+
+function matchesTagFilter(bookmark: BookmarkRecord, tagFilter: DashboardTagFilter): boolean {
+  const normalizedFilter = normalizeTag(tagFilter)
+  return [...bookmark.aiTags, ...bookmark.userTags].some((tag) => normalizeTag(tag) === normalizedFilter)
+}
+
+function normalizeTag(value: string): string {
+  return value.trim().toLowerCase()
 }

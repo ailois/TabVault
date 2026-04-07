@@ -188,6 +188,7 @@ export function DashboardReadingPane({
           <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
             <button
               aria-label={t("dashboard.reading.action.open")}
+              data-testid="dashboard-reading-open"
               onClick={() => {
                 globalThis.open?.(bookmark.url, "_blank")
               }}
@@ -195,17 +196,18 @@ export function DashboardReadingPane({
               title={t("dashboard.reading.action.open")}
               type="button"
             >
-              O
+              ↗
             </button>
             {onDelete ? (
               <button
                 aria-label={t("dashboard.reading.action.delete")}
+                data-testid="dashboard-reading-delete"
                 onClick={onDelete}
                 style={{ padding: "6px", border: "none", backgroundColor: "transparent", color: theme.textMuted, cursor: "pointer", borderRadius: "6px", fontSize: "0.75rem" }}
                 title={t("dashboard.reading.action.delete")}
                 type="button"
               >
-                X
+                🗑
               </button>
             ) : null}
           </div>

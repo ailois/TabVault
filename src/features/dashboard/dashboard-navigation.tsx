@@ -11,29 +11,36 @@ const NAV_PLACEHOLDER_COPY: Record<DisplayLanguage, string> = {
 }
 
 type DashboardNavigationMode = "all" | "recents" | "highlights"
+type DashboardTagFilter = "frontend" | "ai"
 
 type DashboardNavigationProps = {
   bookmarks: BookmarkRecord[]
   activeBookmarkId: string | null
   activeMode?: DashboardNavigationMode
+  activeTagFilter?: DashboardTagFilter | null
   chromeTree?: chrome.bookmarks.BookmarkTreeNode[]
   language?: DisplayLanguage
   onOpenSettings?: () => void
   onSelect: (bookmark: BookmarkRecord) => void
   onSelectMode?: (mode: DashboardNavigationMode) => void
+  onToggleTagFilter?: (tag: DashboardTagFilter) => void
   selectedFolderId?: string | null
+  tagCounts?: Record<DashboardTagFilter, number>
   onSelectFolder?: (folderId: string) => void
   width: number
 }
 
 export function DashboardNavigation({
   activeMode = "all",
+  activeTagFilter = null,
   chromeTree,
   language = "en",
   onOpenSettings,
   onSelectMode,
+  onToggleTagFilter,
   onSelectFolder,
   selectedFolderId,
+  tagCounts,
   width
 }: DashboardNavigationProps) {
   const theme = useThemeContext()
@@ -201,11 +208,15 @@ export function DashboardNavigation({
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "2px" }}>
             <li>
               <button
-                aria-disabled="true"
                 data-testid="dashboard-tag-frontend"
-                disabled
-                style={{ ...placeholderButtonStyle, justifyContent: "space-between" }}
-                title={getPlaceholderTitle(t("dashboard.navigation.tagFrontend"))}
+                disabled={(tagCounts?.frontend ?? 0) === 0}
+                onClick={() => onToggleTagFilter?.("frontend")}
+                style={{
+                  ...(tagCounts?.frontend ?? 0) === 0
+                    ? { ...placeholderButtonStyle, justifyContent: "space-between" }
+                    : { ...buildNavigationButtonStyle(activeTagFilter === "frontend"), justifyContent: "space-between" }
+                }}
+                title={(tagCounts?.frontend ?? 0) === 0 ? getPlaceholderTitle(t("dashboard.navigation.tagFrontend")) : undefined}
                 type="button"
               >
                 <span>{t("dashboard.navigation.tagFrontend")}</span>
@@ -217,17 +228,21 @@ export function DashboardNavigation({
                     borderRadius: "999px"
                   }}
                 >
-                  12
+                  {tagCounts?.frontend ?? 0}
                 </span>
               </button>
             </li>
             <li>
               <button
-                aria-disabled="true"
                 data-testid="dashboard-tag-ai"
-                disabled
-                style={{ ...placeholderButtonStyle, justifyContent: "space-between" }}
-                title={getPlaceholderTitle(t("dashboard.navigation.tagAi"))}
+                disabled={(tagCounts?.ai ?? 0) === 0}
+                onClick={() => onToggleTagFilter?.("ai")}
+                style={{
+                  ...(tagCounts?.ai ?? 0) === 0
+                    ? { ...placeholderButtonStyle, justifyContent: "space-between" }
+                    : { ...buildNavigationButtonStyle(activeTagFilter === "ai"), justifyContent: "space-between" }
+                }}
+                title={(tagCounts?.ai ?? 0) === 0 ? getPlaceholderTitle(t("dashboard.navigation.tagAi")) : undefined}
                 type="button"
               >
                 <span>{t("dashboard.navigation.tagAi")}</span>
@@ -239,7 +254,7 @@ export function DashboardNavigation({
                     borderRadius: "999px"
                   }}
                 >
-                  8
+                  {tagCounts?.ai ?? 0}
                 </span>
               </button>
             </li>

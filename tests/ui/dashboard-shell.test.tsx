@@ -395,6 +395,27 @@ describe("DashboardShell", () => {
     expect(container?.textContent).not.toContain("Old Bookmark")
   })
 
+  it("updates the dashboard heading for recents and highlights views", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "Old Bookmark", updatedAt: "2026-03-01T00:00:00.000Z" }),
+      createBookmark({ id: "2", title: "Recent Highlight", summary: "Saved summary", updatedAt: "2026-04-01T00:00:00.000Z" })
+    ])
+
+    expect(container?.querySelector("h2")?.textContent).toContain("All bookmarks")
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-recents']")?.click()
+    })
+
+    expect(container?.querySelector("h2")?.textContent).toContain("Recents")
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-nav-highlights']")?.click()
+    })
+
+    expect(container?.querySelector("h2")?.textContent).toContain("Highlights")
+  })
+
   it("opens settings from the dashboard navigation", async () => {
     await renderDashboard([createBookmark({ id: "1", title: "React Docs" })])
 
@@ -407,6 +428,62 @@ describe("DashboardShell", () => {
     })
 
     expect(openOptionsPageMock).toHaveBeenCalledOnce()
+  })
+
+  it("replaces dashboard placeholder letters with icon affordances", async () => {
+    await renderDashboard([createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })])
+
+    const searchIcon = container?.querySelector("[data-testid='dashboard-search-icon']")
+    expect(searchIcon).not.toBeNull()
+    expect(searchIcon?.textContent).not.toBe("S")
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")?.click()
+    })
+
+    const openButton = container?.querySelector("[data-testid='dashboard-reading-open']")
+    expect(openButton).not.toBeNull()
+    expect(openButton?.textContent).not.toBe("O")
+  })
+
+  it("uses dashboard tag shortcuts as toggle filters with real counts", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "Frontend Guide", userTags: ["frontend"] }),
+      createBookmark({ id: "2", title: "AI Tutorial", aiTags: ["ai"] }),
+      createBookmark({ id: "3", title: "Plain Bookmark" })
+    ])
+
+    const frontendButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tag-frontend']")
+    const aiButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tag-ai']")
+
+    expect(frontendButton?.disabled).toBe(false)
+    expect(aiButton?.disabled).toBe(false)
+    expect(frontendButton?.textContent).toContain("1")
+    expect(aiButton?.textContent).toContain("1")
+
+    await act(async () => {
+      frontendButton?.click()
+    })
+
+    expect(container?.textContent).toContain("Frontend Guide")
+    expect(container?.textContent).not.toContain("AI Tutorial")
+    expect(container?.textContent).not.toContain("Plain Bookmark")
+
+    await act(async () => {
+      aiButton?.click()
+    })
+
+    expect(container?.textContent).toContain("AI Tutorial")
+    expect(container?.textContent).not.toContain("Frontend Guide")
+    expect(container?.textContent).not.toContain("Plain Bookmark")
+
+    await act(async () => {
+      aiButton?.click()
+    })
+
+    expect(container?.textContent).toContain("Frontend Guide")
+    expect(container?.textContent).toContain("AI Tutorial")
+    expect(container?.textContent).toContain("Plain Bookmark")
   })
 
   it("uses tab semantics in the reading pane and enables note-format actions", async () => {
