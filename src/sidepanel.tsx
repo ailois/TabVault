@@ -381,6 +381,9 @@ export default function SidePanel({ services }: SidePanelProps) {
       )
 
       if (!selectedProvider?.apiKey.trim()) {
+        setGhostreaderResults([])
+        setGhostreaderActionCards([])
+        setGhostreaderAnswerBlock(null)
         setErrorMessage(t("sidepanel.apiKeyMissing"))
         return
       }

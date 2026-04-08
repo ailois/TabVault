@@ -588,6 +588,71 @@ describe("SidePanel Ghostreader", () => {
     })
   })
 
+  it("clears previous Ghostreader results when the provider becomes unavailable", async () => {
+    const analyze = vi.fn(async () => ({ summary: "Found Yang Mi bookmark", tags: [] }))
+    const getProviders = vi
+      .fn<SettingsRepository["getProviders"]>()
+      .mockResolvedValueOnce([
+        {
+          provider: "openai",
+          apiKey: "test-key",
+          baseUrl: "https://api.openai.com/v1",
+          model: "gpt-4o-mini",
+          enabled: true
+        }
+      ])
+      .mockResolvedValueOnce([])
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "yangmi-bookmark",
+              title: "Yang Mi interview archive",
+              summary: "Collected Yang Mi notes",
+              extractedText: "Yang Mi profile and interview references"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention React?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("API key")
+    expect(container?.textContent).not.toContain("Yang Mi interview archive")
+  })
+
 })
 
 let container: HTMLDivElement | null = null
