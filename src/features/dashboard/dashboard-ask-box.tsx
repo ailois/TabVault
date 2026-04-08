@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 
 import { HybridQueryStream } from "../../components/hybrid-query-stream"
 import { buildActionCards, type ActionCard } from "../../features/hybrid-retrieval/build-action-cards"
@@ -95,6 +95,17 @@ export function DashboardAskBox({
     return bookmark ? [bookmark] : []
   }, [bookmark, bookmarks])
   const canSubmit = Boolean(bookmark && query.trim()) && !isSubmitting
+
+  useEffect(() => {
+    setQuery("")
+    setSubmittedQuery("")
+    setSubmittedMode("current-only")
+    setRankedResults([])
+    setActions([])
+    setAnswer(null)
+    setErrorMessage(null)
+    setIsSubmitting(false)
+  }, [bookmark?.id])
 
   async function runHybridRetrieval(nextQuery: string) {
     const nextResults = await retrieveHybridResults({

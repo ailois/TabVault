@@ -214,6 +214,57 @@ describe("Dashboard ask box", () => {
     expect(container?.textContent).toContain("Yang Mi interview archive")
     expect(container?.textContent).not.toContain("未找到本地结果")
   })
+
+  it("clears previous Ghostreader state when the selected dashboard bookmark changes", async () => {
+    const provider = {
+      analyze: vi.fn(async () => ({ summary: "This is the first bookmark.", tags: [] }))
+    }
+
+    await renderSidebar(
+      createBookmark({
+        id: "bookmark-1",
+        title: "First bookmark",
+        url: "https://first.example",
+        extractedText: "First content"
+      }),
+      "en",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository()
+      }
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(input, "What is this page?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(container?.textContent).toContain("This is the first bookmark.")
+
+    await rerenderSidebar(
+      createBookmark({
+        id: "bookmark-2",
+        title: "Second bookmark",
+        url: "https://second.example",
+        extractedText: "Second content"
+      }),
+      "en",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository()
+      }
+    )
+
+    expect(container?.textContent).not.toContain("This is the first bookmark.")
+    expect(container?.textContent).not.toContain("What is this page?")
+    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")?.value).toBe("")
+  })
 })
 
 let container: HTMLDivElement | null = null
@@ -232,6 +283,28 @@ async function renderSidebar(
   document.body.appendChild(container)
   root = createRoot(container)
 
+  await act(async () => {
+    root?.render(
+      <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
+        <DashboardAiSidebar bookmark={bookmark} language={language} {...overrides} />
+      </ThemeProvider>
+    )
+  })
+
+  await act(async () => {
+    await Promise.resolve()
+  })
+}
+
+async function rerenderSidebar(
+  bookmark: BookmarkRecord,
+  language: DisplayLanguage = "en",
+  overrides: {
+    bookmarks?: BookmarkRecord[]
+    settingsRepository?: SettingsRepository
+    createProvider?: (config: ProviderConfig) => AiProvider
+  } = {}
+) {
   await act(async () => {
     root?.render(
       <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
