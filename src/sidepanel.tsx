@@ -369,6 +369,8 @@ export default function SidePanel({ services }: SidePanelProps) {
     setSubmittedGhostreaderQuery(query)
     setSubmittedGhostreaderMode(queryMode)
     setActiveView("ask")
+    setGhostreaderResults([])
+    setGhostreaderActionCards([])
     setGhostreaderAnswerBlock(null)
     setErrorMessage(null)
     setIsGhostreaderSubmitting(true)

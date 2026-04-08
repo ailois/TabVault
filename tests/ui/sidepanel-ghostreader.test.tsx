@@ -723,6 +723,112 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).not.toContain("Yang Mi matches found.")
   })
 
+  it("clears previous Ghostreader matches immediately when a new sidepanel ask starts", async () => {
+    let resolveSecondList: ((value: BookmarkRecord[]) => void) | null = null
+    const list = vi
+      .fn<BookmarkRepository["list"]>()
+      .mockResolvedValueOnce([
+        createBookmark({
+          id: "yangmi-bookmark",
+          title: "Yang Mi interview archive",
+          summary: "Collected Yang Mi notes",
+          extractedText: "Yang Mi profile and interview references"
+        }),
+        createBookmark({
+          id: "vue-bookmark",
+          title: "Vue Docs",
+          summary: "Vue notes",
+          extractedText: "Vue composition api guide"
+        })
+      ])
+      .mockResolvedValueOnce([
+        createBookmark({
+          id: "yangmi-bookmark",
+          title: "Yang Mi interview archive",
+          summary: "Collected Yang Mi notes",
+          extractedText: "Yang Mi profile and interview references"
+        }),
+        createBookmark({
+          id: "vue-bookmark",
+          title: "Vue Docs",
+          summary: "Vue notes",
+          extractedText: "Vue composition api guide"
+        })
+      ])
+      .mockImplementationOnce(
+        () =>
+          new Promise<BookmarkRecord[]>((resolve) => {
+            resolveSecondList = resolve
+          })
+      )
+
+    const analyze = vi.fn(async () => ({ summary: "Yang Mi matches found.", tags: [] }))
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({ list }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Vue?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    expect(container?.textContent).not.toContain("Yang Mi interview archive")
+
+    await act(async () => {
+      resolveSecondList?.([
+        createBookmark({
+          id: "yangmi-bookmark",
+          title: "Yang Mi interview archive",
+          summary: "Collected Yang Mi notes",
+          extractedText: "Yang Mi profile and interview references"
+        }),
+        createBookmark({
+          id: "vue-bookmark",
+          title: "Vue Docs",
+          summary: "Vue notes",
+          extractedText: "Vue composition api guide"
+        })
+      ])
+      await Promise.resolve()
+    })
+  })
+
 })
 
 let container: HTMLDivElement | null = null
