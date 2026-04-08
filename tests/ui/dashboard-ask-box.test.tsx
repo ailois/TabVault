@@ -445,6 +445,126 @@ describe("Dashboard ask box", () => {
     expect(container?.textContent).toContain("Second bookmark answer")
     expect(container?.textContent).not.toContain("Old bookmark answer")
   })
+
+  it("clears previous supporting results when a later dashboard ask fails", async () => {
+    const provider = {
+      analyze: vi.fn(async (_input: unknown) => {
+        if (provider.analyze.mock.calls.length === 1) {
+          return { summary: "Yang Mi matches found.", tags: [] }
+        }
+
+        const error = new Error("OpenAI-compatible authentication failed") as Error & { code?: string }
+        error.code = "auth_error"
+        throw error
+      })
+    }
+    const settingsRepository = createSettingsRepository()
+    const activeBookmark = createBookmark({
+      id: "react-docs",
+      title: "React Docs",
+      extractedText: "React lets you build user interfaces."
+    })
+    const yangMiBookmark = createBookmark({
+      id: "yangmi-site",
+      title: "Yang Mi interview archive",
+      url: "https://yangmi.example",
+      extractedText: "Yang Mi profile and interview references"
+    })
+
+    await renderSidebar(activeBookmark, "en", {
+      bookmarks: [activeBookmark, yangMiBookmark],
+      createProvider: vi.fn(() => provider),
+      settingsRepository
+    })
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+
+    await act(async () => {
+      setValue?.call(input, "What bookmarks mention Vue?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(container?.textContent).toContain("OpenAI-compatible authentication failed")
+    expect(container?.textContent).not.toContain("Yang Mi interview archive")
+    expect(container?.textContent).not.toContain("Yang Mi matches found.")
+  })
+
+  it("uses fresh retrieval results for dashboard fallback instead of stale previous matches", async () => {
+    const provider = {
+      analyze: vi.fn(async (_input: unknown) => {
+        if (provider.analyze.mock.calls.length === 1) {
+          return { summary: "Yang Mi matches found.", tags: [] }
+        }
+
+        const error = new Error("OpenAI-compatible request failed") as Error & { code?: string }
+        error.code = "network_error"
+        throw error
+      })
+    }
+    const settingsRepository = createSettingsRepository()
+    const activeBookmark = createBookmark({
+      id: "react-docs",
+      title: "React Docs",
+      extractedText: "React lets you build user interfaces."
+    })
+    const yangMiBookmark = createBookmark({
+      id: "yangmi-site",
+      title: "Yang Mi interview archive",
+      url: "https://yangmi.example",
+      extractedText: "Yang Mi profile and interview references"
+    })
+    const vueBookmark = createBookmark({
+      id: "vue-site",
+      title: "Vue Docs",
+      url: "https://vue.example",
+      extractedText: "Vue composition api guide"
+    })
+
+    await renderSidebar(activeBookmark, "en", {
+      bookmarks: [activeBookmark, yangMiBookmark, vueBookmark],
+      createProvider: vi.fn(() => provider),
+      settingsRepository
+    })
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+
+    await act(async () => {
+      setValue?.call(input, "What bookmarks mention Vue?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(container?.textContent).toContain("Vue Docs")
+    expect(container?.textContent).not.toContain("Yang Mi interview archive")
+    expect(container?.textContent).not.toContain("OpenAI-compatible request failed")
+  })
 })
 
 let container: HTMLDivElement | null = null

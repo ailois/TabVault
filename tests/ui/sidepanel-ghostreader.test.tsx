@@ -653,6 +653,76 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).not.toContain("Yang Mi interview archive")
   })
 
+  it("clears previous Ghostreader results when a later sidepanel ask fails", async () => {
+    const analyze = vi.fn(async (_input: unknown) => {
+      if (analyze.mock.calls.length === 1) {
+        return { summary: "Yang Mi matches found.", tags: [] }
+      }
+
+      const error = new Error("OpenAI-compatible authentication failed") as Error & { code?: string }
+      error.code = "auth_error"
+      throw error
+    })
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "yangmi-bookmark",
+              title: "Yang Mi interview archive",
+              summary: "Collected Yang Mi notes",
+              extractedText: "Yang Mi profile and interview references"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+
+    await act(async () => {
+      setter?.call(input, "What bookmarks mention Vue?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(container?.textContent).toContain("OpenAI-compatible authentication failed")
+    expect(container?.textContent).not.toContain("Yang Mi interview archive")
+    expect(container?.textContent).not.toContain("Yang Mi matches found.")
+  })
+
 })
 
 let container: HTMLDivElement | null = null

@@ -129,6 +129,10 @@ export function DashboardAskBox({
     const requestId = requestIdRef.current + 1
     requestIdRef.current = requestId
     const queryMode = detectGhostreaderQueryMode(trimmedQuery)
+    let nextState: { results: RankedHybridResult[]; actions: ActionCard[] } = {
+      results: [],
+      actions: []
+    }
 
     setQuery("")
     setSubmittedQuery(trimmedQuery)
@@ -136,6 +140,8 @@ export function DashboardAskBox({
     setAnswer(null)
     setErrorMessage(null)
     setIsSubmitting(true)
+    setRankedResults([])
+    setActions([])
 
     try {
       const repository =
@@ -162,7 +168,7 @@ export function DashboardAskBox({
         return
       }
 
-      const nextState =
+      nextState =
         queryMode === "cross-bookmark"
           ? await runHybridRetrieval(trimmedQuery)
           : { results: [] as RankedHybridResult[], actions: [] as ActionCard[] }
@@ -219,9 +225,6 @@ export function DashboardAskBox({
           return
         }
 
-        const nextState = rankedResults.length > 0 || actions.length > 0
-          ? { results: rankedResults, actions }
-          : await runHybridRetrieval(trimmedQuery)
         if (requestIdRef.current !== requestId) {
           return
         }
