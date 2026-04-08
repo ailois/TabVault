@@ -368,6 +368,83 @@ describe("Dashboard ask box", () => {
       await Promise.resolve()
     })
   })
+
+  it("ignores the old bookmark response after switching bookmarks and asking again", async () => {
+    let resolvers: Array<(value: { summary: string; tags: string[] }) => void> = []
+    const provider = {
+      analyze: vi.fn(
+        () =>
+          new Promise<{ summary: string; tags: string[] }>((resolve) => {
+            resolvers.push(resolve)
+          })
+      )
+    }
+
+    await renderSidebar(
+      createBookmark({
+        id: "bookmark-1",
+        title: "First bookmark",
+        url: "https://first.example",
+        extractedText: "First content"
+      }),
+      "en",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository()
+      }
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "First question")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    await rerenderSidebar(
+      createBookmark({
+        id: "bookmark-2",
+        title: "Second bookmark",
+        url: "https://second.example",
+        extractedText: "Second content"
+      }),
+      "en",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository()
+      }
+    )
+
+    const nextInput = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    await act(async () => {
+      setValue?.call(nextInput, "Second question")
+      nextInput?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    await act(async () => {
+      resolvers[0]?.({ summary: "Old bookmark answer", tags: [] })
+      await Promise.resolve()
+    })
+
+    expect(container?.textContent).not.toContain("Old bookmark answer")
+
+    await act(async () => {
+      resolvers[1]?.({ summary: "Second bookmark answer", tags: [] })
+      await Promise.resolve()
+    })
+
+    expect(container?.textContent).toContain("Second bookmark answer")
+    expect(container?.textContent).not.toContain("Old bookmark answer")
+  })
 })
 
 let container: HTMLDivElement | null = null

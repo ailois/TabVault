@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 
 import { HybridQueryStream } from "../../components/hybrid-query-stream"
 import { buildActionCards, type ActionCard } from "../../features/hybrid-retrieval/build-action-cards"
@@ -86,6 +86,7 @@ export function DashboardAskBox({
   const [answer, setAnswer] = useState<AnswerBlock | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const requestIdRef = useRef(0)
   const bookmarkContext = useMemo(() => buildBookmarkContext(bookmark), [bookmark])
   const availableBookmarks = useMemo(() => {
     if (bookmarks && bookmarks.length > 0) {
@@ -97,6 +98,7 @@ export function DashboardAskBox({
   const canSubmit = Boolean(bookmark && query.trim()) && !isSubmitting
 
   useEffect(() => {
+    requestIdRef.current += 1
     setQuery("")
     setSubmittedQuery("")
     setSubmittedMode("current-only")
@@ -124,6 +126,8 @@ export function DashboardAskBox({
     if (isSubmitting || !bookmark || !trimmedQuery) {
       return
     }
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
     const queryMode = detectGhostreaderQueryMode(trimmedQuery)
 
     setQuery("")
@@ -144,6 +148,9 @@ export function DashboardAskBox({
         } satisfies SettingsRepository)
       const settings = await repository.getAppSettings()
       const providers = await repository.getProviders()
+      if (requestIdRef.current !== requestId) {
+        return
+      }
       const selectedProvider = providers.find(
         (provider) => provider.enabled && provider.provider === settings.defaultProvider
       )
@@ -159,6 +166,9 @@ export function DashboardAskBox({
         queryMode === "cross-bookmark"
           ? await runHybridRetrieval(trimmedQuery)
           : { results: [] as RankedHybridResult[], actions: [] as ActionCard[] }
+      if (requestIdRef.current !== requestId) {
+        return
+      }
       setRankedResults(nextState.results)
       setActions(nextState.actions)
 
@@ -174,6 +184,9 @@ export function DashboardAskBox({
         }),
         summaryLanguage: settings.summaryLanguage
       })
+      if (requestIdRef.current !== requestId) {
+        return
+      }
 
       setAnswer({
         text: analysis.summary,
@@ -188,6 +201,9 @@ export function DashboardAskBox({
             : []
       })
     } catch (error) {
+      if (requestIdRef.current !== requestId) {
+        return
+      }
       if (shouldFallbackToLocalGhostreaderAnswer(error)) {
         if (queryMode === "current-only") {
           setRankedResults([])
@@ -206,6 +222,9 @@ export function DashboardAskBox({
         const nextState = rankedResults.length > 0 || actions.length > 0
           ? { results: rankedResults, actions }
           : await runHybridRetrieval(trimmedQuery)
+        if (requestIdRef.current !== requestId) {
+          return
+        }
         setRankedResults(nextState.results)
         setActions(nextState.actions)
         setAnswer(buildLocalizedAnswerBlock(language, t("hybrid.query.query"), trimmedQuery, nextState.results))
@@ -214,7 +233,9 @@ export function DashboardAskBox({
 
       setErrorMessage(getLocalizedErrorMessage(language, error, "sidepanel.error.ghostreaderFailed"))
     } finally {
-      setIsSubmitting(false)
+      if (requestIdRef.current === requestId) {
+        setIsSubmitting(false)
+      }
     }
   }
 
