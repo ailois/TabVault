@@ -174,6 +174,46 @@ describe("Dashboard ask box", () => {
     expect(container?.textContent).toContain("This bookmark focuses on React UI concepts.")
     expect(container?.textContent).not.toContain("Yang Mi interview archive")
   })
+
+  it("falls back to the current bookmark when the dashboard page has no extracted text", async () => {
+    const provider = {
+      analyze: vi.fn(async () => {
+        const error = new Error("OpenAI-compatible request failed") as Error & { code?: string }
+        error.code = "network_error"
+        throw error
+      })
+    }
+
+    await renderSidebar(
+      createBookmark({
+        title: "Yang Mi interview archive",
+        url: "https://yangmi.example",
+        extractedText: "",
+        summary: "",
+        userNotes: ""
+      }),
+      "zh",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository()
+      }
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(input, "目前页面是什么")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(provider.analyze).toHaveBeenCalledOnce()
+    expect(container?.textContent).toContain("Yang Mi interview archive")
+    expect(container?.textContent).not.toContain("未找到本地结果")
+  })
 })
 
 let container: HTMLDivElement | null = null

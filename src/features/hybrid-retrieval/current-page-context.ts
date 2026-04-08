@@ -8,9 +8,9 @@ export function buildCurrentPageDocument(input: {
 }): SearchDocument | null {
   const title = input.title?.trim()
   const url = input.url?.trim()
-  const bodyText = input.extractedText?.trim()
+  const bodyText = input.extractedText?.trim() ?? ""
 
-  if (!title || !url || !bodyText) {
+  if (!title || !url) {
     return null
   }
 
@@ -21,7 +21,7 @@ export function buildCurrentPageDocument(input: {
     summary: undefined,
     tagsText: "",
     bodyText,
-    combinedText: normalizeQuery(`${title} ${url} ${bodyText}`),
+    combinedText: normalizeQuery([title, url, bodyText].filter(Boolean).join(" ")),
     updatedAt: new Date().toISOString()
   }
 }

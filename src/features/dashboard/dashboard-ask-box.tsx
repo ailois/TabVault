@@ -58,7 +58,9 @@ function buildBookmarkContext(bookmark: BookmarkRecord | null) {
     return null
   }
 
-  const extractedText = [bookmark.userNotes ?? "", bookmark.extractedText ?? ""].filter(Boolean).join("\n\n")
+  const extractedText = [bookmark.summary ?? "", bookmark.userNotes ?? "", bookmark.extractedText ?? ""]
+    .filter(Boolean)
+    .join("\n\n")
   return {
     title: bookmark.title,
     url: bookmark.url,
