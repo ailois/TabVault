@@ -265,6 +265,109 @@ describe("Dashboard ask box", () => {
     expect(container?.textContent).not.toContain("What is this page?")
     expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")?.value).toBe("")
   })
+
+  it("ignores an in-flight Ghostreader response after switching to another bookmark", async () => {
+    let resolveAnalyze: ((value: { summary: string; tags: string[] }) => void) | null = null
+    const provider = {
+      analyze: vi.fn(
+        () =>
+          new Promise<{ summary: string; tags: string[] }>((resolve) => {
+            resolveAnalyze = resolve
+          })
+      )
+    }
+
+    await renderSidebar(
+      createBookmark({
+        id: "bookmark-1",
+        title: "First bookmark",
+        url: "https://first.example",
+        extractedText: "First content"
+      }),
+      "en",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository()
+      }
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(input, "What is this page?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    await rerenderSidebar(
+      createBookmark({
+        id: "bookmark-2",
+        title: "Second bookmark",
+        url: "https://second.example",
+        extractedText: "Second content"
+      }),
+      "en",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository()
+      }
+    )
+
+    await act(async () => {
+      resolveAnalyze?.({ summary: "This is the old response.", tags: [] })
+      await Promise.resolve()
+    })
+
+    expect(container?.textContent).not.toContain("This is the old response.")
+    expect(container?.textContent).not.toContain("What is this page?")
+  })
+
+  it("does not submit another Ghostreader request while one is already in flight", async () => {
+    let resolveAnalyze: ((value: { summary: string; tags: string[] }) => void) | null = null
+    const provider = {
+      analyze: vi.fn(
+        () =>
+          new Promise<{ summary: string; tags: string[] }>((resolve) => {
+            resolveAnalyze = resolve
+          })
+      )
+    }
+
+    await renderSidebar(createBookmark(), "en", {
+      createProvider: vi.fn(() => provider),
+      settingsRepository: createSettingsRepository()
+    })
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(input, "First question")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    await act(async () => {
+      setValue?.call(input, "Second question")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+    })
+
+    expect(provider.analyze).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      resolveAnalyze?.({ summary: "Done", tags: [] })
+      await Promise.resolve()
+    })
+  })
 })
 
 let container: HTMLDivElement | null = null

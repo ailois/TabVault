@@ -121,7 +121,7 @@ export function DashboardAskBox({
 
   async function handleSubmit(): Promise<void> {
     const trimmedQuery = query.trim()
-    if (!bookmark || !trimmedQuery) {
+    if (isSubmitting || !bookmark || !trimmedQuery) {
       return
     }
     const queryMode = detectGhostreaderQueryMode(trimmedQuery)
