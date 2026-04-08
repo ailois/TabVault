@@ -531,6 +531,63 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).not.toContain("Yang Mi interview archive")
   })
 
+  it("does not submit another Ghostreader request while one is already in flight", async () => {
+    let resolveAnalyze: ((value: { summary: string; tags: string[] }) => void) | null = null
+    const analyze = vi.fn(
+      () =>
+        new Promise<{ summary: string; tags: string[] }>((resolve) => {
+          resolveAnalyze = resolve
+        })
+    )
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "First question")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    await act(async () => {
+      setter?.call(input, "Second question")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+    })
+
+    expect(analyze).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      resolveAnalyze?.({ summary: "Done", tags: [] })
+      await Promise.resolve()
+    })
+  })
+
 })
 
 let container: HTMLDivElement | null = null

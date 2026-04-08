@@ -360,7 +360,7 @@ export default function SidePanel({ services }: SidePanelProps) {
 
   async function handleGhostreaderSubmit(): Promise<void> {
     const query = ghostreaderInput.trim()
-    if (!query) {
+    if (isGhostreaderSubmitting || !query) {
       return
     }
     const queryMode = detectGhostreaderQueryMode(query)
