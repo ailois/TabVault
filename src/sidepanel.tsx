@@ -11,11 +11,13 @@ import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze
 import { buildActionCards, type ActionCard } from "./features/hybrid-retrieval/build-action-cards"
 import type { AnswerBlock } from "./features/hybrid-retrieval/build-answer-block"
 import {
+  buildCurrentPageFallbackResults,
   buildGhostreaderContent,
   buildLocalizedAnswerBlock,
   getGhostreaderFallbackTitle,
   shouldFallbackToLocalGhostreaderAnswer
 } from "./features/hybrid-retrieval/ghostreader"
+import { detectGhostreaderQueryMode } from "./features/hybrid-retrieval/query-intent"
 import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
 import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
@@ -35,6 +37,7 @@ import { TrialRepository } from "./lib/trial/trial-repository"
 import { useTrialStatus } from "./lib/trial/use-trial-status"
 import type { BookmarkRecord } from "./types/bookmark"
 import type { ProviderConfig } from "./types/settings"
+import type { GhostreaderQueryMode } from "./features/hybrid-retrieval/hybrid-types"
 import { radius, spacing } from "./ui/design-tokens"
 import { ThemeProvider } from "./ui/theme-context"
 import { useGlobalStyles } from "./ui/use-global-styles"
@@ -115,6 +118,7 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [searchActionCards, setSearchActionCards] = useState<ActionCard[]>([])
   const [searchAnswerBlock, setSearchAnswerBlock] = useState<AnswerBlock | null>(null)
   const [submittedGhostreaderQuery, setSubmittedGhostreaderQuery] = useState("")
+  const [submittedGhostreaderMode, setSubmittedGhostreaderMode] = useState<GhostreaderQueryMode>("current-only")
   const [ghostreaderResults, setGhostreaderResults] = useState<RankedHybridResult[]>([])
   const [ghostreaderActionCards, setGhostreaderActionCards] = useState<ActionCard[]>([])
   const [ghostreaderAnswerBlock, setGhostreaderAnswerBlock] = useState<AnswerBlock | null>(null)
@@ -359,9 +363,11 @@ export default function SidePanel({ services }: SidePanelProps) {
     if (!query) {
       return
     }
+    const queryMode = detectGhostreaderQueryMode(query)
 
     setGhostreaderInput("")
     setSubmittedGhostreaderQuery(query)
+    setSubmittedGhostreaderMode(queryMode)
     setActiveView("ask")
     setGhostreaderAnswerBlock(null)
     setErrorMessage(null)
@@ -379,7 +385,10 @@ export default function SidePanel({ services }: SidePanelProps) {
         return
       }
 
-      const { results, actions } = await runHybridRetrieval(query)
+      const { results, actions } =
+        queryMode === "cross-bookmark"
+          ? await runHybridRetrieval(query)
+          : { results: [] as RankedHybridResult[], actions: [] as ActionCard[] }
       setGhostreaderResults(results)
       setGhostreaderActionCards(actions)
 
@@ -391,22 +400,40 @@ export default function SidePanel({ services }: SidePanelProps) {
           language: displayLanguage,
           query,
           currentPageContext,
-          rankedResults: results
+          rankedResults: results,
+          mode: queryMode
         }),
         summaryLanguage: settings.summaryLanguage
       })
 
       setGhostreaderAnswerBlock({
         text: analysis.summary,
-        citations: results.slice(0, 3).map((result) => ({
-          sourceType: result.document.sourceType,
-          title: result.document.title,
-          url: result.document.url,
-          matchReason: result.matchReason
-        }))
+        citations:
+          queryMode === "cross-bookmark"
+            ? results.slice(0, 3).map((result) => ({
+                sourceType: result.document.sourceType,
+                title: result.document.title,
+                url: result.document.url,
+                matchReason: result.matchReason
+              }))
+            : []
       })
     } catch (error) {
       if (shouldFallbackToLocalGhostreaderAnswer(error)) {
+        if (queryMode === "current-only") {
+          setGhostreaderResults([])
+          setGhostreaderActionCards([])
+          setGhostreaderAnswerBlock(
+            buildLocalizedAnswerBlock(
+              displayLanguage,
+              t("hybrid.query.query"),
+              query,
+              buildCurrentPageFallbackResults(currentPageContext)
+            )
+          )
+          return
+        }
+
         const { results, actions } = await runHybridRetrieval(query)
         setGhostreaderResults(results)
         setGhostreaderActionCards(actions)
@@ -633,6 +660,7 @@ export default function SidePanel({ services }: SidePanelProps) {
                 actions={activeActionCards}
                 answer={activeAnswerBlock}
                 language={displayLanguage}
+                showSupportingResults={activeView === "search" || submittedGhostreaderMode === "cross-bookmark"}
                 onOpenBookmark={(bookmarkId) => {
                   const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
                   setSelectedBookmark(bookmark)

@@ -4,11 +4,14 @@ import { HybridQueryStream } from "../../components/hybrid-query-stream"
 import { buildActionCards, type ActionCard } from "../../features/hybrid-retrieval/build-action-cards"
 import type { AnswerBlock } from "../../features/hybrid-retrieval/build-answer-block"
 import {
+  buildCurrentPageFallbackResults,
   buildGhostreaderContent,
   buildLocalizedAnswerBlock,
   getGhostreaderFallbackTitle,
   shouldFallbackToLocalGhostreaderAnswer
 } from "../../features/hybrid-retrieval/ghostreader"
+import type { GhostreaderQueryMode } from "../../features/hybrid-retrieval/hybrid-types"
+import { detectGhostreaderQueryMode } from "../../features/hybrid-retrieval/query-intent"
 import { retrieveHybridResults } from "../../features/hybrid-retrieval/retrieve-hybrid-results"
 import type { RankedHybridResult } from "../../features/hybrid-retrieval/rank-hybrid-results"
 import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
@@ -75,6 +78,7 @@ export function DashboardAskBox({
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
   const [query, setQuery] = useState("")
   const [submittedQuery, setSubmittedQuery] = useState("")
+  const [submittedMode, setSubmittedMode] = useState<GhostreaderQueryMode>("current-only")
   const [rankedResults, setRankedResults] = useState<RankedHybridResult[]>([])
   const [actions, setActions] = useState<ActionCard[]>([])
   const [answer, setAnswer] = useState<AnswerBlock | null>(null)
@@ -107,9 +111,11 @@ export function DashboardAskBox({
     if (!bookmark || !trimmedQuery) {
       return
     }
+    const queryMode = detectGhostreaderQueryMode(trimmedQuery)
 
     setQuery("")
     setSubmittedQuery(trimmedQuery)
+    setSubmittedMode(queryMode)
     setAnswer(null)
     setErrorMessage(null)
     setIsSubmitting(true)
@@ -136,7 +142,10 @@ export function DashboardAskBox({
         return
       }
 
-      const nextState = await runHybridRetrieval(trimmedQuery)
+      const nextState =
+        queryMode === "cross-bookmark"
+          ? await runHybridRetrieval(trimmedQuery)
+          : { results: [] as RankedHybridResult[], actions: [] as ActionCard[] }
       setRankedResults(nextState.results)
       setActions(nextState.actions)
 
@@ -147,22 +156,40 @@ export function DashboardAskBox({
           language,
           query: trimmedQuery,
           currentPageContext: bookmarkContext,
-          rankedResults: nextState.results
+          rankedResults: nextState.results,
+          mode: queryMode
         }),
         summaryLanguage: settings.summaryLanguage
       })
 
       setAnswer({
         text: analysis.summary,
-        citations: nextState.results.slice(0, 3).map((result) => ({
-          sourceType: result.document.sourceType,
-          title: result.document.title,
-          url: result.document.url,
-          matchReason: result.matchReason
-        }))
+        citations:
+          queryMode === "cross-bookmark"
+            ? nextState.results.slice(0, 3).map((result) => ({
+                sourceType: result.document.sourceType,
+                title: result.document.title,
+                url: result.document.url,
+                matchReason: result.matchReason
+              }))
+            : []
       })
     } catch (error) {
       if (shouldFallbackToLocalGhostreaderAnswer(error)) {
+        if (queryMode === "current-only") {
+          setRankedResults([])
+          setActions([])
+          setAnswer(
+            buildLocalizedAnswerBlock(
+              language,
+              t("hybrid.query.query"),
+              trimmedQuery,
+              buildCurrentPageFallbackResults(bookmarkContext)
+            )
+          )
+          return
+        }
+
         const nextState = rankedResults.length > 0 || actions.length > 0
           ? { results: rankedResults, actions }
           : await runHybridRetrieval(trimmedQuery)
@@ -273,6 +300,7 @@ export function DashboardAskBox({
             onOpenBookmark={onOpenBookmark}
             query={submittedQuery}
             rankedResults={rankedResults}
+            showSupportingResults={submittedMode === "cross-bookmark"}
           />
         </div>
       ) : null}

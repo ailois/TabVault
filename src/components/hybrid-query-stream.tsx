@@ -14,11 +14,13 @@ export function HybridQueryStream(input: {
   actions: ActionCard[]
   answer?: AnswerBlock | null
   language?: DisplayLanguage
+  showSupportingResults?: boolean
   onOpenBookmark?: (bookmarkId: string) => void
   onAction?: (actionId: ActionCard["id"]) => void
 }) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(input.language ?? "en", key)
+  const showSupportingResults = input.showSupportingResults ?? true
   const currentPageResults = input.rankedResults.filter((result) => result.document.sourceType === "current-page")
   const savedBookmarkResults = input.rankedResults.filter((result) => result.document.sourceType === "saved-bookmark")
 
@@ -52,7 +54,7 @@ export function HybridQueryStream(input: {
         <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{input.query}</div>
       </div>
 
-      {currentPageResults.length > 0 ? (
+      {showSupportingResults && currentPageResults.length > 0 ? (
         <div style={{ display: "grid", gap: spacing.xs }}>
           <p style={sectionTitleStyle}>{t("hybrid.query.currentPageMatch")}</p>
           {currentPageResults.map((result) => (
@@ -72,7 +74,7 @@ export function HybridQueryStream(input: {
         </div>
       ) : null}
 
-      {savedBookmarkResults.length > 0 ? (
+      {showSupportingResults && savedBookmarkResults.length > 0 ? (
         <div style={{ display: "grid", gap: spacing.xs }}>
           <p style={sectionTitleStyle}>{t("hybrid.query.savedBookmarks")}</p>
           {savedBookmarkResults.map((result) => (
@@ -98,7 +100,7 @@ export function HybridQueryStream(input: {
         </div>
       ) : null}
 
-      {input.actions.length > 0 ? (
+      {showSupportingResults && input.actions.length > 0 ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs }}>
           {input.actions.map((action) => (
             <button

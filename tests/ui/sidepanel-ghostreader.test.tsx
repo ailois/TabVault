@@ -478,6 +478,59 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).not.toContain("OpenAI-compatible request failed")
   })
 
+  it("keeps current-bookmark summary questions out of cross-bookmark retrieval context", async () => {
+    const analyze = vi.fn(async () => ({ summary: "This bookmark explains the current React page.", tags: [] }))
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "yangmi-bookmark",
+              title: "Yang Mi interview archive",
+              url: "https://example.com/yangmi",
+              extractedText: "Yang Mi profile and interview references"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setter?.call(input, "Summarize this bookmark")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => { await Promise.resolve() })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+    await act(async () => { await Promise.resolve() })
+
+    expect(analyze).toHaveBeenCalledTimes(1)
+    const submittedInput = analyze.mock.calls.at(0)?.at(0) as { content: string } | undefined
+    expect(submittedInput?.content).not.toContain("Saved bookmark matches")
+    expect(submittedInput?.content).not.toContain("Yang Mi interview archive")
+    expect(submittedInput?.content).not.toContain("https://example.com/yangmi")
+    expect(container?.textContent).toContain("This bookmark explains the current React page.")
+    expect(container?.textContent).not.toContain("Yang Mi interview archive")
+  })
+
 })
 
 let container: HTMLDivElement | null = null

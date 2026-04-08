@@ -129,6 +129,51 @@ describe("Dashboard ask box", () => {
       await Promise.resolve()
     })
   })
+
+  it("keeps current-bookmark summary questions out of cross-bookmark dashboard context", async () => {
+    const provider = {
+      analyze: vi.fn(async () => ({ summary: "This bookmark focuses on React UI concepts.", tags: [] }))
+    }
+    const createProvider = vi.fn(() => provider)
+    const settingsRepository = createSettingsRepository()
+    const activeBookmark = createBookmark({
+      id: "react-docs",
+      title: "React Docs",
+      extractedText: "React lets you build user interfaces.",
+      summary: "React summary"
+    })
+    const unrelatedBookmark = createBookmark({
+      id: "yangmi-site",
+      title: "Yang Mi interview archive",
+      url: "https://yangmi.example",
+      extractedText: "Yang Mi profile and interview references"
+    })
+
+    await renderSidebar(activeBookmark, "en", {
+      bookmarks: [activeBookmark, unrelatedBookmark],
+      createProvider,
+      settingsRepository
+    })
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(input, "Summarize this bookmark")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(provider.analyze).toHaveBeenCalledOnce()
+    const analyzeInput = provider.analyze.mock.calls.at(0)?.at(0) as { content: string } | undefined
+    expect(analyzeInput?.content).not.toContain("Saved bookmark matches")
+    expect(analyzeInput?.content).not.toContain("Yang Mi interview archive")
+    expect(analyzeInput?.content).not.toContain("https://yangmi.example")
+    expect(container?.textContent).toContain("This bookmark focuses on React UI concepts.")
+    expect(container?.textContent).not.toContain("Yang Mi interview archive")
+  })
 })
 
 let container: HTMLDivElement | null = null

@@ -1,4 +1,6 @@
 import type { AnswerBlock } from "./build-answer-block"
+import { buildCurrentPageDocument } from "./current-page-context"
+import type { GhostreaderQueryMode } from "./hybrid-types"
 import type { RankedHybridResult } from "./rank-hybrid-results"
 
 type GhostreaderLanguage = "en" | "zh"
@@ -6,7 +8,8 @@ type GhostreaderLanguage = "en" | "zh"
 const GHOSTREADER_PROMPT_COPY = {
   en: {
     fallbackTitle: "Ghostreader question",
-    instruction: "Answer the user's Ghostreader question using the current page and saved bookmark context.",
+    currentOnlyInstruction: "Answer the user's Ghostreader question using only the current page context.",
+    crossBookmarkInstruction: "Answer the user's Ghostreader question using the current page and saved bookmark context.",
     responseShape: "Return strict JSON with shape {\"summary\":\"string\",\"tags\":[\"string\"]}.",
     userQuestion: "User question",
     currentPageTitle: "Current page title",
@@ -22,19 +25,20 @@ const GHOSTREADER_PROMPT_COPY = {
   },
   zh: {
     fallbackTitle: "Ghostreader 问题",
-    instruction: "请基于当前页面与已保存书签上下文，回答用户的 Ghostreader 问题。",
-    responseShape: "请严格返回 JSON，结构为 {\"summary\":\"string\",\"tags\":[\"string\"]}。",
+    currentOnlyInstruction: "请仅基于当前页面或当前书签内容回答用户的 Ghostreader 问题。",
+    crossBookmarkInstruction: "请基于当前页面与已保存书签上下文回答用户的 Ghostreader 问题。",
+    responseShape: "请严格返回 JSON，格式为 {\"summary\":\"string\",\"tags\":[\"string\"]}。",
     userQuestion: "用户问题",
     currentPageTitle: "当前页面标题",
     currentPageUrl: "当前页面 URL",
     currentPageContent: "当前页面内容",
-    currentPageUnavailable: "当前页面不可用",
-    savedMatchesHeading: "已保存的书签匹配",
+    currentPageUnavailable: "当前页面内容不可用",
+    savedMatchesHeading: "已保存书签匹配",
     savedMatchesEmpty: "无",
-    savedMatchTitle: (index: number) => `匹配 ${index} 标题`,
-    savedMatchUrl: (index: number) => `匹配 ${index} URL`,
-    savedMatchReason: (index: number) => `匹配 ${index} 原因`,
-    savedMatchContent: (index: number) => `匹配 ${index} 内容`
+    savedMatchTitle: (index: number) => `匹配书签 ${index} 标题`,
+    savedMatchUrl: (index: number) => `匹配书签 ${index} URL`,
+    savedMatchReason: (index: number) => `匹配书签 ${index} 原因`,
+    savedMatchContent: (index: number) => `匹配书签 ${index} 内容`
   }
 } as const
 
@@ -65,8 +69,8 @@ export function buildLocalizedAnswerBlock(
         ? `Based on ${citations.map((citation) => citation.title).join(", ")}, here are the most relevant local results for: ${query}`
         : `No local results found for: ${query}`
       : citations.length > 0
-        ? `${queryLabel}：${query} · ${citations.map((citation) => citation.title).join(" / ")}`
-        : `${queryLabel}：${query}`
+        ? `${queryLabel}：${query}。当前最相关内容来自 ${citations.map((citation) => citation.title).join(" / ")}`
+        : `${queryLabel}：${query}。未找到本地结果。`
 
   return { text, citations }
 }
@@ -76,8 +80,10 @@ export function buildGhostreaderContent(input: {
   query: string
   currentPageContext: { title?: string; url?: string; extractedText?: string } | null
   rankedResults: RankedHybridResult[]
+  mode?: GhostreaderQueryMode
 }): string {
   const copy = GHOSTREADER_PROMPT_COPY[input.language]
+  const mode = input.mode ?? "cross-bookmark"
   const currentPageBlock = input.currentPageContext
     ? [
         `${copy.currentPageTitle}: ${input.currentPageContext.title ?? "Unknown"}`,
@@ -85,6 +91,15 @@ export function buildGhostreaderContent(input: {
         `${copy.currentPageContent}: ${truncatePromptText(input.currentPageContext.extractedText ?? "", GHOSTREADER_MAX_CURRENT_PAGE_CHARS)}`
       ].join("\n")
     : copy.currentPageUnavailable
+
+  if (mode === "current-only") {
+    return [
+      copy.currentOnlyInstruction,
+      copy.responseShape,
+      `${copy.userQuestion}: ${input.query}`,
+      currentPageBlock
+    ].join("\n\n")
+  }
 
   const savedMatchesBlock = input.rankedResults
     .filter((result) => result.document.sourceType === "saved-bookmark")
@@ -98,7 +113,7 @@ export function buildGhostreaderContent(input: {
     .join("\n\n")
 
   return [
-    copy.instruction,
+    copy.crossBookmarkInstruction,
     copy.responseShape,
     `${copy.userQuestion}: ${input.query}`,
     currentPageBlock,
@@ -113,6 +128,26 @@ export function shouldFallbackToLocalGhostreaderAnswer(error: unknown): boolean 
 
   const code = (error as { code?: string }).code
   return code !== "auth_error"
+}
+
+export function buildCurrentPageFallbackResults(currentPageContext: {
+  title?: string
+  url?: string
+  extractedText?: string
+} | null): RankedHybridResult[] {
+  const document = buildCurrentPageDocument(currentPageContext ?? {})
+
+  if (!document) {
+    return []
+  }
+
+  return [
+    {
+      document,
+      score: 120,
+      matchReason: "current page"
+    }
+  ]
 }
 
 function truncatePromptText(text: string, maxChars: number): string {
