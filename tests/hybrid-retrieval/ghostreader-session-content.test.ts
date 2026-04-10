@@ -12,7 +12,7 @@ describe("ghostreader session content", () => {
       mode: "current-only",
       sessionContext: {
         intentSummary: "用户正在收集杨幂相关资料",
-        recentMessages: ["关于杨幂的书签有哪些？"],
+        recentTurns: [{ user: "关于杨幂的书签有哪些？" }],
         recentAddedBookmarks: [{ title: "杨幂采访合集", url: "https://yangmi.example" }]
       }
     })

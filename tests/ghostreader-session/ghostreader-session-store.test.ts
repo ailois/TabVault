@@ -9,6 +9,14 @@ import {
 } from "../../src/features/ghostreader-session/ghostreader-session-store"
 import { createEmptyGhostreaderSession } from "../../src/features/ghostreader-session/ghostreader-session-types"
 
+const EMPTY_FOLLOW_UP_MEMORY = {
+  lastQuery: "",
+  lastAnswer: "",
+  lastReferencedBookmarkIds: [],
+  lastQueryMode: null,
+  updatedAt: null
+}
+
 describe("ghostreader session store", () => {
   it("loads empty state when storage has nothing persisted", async () => {
     const get = vi.fn(async () => ({}))
@@ -45,6 +53,8 @@ describe("ghostreader session store", () => {
     const store = new ChromeGhostreaderSessionStore({ storage: { get, set, remove } })
     const session = createEmptyGhostreaderSession({ id: "session-1", title: "New session" })
 
+    expect(session.followUpMemory).toEqual(EMPTY_FOLLOW_UP_MEMORY)
+
     await store.saveSessions({ activeSessionId: session.id, sessions: [session] })
 
     expect(set).toHaveBeenCalledWith({
@@ -57,6 +67,43 @@ describe("ghostreader session store", () => {
       activeSessionId: "session-1",
       sessions: [session],
       version: GHOSTREADER_SESSIONS_VERSION
+    })
+  })
+
+  it("backfills follow-up memory when loading older persisted sessions", async () => {
+    const legacySession = {
+      id: "session-legacy",
+      title: "Legacy session",
+      createdAt: "2026-04-10T00:00:00.000Z",
+      updatedAt: "2026-04-10T00:00:00.000Z",
+      status: "active" as const,
+      messages: [],
+      workingSetBookmarkIds: [],
+      bookmarksAddedInSession: [],
+      intentMemory: {
+        summary: "",
+        updatedAt: null,
+        source: "rule-based" as const
+      }
+    }
+    const store = new ChromeGhostreaderSessionStore({
+      storage: {
+        get: vi.fn(async () => ({
+          [ACTIVE_GHOSTREADER_SESSION_ID_KEY]: "session-legacy",
+          [GHOSTREADER_SESSIONS_KEY]: [legacySession],
+          [GHOSTREADER_SESSIONS_VERSION_KEY]: GHOSTREADER_SESSIONS_VERSION
+        })),
+        set: vi.fn(async () => undefined),
+        remove: vi.fn(async () => undefined)
+      }
+    })
+
+    await expect(store.loadSessions()).resolves.toMatchObject({
+      sessions: [
+        expect.objectContaining({
+          followUpMemory: EMPTY_FOLLOW_UP_MEMORY
+        })
+      ]
     })
   })
 

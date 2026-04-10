@@ -2,6 +2,7 @@ import {
   GHOSTREADER_MAX_MESSAGES_PER_SESSION,
   GHOSTREADER_MAX_SESSIONS,
   GHOSTREADER_MAX_WORKING_SET_BOOKMARK_IDS,
+  createEmptyGhostreaderSession,
   type GhostreaderSession
 } from "./ghostreader-session-types"
 
@@ -64,6 +65,16 @@ function defaultStorage(): StorageShape {
   }
 }
 
+function normalizeSessionShape(session: GhostreaderSession): GhostreaderSession {
+  return {
+    ...session,
+    followUpMemory: session.followUpMemory ?? createEmptyGhostreaderSession({
+      id: session.id,
+      title: session.title
+    }).followUpMemory
+  }
+}
+
 function trimSession(session: GhostreaderSession): GhostreaderSession {
   return {
     ...session,
@@ -81,6 +92,7 @@ function sortSessionsByUpdatedAt(sessions: GhostreaderSession[]): GhostreaderSes
 function normalizeSessions(sessions: GhostreaderSession[]): GhostreaderSession[] {
   return sortSessionsByUpdatedAt(sessions)
     .slice(0, GHOSTREADER_MAX_SESSIONS)
+    .map(normalizeSessionShape)
     .map(trimSession)
 }
 

@@ -31,6 +31,13 @@ type RecordBookmarkAddedEventInput = {
   source: GhostreaderBookmarkEvent["source"]
 }
 
+type UpdateFollowUpMemoryInput = {
+  lastQuery: string
+  lastAnswer: string
+  lastReferencedBookmarkIds: string[]
+  lastQueryMode: GhostreaderQueryMode | null
+}
+
 function nowIso(previousIso?: string): string {
   const now = Date.now()
   const previous = previousIso ? Date.parse(previousIso) : Number.NaN
@@ -111,6 +118,24 @@ export function replaceWorkingSet(session: GhostreaderSession, bookmarkIds: stri
   return {
     ...touchSession(session),
     workingSetBookmarkIds: dedupeBookmarkIds(bookmarkIds)
+  }
+}
+
+export function updateFollowUpMemory(
+  session: GhostreaderSession,
+  input: UpdateFollowUpMemoryInput
+): GhostreaderSession {
+  const updatedAt = nowIso(session.updatedAt)
+
+  return {
+    ...touchSession(session, updatedAt),
+    followUpMemory: {
+      lastQuery: input.lastQuery,
+      lastAnswer: input.lastAnswer,
+      lastReferencedBookmarkIds: dedupeBookmarkIds(input.lastReferencedBookmarkIds),
+      lastQueryMode: input.lastQueryMode,
+      updatedAt
+    }
   }
 }
 

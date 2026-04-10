@@ -3,12 +3,26 @@ import { buildCurrentPageDocument } from "./current-page-context"
 import type { GhostreaderQueryMode } from "./hybrid-types"
 import type { RankedHybridResult } from "./rank-hybrid-results"
 
+type GhostreaderRecentTurn = {
+  user: string
+  assistant?: string
+}
+
+type GhostreaderFollowUpMemoryContext = {
+  lastQuery: string
+  lastAnswer: string
+  lastReferencedBookmarkIds: string[]
+  lastQueryMode: GhostreaderQueryMode | null
+  updatedAt: string | null
+}
+
 type GhostreaderLanguage = "en" | "zh"
 type GhostreaderPromptCopy = (typeof GHOSTREADER_PROMPT_COPY)[GhostreaderLanguage]
 
 type GhostreaderSessionContext = {
   intentSummary?: string
-  recentMessages?: string[]
+  recentTurns?: GhostreaderRecentTurn[]
+  followUpMemory?: GhostreaderFollowUpMemoryContext
   recentAddedBookmarks?: Array<{ title: string; url: string }>
 }
 
@@ -27,7 +41,8 @@ const GHOSTREADER_PROMPT_COPY = {
     savedMatchesEmpty: "none",
     sessionHeading: "Session context",
     sessionIntent: "Current session goal",
-    sessionRecentMessages: "Recent session messages",
+    sessionRecentMessages: "Recent turns",
+    sessionFollowUpMemory: "Follow-up memory",
     sessionRecentAddedBookmarks: "Recently added bookmarks",
     savedMatchTitle: (index: number) => `Saved match ${index} title`,
     savedMatchUrl: (index: number) => `Saved match ${index} URL`,
@@ -48,7 +63,8 @@ const GHOSTREADER_PROMPT_COPY = {
     savedMatchesEmpty: "无",
     sessionHeading: "会话上下文",
     sessionIntent: "当前会话目标",
-    sessionRecentMessages: "最近会话消息",
+    sessionRecentMessages: "最近对话",
+    sessionFollowUpMemory: "follow-up",
     sessionRecentAddedBookmarks: "最近新增书签",
     savedMatchTitle: (index: number) => `匹配书签 ${index} 标题`,
     savedMatchUrl: (index: number) => `匹配书签 ${index} URL`,
@@ -198,12 +214,29 @@ function buildSessionBlock(
     sections.push(`${copy.sessionIntent}: ${sessionContext.intentSummary.trim()}`)
   }
 
-  if (sessionContext.recentMessages && sessionContext.recentMessages.length > 0) {
+  if (sessionContext.recentTurns && sessionContext.recentTurns.length > 0) {
     sections.push(
-      `${copy.sessionRecentMessages}:\n${sessionContext.recentMessages
+      `${copy.sessionRecentMessages}:\n${sessionContext.recentTurns
         .slice(-3)
-        .map((message, index) => `${index + 1}. ${message}`)
+        .map((turn, index) => {
+          const lines = [`${index + 1}. user: ${turn.user}`]
+          if (turn.assistant?.trim()) {
+            lines.push(`   assistant: ${turn.assistant.trim()}`)
+          }
+          return lines.join("\n")
+        })
         .join("\n")}`
+    )
+  }
+
+  if (
+    sessionContext.followUpMemory &&
+    (sessionContext.followUpMemory.lastQuery.trim() ||
+      sessionContext.followUpMemory.lastAnswer.trim() ||
+      sessionContext.followUpMemory.lastReferencedBookmarkIds.length > 0)
+  ) {
+    sections.push(
+      `${copy.sessionFollowUpMemory}:\n- lastQuery: ${sessionContext.followUpMemory.lastQuery || ""}\n- lastAnswer: ${sessionContext.followUpMemory.lastAnswer || ""}\n- lastReferencedBookmarkIds: ${sessionContext.followUpMemory.lastReferencedBookmarkIds.join(", ") || "none"}\n- lastQueryMode: ${sessionContext.followUpMemory.lastQueryMode ?? "none"}`
     )
   }
 

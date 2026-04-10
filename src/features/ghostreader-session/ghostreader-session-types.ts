@@ -34,6 +34,14 @@ export type GhostreaderIntentMemory = {
   source: GhostreaderIntentMemorySource
 }
 
+export type GhostreaderFollowUpMemory = {
+  lastQuery: string
+  lastAnswer: string
+  lastReferencedBookmarkIds: string[]
+  lastQueryMode: GhostreaderQueryMode | null
+  updatedAt: string | null
+}
+
 export type GhostreaderSession = {
   id: string
   title: string
@@ -44,6 +52,7 @@ export type GhostreaderSession = {
   workingSetBookmarkIds: string[]
   bookmarksAddedInSession: GhostreaderBookmarkEvent[]
   intentMemory: GhostreaderIntentMemory
+  followUpMemory: GhostreaderFollowUpMemory
 }
 
 export function createEmptyGhostreaderSession(input: { id: string; title: string }): GhostreaderSession {
@@ -62,6 +71,13 @@ export function createEmptyGhostreaderSession(input: { id: string; title: string
       summary: "",
       updatedAt: null,
       source: "rule-based"
+    },
+    followUpMemory: {
+      lastQuery: "",
+      lastAnswer: "",
+      lastReferencedBookmarkIds: [],
+      lastQueryMode: null,
+      updatedAt: null
     }
   }
 }

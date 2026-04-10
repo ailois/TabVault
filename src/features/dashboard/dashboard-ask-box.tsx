@@ -18,7 +18,8 @@ import {
   appendAssistantMessage,
   appendUserMessage,
   recordBookmarkAddedEvent,
-  replaceWorkingSet
+  replaceWorkingSet,
+  updateFollowUpMemory
 } from "../../features/ghostreader-session/ghostreader-session-reducer"
 import {
   ChromeGhostreaderSessionStore,
@@ -134,6 +135,43 @@ function getMostRecentRestorableSession(
   activeSessionId: string | null
 ): GhostreaderSession | null {
   return state.sessions.find((session) => session.id !== activeSessionId && session.messages.length > 0) ?? null
+}
+
+function buildRecentTurns(session: GhostreaderSession): Array<{ user: string; assistant?: string }> {
+  const turns: Array<{ user: string; assistant?: string }> = []
+  let pendingUser: string | null = null
+
+  for (const message of session.messages) {
+    if (message.role === "user") {
+      if (pendingUser) {
+        turns.push({ user: pendingUser })
+      }
+      pendingUser = message.text
+      continue
+    }
+
+    if (message.role === "assistant" && pendingUser) {
+      turns.push({ user: pendingUser, assistant: message.text })
+      pendingUser = null
+    }
+  }
+
+  if (pendingUser) {
+    turns.push({ user: pendingUser })
+  }
+
+  return turns.slice(-3)
+}
+
+function getFollowUpReferencedBookmarkIds(
+  resolvedReferenceBookmarkIds: string[],
+  referencedBookmarkIds: string[]
+): string[] {
+  return Array.from(new Set([...resolvedReferenceBookmarkIds, ...referencedBookmarkIds]))
+}
+
+function formatFollowUpAnswer(answerText: string): string {
+  return answerText.trim()
 }
 
 export function DashboardAskBox({
@@ -383,10 +421,7 @@ export function DashboardAskBox({
         : resolvedReferences.bookmarkIds.length > 0
           ? "cross-bookmark"
           : detectGhostreaderQueryMode(trimmedQuery)
-    const recentMessages = baseSession.messages
-      .filter((message) => message.role !== "system")
-      .slice(-3)
-      .map((message) => message.text)
+    const recentTurns = buildRecentTurns(baseSession)
     const recentAddedBookmarks = baseSession.bookmarksAddedInSession.slice(-3).map((event) => ({
       title: event.title,
       url: event.url
@@ -469,7 +504,8 @@ export function DashboardAskBox({
           mode: queryMode,
           sessionContext: {
             intentSummary: nextSession.intentMemory.summary,
-            recentMessages,
+            recentTurns,
+            followUpMemory: nextSession.followUpMemory,
             recentAddedBookmarks
           }
         }),
@@ -493,6 +529,15 @@ export function DashboardAskBox({
         id: `assistant-${Date.now()}`,
         text: analysis.summary,
         referencedBookmarkIds
+      })
+      nextSession = updateFollowUpMemory(nextSession, {
+        lastQuery: trimmedQuery,
+        lastAnswer: formatFollowUpAnswer(analysis.summary),
+        lastReferencedBookmarkIds: getFollowUpReferencedBookmarkIds(
+          resolvedReferences.bookmarkIds,
+          referencedBookmarkIds
+        ),
+        lastQueryMode: queryMode
       })
       const persistedState = upsertSession(ghostreaderSessionState, nextSession)
       setGhostreaderSessionState(persistedState)
@@ -529,6 +574,15 @@ export function DashboardAskBox({
             text: fallbackAnswer.text,
             referencedBookmarkIds: []
           })
+          nextSession = updateFollowUpMemory(nextSession, {
+            lastQuery: trimmedQuery,
+            lastAnswer: formatFollowUpAnswer(fallbackAnswer.text),
+            lastReferencedBookmarkIds: getFollowUpReferencedBookmarkIds(
+              resolvedReferences.bookmarkIds,
+              []
+            ),
+            lastQueryMode: queryMode
+          })
           const persistedState = upsertSession(ghostreaderSessionState, nextSession)
           setGhostreaderSessionState(persistedState)
           setActiveGhostreaderSession(nextSession)
@@ -558,6 +612,15 @@ export function DashboardAskBox({
           id: `assistant-fallback-${Date.now()}`,
           text: fallbackAnswer.text,
           referencedBookmarkIds
+        })
+        nextSession = updateFollowUpMemory(nextSession, {
+          lastQuery: trimmedQuery,
+          lastAnswer: formatFollowUpAnswer(fallbackAnswer.text),
+          lastReferencedBookmarkIds: getFollowUpReferencedBookmarkIds(
+            resolvedReferences.bookmarkIds,
+            referencedBookmarkIds
+          ),
+          lastQueryMode: queryMode
         })
         const persistedState = upsertSession(ghostreaderSessionState, nextSession)
         setGhostreaderSessionState(persistedState)

@@ -46,6 +46,7 @@ export function getGhostreaderSessionSnapshot(
       new Set([
         ...(lastAssistantMessage?.referencedBookmarkIds ?? []),
         ...lastUserMessage.referencedBookmarkIds,
+        ...session.followUpMemory.lastReferencedBookmarkIds,
         ...session.workingSetBookmarkIds
       ])
     )
