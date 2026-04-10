@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { DashboardAiSidebar } from "../../src/features/dashboard/dashboard-ai-sidebar"
 import { DEFAULT_APP_SETTINGS } from "../../src/features/settings/default-settings"
+import type { ChromeGhostreaderSessionStore } from "../../src/features/ghostreader-session/ghostreader-session-store"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
 import type { AiProvider } from "../../src/lib/providers/provider"
 import type { DisplayLanguage, ProviderConfig } from "../../src/types/settings"
@@ -130,6 +131,22 @@ describe("Dashboard ask box", () => {
     })
   })
 
+  it("uses session context for follow-up questions in dashboard ask box", async () => {
+    const provider = { analyze: vi.fn(async () => ({ summary: "ok", tags: [] })) }
+    await renderSidebar(createBookmark({ id: "bm-1", title: "杨幂采访", extractedText: "采访内容" }), "zh", {
+      bookmarks: [createBookmark({ id: "bm-1", title: "杨幂采访", extractedText: "采访内容" })],
+      createProvider: vi.fn(() => provider),
+      settingsRepository: createSettingsRepository(),
+      ghostreaderSessionStore: createGhostreaderSessionStore()
+    })
+
+    await submitDashboardQuestion("关于杨幂的书签有哪些？")
+    await submitDashboardQuestion("总结一下这个书签")
+
+    const secondCall = provider.analyze.mock.calls.at(1)?.at(0) as { content: string } | undefined
+    expect(secondCall?.content).toContain("关于杨幂的书签有哪些？")
+  })
+
   it("keeps current-bookmark summary questions out of cross-bookmark dashboard context", async () => {
     const provider = {
       analyze: vi.fn(async () => ({ summary: "This bookmark focuses on React UI concepts.", tags: [] }))
@@ -215,10 +232,11 @@ describe("Dashboard ask box", () => {
     expect(container?.textContent).not.toContain("未找到本地结果")
   })
 
-  it("clears previous Ghostreader state when the selected dashboard bookmark changes", async () => {
+  it("keeps the Ghostreader session context visible when the selected dashboard bookmark changes", async () => {
     const provider = {
       analyze: vi.fn(async () => ({ summary: "This is the first bookmark.", tags: [] }))
     }
+    const ghostreaderSessionStore = createGhostreaderSessionStore()
 
     await renderSidebar(
       createBookmark({
@@ -230,7 +248,8 @@ describe("Dashboard ask box", () => {
       "en",
       {
         createProvider: vi.fn(() => provider),
-        settingsRepository: createSettingsRepository()
+        settingsRepository: createSettingsRepository(),
+        ghostreaderSessionStore
       }
     )
 
@@ -257,13 +276,64 @@ describe("Dashboard ask box", () => {
       "en",
       {
         createProvider: vi.fn(() => provider),
-        settingsRepository: createSettingsRepository()
+        settingsRepository: createSettingsRepository(),
+        ghostreaderSessionStore
       }
     )
 
-    expect(container?.textContent).not.toContain("This is the first bookmark.")
+    expect(container?.textContent).toContain("This is the first bookmark.")
+    expect(container?.textContent).toContain("What is this page?")
+  })
+
+  it("starts a new dashboard session and can continue the previous one", async () => {
+    const provider = {
+      analyze: vi.fn(async () => ({ summary: "First dashboard answer", tags: [] }))
+    }
+    const ghostreaderSessionStore = createGhostreaderSessionStore()
+
+    await renderSidebar(
+      createBookmark({
+        id: "bookmark-1",
+        title: "First bookmark",
+        url: "https://first.example",
+        extractedText: "First content"
+      }),
+      "en",
+      {
+        createProvider: vi.fn(() => provider),
+        settingsRepository: createSettingsRepository(),
+        ghostreaderSessionStore
+      }
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "What is this page?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    expect(container?.textContent).toContain("First dashboard answer")
+    expect(container?.textContent).toContain("What is this page?")
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-new-session']")?.click()
+    })
+
+    expect(container?.textContent).not.toContain("First dashboard answer")
     expect(container?.textContent).not.toContain("What is this page?")
-    expect(container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")?.value).toBe("")
+    expect(container?.querySelector("[data-testid='dashboard-ask-continue-session']")).not.toBeNull()
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-continue-session']")?.click()
+    })
+
+    expect(container?.textContent).toContain("First dashboard answer")
+    expect(container?.textContent).toContain("What is this page?")
   })
 
   it("ignores an in-flight Ghostreader response after switching to another bookmark", async () => {
@@ -322,7 +392,7 @@ describe("Dashboard ask box", () => {
     })
 
     expect(container?.textContent).not.toContain("This is the old response.")
-    expect(container?.textContent).not.toContain("What is this page?")
+    expect(container?.textContent).toContain("What is this page?")
   })
 
   it("does not submit another Ghostreader request while one is already in flight", async () => {
@@ -577,6 +647,7 @@ async function renderSidebar(
     bookmarks?: BookmarkRecord[]
     settingsRepository?: SettingsRepository
     createProvider?: (config: ProviderConfig) => AiProvider
+    ghostreaderSessionStore?: Pick<ChromeGhostreaderSessionStore, "loadSessions" | "saveSessions" | "clearActiveSession">
   } = {}
 ) {
   container = document.createElement("div")
@@ -603,6 +674,7 @@ async function rerenderSidebar(
     bookmarks?: BookmarkRecord[]
     settingsRepository?: SettingsRepository
     createProvider?: (config: ProviderConfig) => AiProvider
+    ghostreaderSessionStore?: Pick<ChromeGhostreaderSessionStore, "loadSessions" | "saveSessions" | "clearActiveSession">
   } = {}
 ) {
   await act(async () => {
@@ -632,6 +704,38 @@ function createSettingsRepository(): SettingsRepository {
     ],
     saveProviders: async () => {}
   }
+}
+
+function createGhostreaderSessionStore(): Pick<ChromeGhostreaderSessionStore, "loadSessions" | "saveSessions" | "clearActiveSession"> {
+  let state = {
+    activeSessionId: null as string | null,
+    sessions: [] as any[],
+    version: 1
+  }
+
+  return {
+    loadSessions: vi.fn(async () => state),
+    saveSessions: vi.fn(async (input: { activeSessionId: string | null; sessions: any[] }) => {
+      state = { ...state, ...input }
+    }),
+    clearActiveSession: vi.fn(async () => {
+      state = { ...state, activeSessionId: null }
+    })
+  }
+}
+
+async function submitDashboardQuestion(question: string) {
+  const input = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+  const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+  await act(async () => {
+    setValue?.call(input, question)
+    input?.dispatchEvent(new Event("input", { bubbles: true }))
+  })
+
+  await act(async () => {
+    container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+  })
 }
 
 function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {

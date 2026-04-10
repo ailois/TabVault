@@ -96,6 +96,9 @@ export type MessageKey =
   | "sidepanel.search.clear"
   | "sidepanel.input.placeholder"
   | "sidepanel.input.submit"
+  | "ghostreader.session.new"
+  | "ghostreader.session.continue"
+  | "ghostreader.session.persistenceDisabled"
   | "sidepanel.import.button"
   | "sidepanel.import.syncing"
   | "sidepanel.import.success"
@@ -329,6 +332,9 @@ const en: Messages = {
   "sidepanel.search.clear": "Clear search",
   "sidepanel.input.placeholder": "Ask Ghostreader...",
   "sidepanel.input.submit": "Send to Ghostreader",
+  "ghostreader.session.new": "New session",
+  "ghostreader.session.continue": "Continue session",
+  "ghostreader.session.persistenceDisabled": "Session history couldn't be saved. Ghostreader will continue in this tab only.",
   "sidepanel.import.button": "Sync Bookmarks",
   "sidepanel.import.syncing": "Syncing...",
   "sidepanel.import.success": "Imported {count} bookmarks",
@@ -692,6 +698,9 @@ const zh: Messages = {
   "dashboard.bulkEdit.placeholder": "批量编辑即将上线",
   "common.theme.switchToLight": "切换到浅色模式",
   "common.theme.switchToDark": "切换到深色模式",
+  "ghostreader.session.new": "新建会话",
+  "ghostreader.session.continue": "继续会话",
+  "ghostreader.session.persistenceDisabled": "会话历史暂时无法保存，Ghostreader 只会在当前页面继续工作。",
   "dashboard.aiSidebar.label": "\u667a\u80fd\u5de5\u5177",
   "dashboard.summary.inputAria": "\u6458\u8981\u5185\u5bb9",
   "dashboard.tags.inputAria": "\u65b0\u6807\u7b7e",

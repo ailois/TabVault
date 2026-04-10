@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react"
 import { ErrorBanner } from "./components/error-banner"
 import { analyzeBookmark as defaultAnalyzeBookmark } from "./features/ai/analyze-bookmark"
 import { saveCurrentPage as defaultSaveCurrentPage } from "./features/bookmarks/save-current-page"
+import { createGhostreaderBookmarkAddedMessage } from "./features/ghostreader-session/ghostreader-bookmark-events"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
@@ -63,6 +64,14 @@ const DEFAULT_POPUP_SERVICES: PopupServices = {
 
 function formatSavedStatus(title: string, t: (key: Parameters<typeof getMessage>[1]) => string): string {
   return `${t("popup.status.savedPrefix")}${title}`
+}
+
+function sendRuntimeMessageSafely(message: unknown): void {
+  const pending = globalThis.chrome?.runtime?.sendMessage?.(message)
+
+  if (pending && typeof pending === "object" && "catch" in pending && typeof pending.catch === "function") {
+    pending.catch(() => {})
+  }
 }
 
 function Popup({ services }: PopupProps) {
@@ -165,6 +174,15 @@ function Popup({ services }: PopupProps) {
       setCurrentPageTitle(saved.title)
       setCurrentPageUrl(saved.url)
       setSavedBookmark(saved)
+      sendRuntimeMessageSafely(
+        createGhostreaderBookmarkAddedMessage({
+          bookmarkId: saved.id,
+          title: saved.title,
+          url: saved.url,
+          source: "page-save"
+        })
+      )
+      sendRuntimeMessageSafely({ type: "BOOKMARKS_CHANGED" })
       setStatusTone("success")
       setStatusMessage(formatSavedStatus(saved.title, t))
       await maybeAnalyzeBookmark(saved)

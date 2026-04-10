@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { DashboardShell } from "../../src/features/dashboard/dashboard-shell"
 import type { SettingsRepository } from "../../src/lib/config/settings-repository"
+import type { AiProvider } from "../../src/lib/providers/provider"
 import type { BookmarkRecord } from "../../src/types/bookmark"
+import type { ProviderConfig } from "../../src/types/settings"
 import { ThemeProvider } from "../../src/ui/theme-context"
 import { buildThemeFromOverride } from "../../src/ui/use-theme"
 
@@ -288,6 +290,66 @@ describe("DashboardShell", () => {
 
     expect(container?.querySelector("[data-testid='dashboard-analysis-progress']")?.textContent).toContain("Analyzing 1/2")
     expect(container?.querySelector("[data-testid='dashboard-status-2']")?.textContent).toContain("Analyzing")
+  })
+
+  it("forwards bookmark-added runtime events into dashboard Ghostreader session context", async () => {
+    const analyze = vi.fn(async () => ({ summary: "Dashboard session-aware answer", tags: [] }))
+    const settingsRepository: SettingsRepository = {
+      getAppSettings: async () => ({
+        defaultProvider: "openai",
+        autoAnalyzeOnSave: false,
+        summaryLanguage: "auto",
+        autoRetryOnError: false,
+        displayLanguage: "en",
+        theme: "sage"
+      }),
+      saveAppSettings: async () => {},
+      getProviders: async () => [
+        {
+          provider: "openai",
+          enabled: true,
+          apiKey: "test-key",
+          model: "gpt-test"
+        }
+      ],
+      saveProviders: async () => {}
+    }
+
+    await renderDashboard(
+      [createBookmark({ id: "1", title: "React Docs", url: "https://react.dev", extractedText: "React content" })],
+      undefined,
+      settingsRepository,
+      vi.fn((_config: ProviderConfig): AiProvider => ({ analyze }))
+    )
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")?.click()
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ai-tab']")?.click()
+    })
+    await act(async () => {
+      runtimeMessageListener?.({
+        type: "BOOKMARK_ADDED",
+        bookmarkId: "bm-yangmi",
+        title: "Yang Mi interview archive",
+        url: "https://yangmi.example",
+        source: "page-save"
+      })
+    })
+
+    const askInput = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-ask-input']")
+    await act(async () => {
+      Object.defineProperty(askInput, "value", { writable: true, value: "What bookmark did I just save?" })
+      askInput?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
+    const analyzeInput = analyze.mock.calls.at(0)?.at(0) as { content: string } | undefined
+    expect(analyzeInput?.content).toContain("Yang Mi interview archive")
+    expect(analyzeInput?.content).toContain("https://yangmi.example")
   })
 
   it("marks the selected result with accessible current-state semantics", async () => {
@@ -609,7 +671,8 @@ let root: Root | null = null
 async function renderDashboard(
   bookmarks: BookmarkRecord[],
   updateBookmark?: (bookmark: BookmarkRecord) => Promise<void>,
-  settingsRepository?: SettingsRepository
+  settingsRepository?: SettingsRepository,
+  createProvider?: (config: ProviderConfig) => AiProvider
 ) {
   container = document.createElement("div")
   document.body.appendChild(container)
@@ -618,7 +681,12 @@ async function renderDashboard(
   await act(async () => {
     root?.render(
       <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
-        <DashboardShell initialBookmarks={bookmarks} settingsRepository={settingsRepository} updateBookmark={updateBookmark} />
+        <DashboardShell
+          initialBookmarks={bookmarks}
+          settingsRepository={settingsRepository}
+          updateBookmark={updateBookmark}
+          createProvider={createProvider}
+        />
       </ThemeProvider>
     )
   })

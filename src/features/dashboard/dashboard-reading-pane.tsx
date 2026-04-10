@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react"
 
+import type { GhostreaderBookmarkAddedPayload } from "../../features/ghostreader-session/ghostreader-bookmark-events"
+import type { ChromeGhostreaderSessionStore } from "../../features/ghostreader-session/ghostreader-session-store"
 import type { SettingsRepository } from "../../lib/config/settings-repository"
 import { getMessage } from "../../lib/i18n/messages"
 import type { AiProvider } from "../../lib/providers/provider"
@@ -21,6 +23,8 @@ type DashboardReadingPaneProps = {
   settingsRepository?: SettingsRepository
   createProvider?: (config: ProviderConfig) => AiProvider
   onOpenBookmark?: (bookmarkId: string) => void
+  ghostreaderSessionStore?: Pick<ChromeGhostreaderSessionStore, "loadSessions" | "saveSessions" | "clearActiveSession">
+  latestGhostreaderBookmarkEvent?: GhostreaderBookmarkAddedPayload | null
 }
 
 type ReadingTab = "notes" | "ai"
@@ -35,7 +39,9 @@ export function DashboardReadingPane({
   onDelete,
   settingsRepository,
   createProvider,
-  onOpenBookmark
+  onOpenBookmark,
+  ghostreaderSessionStore,
+  latestGhostreaderBookmarkEvent
 }: DashboardReadingPaneProps) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
@@ -363,6 +369,8 @@ export function DashboardReadingPane({
               onSaveSummary={onSaveSummary}
               onSaveTags={onSaveTags}
               settingsRepository={settingsRepository}
+              ghostreaderSessionStore={ghostreaderSessionStore}
+              latestGhostreaderBookmarkEvent={latestGhostreaderBookmarkEvent}
             />
           </div>
         )}

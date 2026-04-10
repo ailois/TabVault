@@ -12,6 +12,7 @@ import type { BookmarkRecord } from "../../src/types/bookmark"
 import type { AppSettings, ProviderConfig } from "../../src/types/settings"
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+let runtimeMessageListener: ((message: Record<string, unknown>) => void) | null = null
 
 globalThis.chrome = {
   ...(globalThis.chrome ?? {}),
@@ -24,7 +25,16 @@ globalThis.chrome = {
   },
   runtime: {
     ...((globalThis.chrome as any)?.runtime ?? {}),
-    onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    onMessage: {
+      addListener: vi.fn((listener: (message: Record<string, unknown>) => void) => {
+        runtimeMessageListener = listener
+      }),
+      removeListener: vi.fn((listener: (message: Record<string, unknown>) => void) => {
+        if (runtimeMessageListener === listener) {
+          runtimeMessageListener = null
+        }
+      })
+    },
     sendMessage: vi.fn(),
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
   },
@@ -51,6 +61,7 @@ describe("SidePanel Ghostreader", () => {
     container?.remove()
     container = null
     root = null
+    runtimeMessageListener = null
     vi.clearAllMocks()
   })
 
@@ -150,6 +161,148 @@ describe("SidePanel Ghostreader", () => {
 
     expect(analyze).not.toHaveBeenCalled()
     expect(container?.textContent).not.toContain("React Notes")
+  })
+
+  it("continues the active Ghostreader session for follow-up questions", async () => {
+    const analyze = vi.fn(async () => ({ summary: "follow-up answer", tags: [] }))
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "关于杨幂的书签有哪些？")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    await act(async () => {
+      setValue?.call(input, "帮我总结一下这个书签")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    const secondCall = analyze.mock.calls.at(1)?.at(0) as { content: string } | undefined
+    expect(secondCall?.content).toContain("关于杨幂的书签有哪些？")
+  })
+
+  it("starts a new session and can continue the previous one", async () => {
+    const analyze = vi.fn(async () => ({ summary: "First session answer", tags: [] }))
+    const ghostreaderSessionStore = createGhostreaderSessionStore()
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        }),
+        ghostreaderSessionStore
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "What is this page?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    expect(container?.textContent).toContain("First session answer")
+    expect(container?.textContent).toContain("What is this page?")
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-new-session']")?.click()
+    })
+
+    expect(container?.textContent).not.toContain("First session answer")
+    expect(container?.textContent).not.toContain("What is this page?")
+    expect(container?.querySelector("[data-testid='sidepanel-continue-session']")).not.toBeNull()
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-continue-session']")?.click()
+    })
+
+    expect(container?.textContent).toContain("First session answer")
+    expect(container?.textContent).toContain("What is this page?")
+  })
+
+  it("records bookmark-added runtime events into the active Ghostreader session", async () => {
+    const analyze = vi.fn(async () => ({ summary: "Session-aware answer", tags: [] }))
+    const ghostreaderSessionStore = createGhostreaderSessionStore()
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        }),
+        ghostreaderSessionStore
+      })
+    )
+
+    await act(async () => {
+      runtimeMessageListener?.({
+        type: "BOOKMARK_ADDED",
+        bookmarkId: "bm-yangmi",
+        title: "Yang Mi interview archive",
+        url: "https://yangmi.example",
+        source: "page-save"
+      })
+    })
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+    await act(async () => {
+      setValue?.call(input, "What bookmark did I just save?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    const analyzeInput = analyze.mock.calls.at(0)?.at(0) as { content: string } | undefined
+    expect(analyzeInput?.content).toContain("Yang Mi interview archive")
+    expect(analyzeInput?.content).toContain("https://yangmi.example")
   })
 
   it("submits on Enter and returns only the Yang Mi bookmark for the Chinese question", async () => {
@@ -909,5 +1062,23 @@ function createSettingsRepository(overrides: Partial<SettingsRepository> = {}): 
     getProviders: vi.fn(async (): Promise<ProviderConfig[]> => []),
     saveProviders: vi.fn(async () => undefined),
     ...overrides
+  }
+}
+
+function createGhostreaderSessionStore() {
+  let state = {
+    activeSessionId: null as string | null,
+    sessions: [] as any[],
+    version: 1
+  }
+
+  return {
+    loadSessions: vi.fn(async () => state),
+    saveSessions: vi.fn(async (input: { activeSessionId: string | null; sessions: any[] }) => {
+      state = { ...state, ...input }
+    }),
+    clearActiveSession: vi.fn(async () => {
+      state = { ...state, activeSessionId: null }
+    })
   }
 }

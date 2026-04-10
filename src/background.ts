@@ -1,4 +1,5 @@
 import { importChromeBookmarks } from "./features/bookmarks/import-chrome-bookmarks"
+import { createGhostreaderBookmarkAddedMessage } from "./features/ghostreader-session/ghostreader-bookmark-events"
 import { IndexedDbBookmarkRepository } from "./lib/storage/indexeddb-bookmark-repository"
 import { analyzeBookmark } from "./features/ai/analyze-bookmark"
 import { ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
@@ -187,11 +188,28 @@ function isTimeoutError(error: unknown): boolean {
   )
 }
 
+function notifyBookmarkAdded(
+  bookmark: Pick<BookmarkRecord, "id" | "title" | "url">,
+  source: "manual" | "page-save" | "session-action"
+) {
+  chrome.runtime.sendMessage(
+    createGhostreaderBookmarkAddedMessage({
+      bookmarkId: bookmark.id,
+      title: bookmark.title,
+      url: bookmark.url,
+      source
+    })
+  ).catch(() => {})
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "IMPORT_BOOKMARKS") {
     importChromeBookmarks({
       getTree: async () => chrome.bookmarks.getTree(),
-      bookmarkRepository: repo
+      bookmarkRepository: repo,
+      onBookmarkImported: async (bookmark) => {
+        notifyBookmarkAdded(bookmark, "manual")
+      }
     })
       .then(count => {
         sendResponse({ success: true, count })
@@ -285,6 +303,7 @@ if (globalThis.chrome?.bookmarks) {
         updatedAt: now
       }
       await repo.save(newRecord)
+      notifyBookmarkAdded(newRecord, "manual")
 
       // Check if auto-analyze is enabled
       try {
@@ -326,7 +345,10 @@ chrome.runtime.onInstalled.addListener(() => {
   if (globalThis.chrome?.bookmarks) {
     importChromeBookmarks({
       getTree: async () => chrome.bookmarks.getTree(),
-      bookmarkRepository: repo
+      bookmarkRepository: repo,
+      onBookmarkImported: async (bookmark) => {
+        notifyBookmarkAdded(bookmark, "manual")
+      }
     })
       .then(count => {
         chrome.runtime.sendMessage({ type: "IMPORT_COMPLETE", count }).catch(() => {})

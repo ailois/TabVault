@@ -20,6 +20,26 @@ import {
 import { detectGhostreaderQueryMode } from "./features/hybrid-retrieval/query-intent"
 import { retrieveHybridResults } from "./features/hybrid-retrieval/retrieve-hybrid-results"
 import type { RankedHybridResult } from "./features/hybrid-retrieval/rank-hybrid-results"
+import { buildBookmarkSearchDocument } from "./features/hybrid-retrieval/search-documents"
+import { updateIntentMemory } from "./features/ghostreader-session/ghostreader-intent-memory"
+import {
+  isGhostreaderBookmarkAddedMessage,
+  type GhostreaderBookmarkAddedMessage
+} from "./features/ghostreader-session/ghostreader-bookmark-events"
+import { resolveSessionReferences } from "./features/ghostreader-session/ghostreader-reference-resolution"
+import {
+  appendAssistantMessage,
+  appendUserMessage,
+  recordBookmarkAddedEvent,
+  replaceWorkingSet
+} from "./features/ghostreader-session/ghostreader-session-reducer"
+import {
+  ChromeGhostreaderSessionStore,
+  GHOSTREADER_SESSIONS_VERSION,
+  type GhostreaderPersistedSessions
+} from "./features/ghostreader-session/ghostreader-session-store"
+import { createEmptyGhostreaderSession, type GhostreaderSession } from "./features/ghostreader-session/ghostreader-session-types"
+import { getGhostreaderSessionSnapshot } from "./features/ghostreader-session/ghostreader-session-view"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
@@ -53,6 +73,7 @@ type SidePanelServices = {
   bookmarkRepository: BookmarkRepository
   settingsRepository: SettingsRepository
   themeRepository: ThemeRepository
+  ghostreaderSessionStore: Pick<ChromeGhostreaderSessionStore, "loadSessions" | "saveSessions" | "clearActiveSession">
   analyzeBookmark: typeof defaultAnalyzeBookmark
   createProvider: (config: ProviderConfig) => AiProvider
   extractPage: typeof defaultExtractPage
@@ -63,6 +84,7 @@ const DEFAULT_SIDEPANEL_SERVICES: SidePanelServices = {
   bookmarkRepository: new IndexedDbBookmarkRepository(),
   settingsRepository: new ChromeSettingsRepository(),
   themeRepository: new ChromeThemeRepository(),
+  ghostreaderSessionStore: new ChromeGhostreaderSessionStore(),
   analyzeBookmark: defaultAnalyzeBookmark,
   createProvider: defaultCreateProvider,
   extractPage: defaultExtractPage,
@@ -89,8 +111,61 @@ function formatCurrentPageTitle(title?: string): string {
   return title ? `\u300a${title}\u300b` : ""
 }
 
+function createGhostreaderSessionTitle(): string {
+  return "Ghostreader Session"
+}
+
+function createGhostreaderSessionId(): string {
+  return `ghostreader-session-${Date.now()}`
+}
+
+function ensureActiveSession(state: GhostreaderPersistedSessions): GhostreaderSession {
+  const activeSession = state.activeSessionId
+    ? state.sessions.find((session) => session.id === state.activeSessionId) ?? null
+    : null
+
+  return activeSession ?? createEmptyGhostreaderSession({ id: createGhostreaderSessionId(), title: createGhostreaderSessionTitle() })
+}
+
+function upsertSession(state: GhostreaderPersistedSessions, session: GhostreaderSession): GhostreaderPersistedSessions {
+  const remainingSessions = state.sessions.filter((item) => item.id !== session.id)
+
+  return {
+    ...state,
+    activeSessionId: session.id,
+    sessions: [session, ...remainingSessions]
+  }
+}
+
+function buildResolvedBookmarkResults(bookmarks: BookmarkRecord[], bookmarkIds: string[]): RankedHybridResult[] {
+  const bookmarkMap = new Map(bookmarks.map((bookmark) => [bookmark.id, bookmark]))
+
+  return bookmarkIds
+    .map((bookmarkId) => bookmarkMap.get(bookmarkId))
+    .filter((bookmark): bookmark is BookmarkRecord => Boolean(bookmark))
+    .map((bookmark, index) => ({
+      document: buildBookmarkSearchDocument(bookmark),
+      score: 200 - index,
+      matchReason: "title" as const
+    }))
+}
+
+function getMostRecentRestorableSession(
+  state: GhostreaderPersistedSessions,
+  activeSessionId: string | null
+): GhostreaderSession | null {
+  return state.sessions.find((session) => session.id !== activeSessionId && session.messages.length > 0) ?? null
+}
+
 export default function SidePanel({ services }: SidePanelProps) {
-  const sidePanelServices = useMemo(() => ({ ...DEFAULT_SIDEPANEL_SERVICES, ...services }), [services])
+  const sidePanelServices = useMemo(
+    () => ({
+      ...DEFAULT_SIDEPANEL_SERVICES,
+      ...services,
+      ghostreaderSessionStore: services?.ghostreaderSessionStore ?? new ChromeGhostreaderSessionStore()
+    }),
+    [services]
+  )
   const theme = useTheme(sidePanelServices.themeRepository)
   useGlobalStyles(theme)
 
@@ -123,6 +198,14 @@ export default function SidePanel({ services }: SidePanelProps) {
   const [ghostreaderActionCards, setGhostreaderActionCards] = useState<ActionCard[]>([])
   const [ghostreaderAnswerBlock, setGhostreaderAnswerBlock] = useState<AnswerBlock | null>(null)
   const [isGhostreaderSubmitting, setIsGhostreaderSubmitting] = useState(false)
+  const [ghostreaderSessionState, setGhostreaderSessionState] = useState<GhostreaderPersistedSessions>({
+    activeSessionId: null,
+    sessions: [],
+    version: GHOSTREADER_SESSIONS_VERSION
+  })
+  const [activeGhostreaderSession, setActiveGhostreaderSession] = useState<GhostreaderSession | null>(null)
+  const [latestGhostreaderResultIds, setLatestGhostreaderResultIds] = useState<string[]>([])
+  const [sessionPersistenceDisabled, setSessionPersistenceDisabled] = useState(false)
 
   const displayedBookmarks = useMemo(
     () => bookmarks.map((bookmark) =>
@@ -164,6 +247,9 @@ export default function SidePanel({ services }: SidePanelProps) {
 
   useEffect(() => {
     const listener = (message: any) => {
+      if (isGhostreaderBookmarkAddedMessage(message)) {
+        void handleGhostreaderBookmarkAdded(message)
+      }
       if (message.type === "IMPORT_COMPLETE" || message.type === "ANALYSIS_COMPLETE") {
         void loadBookmarks()
       }
@@ -174,7 +260,7 @@ export default function SidePanel({ services }: SidePanelProps) {
     globalThis.chrome?.runtime?.onMessage.addListener(listener)
 
     return () => globalThis.chrome?.runtime?.onMessage.removeListener(listener)
-  }, [])
+  }, [activeGhostreaderSession, ghostreaderSessionState, loadBookmarks])
 
   useEffect(() => {
     async function loadCurrentPage() {
@@ -186,6 +272,50 @@ export default function SidePanel({ services }: SidePanelProps) {
 
     void loadCurrentPage()
   }, [sidePanelServices])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadGhostreaderSession() {
+      try {
+        const persisted = await sidePanelServices.ghostreaderSessionStore.loadSessions()
+        if (cancelled) {
+          return
+        }
+
+        const activeSession = ensureActiveSession(persisted)
+        const nextState = upsertSession(persisted, activeSession)
+
+        setSessionPersistenceDisabled(false)
+        setGhostreaderSessionState(nextState)
+        setActiveGhostreaderSession(activeSession)
+        restoreGhostreaderView(activeSession)
+      } catch {
+        if (cancelled) {
+          return
+        }
+
+        const fallbackSession = createEmptyGhostreaderSession({
+          id: createGhostreaderSessionId(),
+          title: createGhostreaderSessionTitle()
+        })
+        setGhostreaderSessionState({
+          activeSessionId: fallbackSession.id,
+          sessions: [fallbackSession],
+          version: GHOSTREADER_SESSIONS_VERSION
+        })
+        setActiveGhostreaderSession(fallbackSession)
+        setSessionPersistenceDisabled(true)
+        clearGhostreaderView()
+      }
+    }
+
+    void loadGhostreaderSession()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sidePanelServices.ghostreaderSessionStore])
 
   const runHybridRetrieval = useCallback(async (query: string) => {
     const results = await retrieveHybridResults({
@@ -246,6 +376,15 @@ export default function SidePanel({ services }: SidePanelProps) {
   const activeActionCards = activeView === "search" ? searchActionCards : ghostreaderActionCards
   const activeAnswerBlock = activeView === "search" ? searchAnswerBlock : ghostreaderAnswerBlock
   const shouldShowQueryStream = Boolean(activeView && activeQuery)
+  const restorableGhostreaderSession = useMemo(
+    () => getMostRecentRestorableSession(ghostreaderSessionState, activeGhostreaderSession?.id ?? null),
+    [activeGhostreaderSession?.id, ghostreaderSessionState]
+  )
+  const showContinueGhostreaderSession =
+    Boolean(restorableGhostreaderSession) &&
+    Boolean(activeGhostreaderSession) &&
+    activeGhostreaderSession?.messages.length === 0 &&
+    !submittedGhostreaderQuery
 
   async function loadBookmarks(): Promise<void> {
     setIsLoadingBookmarks(true)
@@ -363,7 +502,37 @@ export default function SidePanel({ services }: SidePanelProps) {
     if (isGhostreaderSubmitting || !query) {
       return
     }
-    const queryMode = detectGhostreaderQueryMode(query)
+    const baseSession =
+      activeGhostreaderSession ??
+      createEmptyGhostreaderSession({
+        id: createGhostreaderSessionId(),
+        title: createGhostreaderSessionTitle()
+      })
+    const resolvedReferences = resolveSessionReferences(query, {
+      session: baseSession,
+      currentBookmarkId: selectedBookmark?.id,
+      latestResultBookmarkIds: latestGhostreaderResultIds
+    })
+    const queryMode: GhostreaderQueryMode =
+      resolvedReferences.bookmarkIds.length > 0 ? "cross-bookmark" : detectGhostreaderQueryMode(query)
+    const recentMessages = baseSession.messages
+      .filter((message) => message.role !== "system")
+      .slice(-3)
+      .map((message) => message.text)
+    const recentAddedBookmarks = baseSession.bookmarksAddedInSession.slice(-3).map((event) => ({
+      title: event.title,
+      url: event.url
+    }))
+    let nextSession = appendUserMessage(baseSession, {
+      id: `user-${Date.now()}`,
+      text: query,
+      queryMode,
+      referencedBookmarkIds: resolvedReferences.bookmarkIds
+    })
+    nextSession = updateIntentMemory(nextSession, {
+      latestUserText: query,
+      bookmarkEvents: nextSession.bookmarksAddedInSession
+    })
 
     setGhostreaderInput("")
     setSubmittedGhostreaderQuery(query)
@@ -390,9 +559,26 @@ export default function SidePanel({ services }: SidePanelProps) {
         return
       }
 
+      const resolvedResults =
+        queryMode === "cross-bookmark" && resolvedReferences.bookmarkIds.length > 0
+          ? buildResolvedBookmarkResults(bookmarks, resolvedReferences.bookmarkIds)
+          : []
       const { results, actions } =
         queryMode === "cross-bookmark"
-          ? await runHybridRetrieval(query)
+          ? resolvedResults.length > 0
+            ? {
+                results: resolvedResults,
+                actions: buildActionCards({ hasCurrentPage: false, hasSavedMatches: resolvedResults.length > 0 }).map((action) => ({
+                  ...action,
+                  label:
+                    action.id === "ask-current-page"
+                      ? t("hybrid.action.askCurrentPage")
+                      : action.id === "ask-top-matches"
+                        ? t("hybrid.action.askTopMatches")
+                        : t("hybrid.action.openDashboard")
+                }))
+              }
+            : await runHybridRetrieval(query)
           : { results: [] as RankedHybridResult[], actions: [] as ActionCard[] }
       setGhostreaderResults(results)
       setGhostreaderActionCards(actions)
@@ -406,10 +592,36 @@ export default function SidePanel({ services }: SidePanelProps) {
           query,
           currentPageContext,
           rankedResults: results,
-          mode: queryMode
+          mode: queryMode,
+          sessionContext: {
+            intentSummary: nextSession.intentMemory.summary,
+            recentMessages,
+            recentAddedBookmarks
+          }
         }),
         summaryLanguage: settings.summaryLanguage
       })
+
+      const referencedBookmarkIds = results
+        .filter((result) => result.document.sourceType === "saved-bookmark" && result.document.bookmarkId)
+        .map((result) => result.document.bookmarkId as string)
+      if (referencedBookmarkIds.length > 0 || resolvedReferences.bookmarkIds.length > 0) {
+        nextSession = replaceWorkingSet(nextSession, [
+          ...resolvedReferences.bookmarkIds,
+          ...referencedBookmarkIds,
+          ...nextSession.workingSetBookmarkIds
+        ])
+      }
+      nextSession = appendAssistantMessage(nextSession, {
+        id: `assistant-${Date.now()}`,
+        text: analysis.summary,
+        referencedBookmarkIds
+      })
+      const persistedState = upsertSession(ghostreaderSessionState, nextSession)
+      setGhostreaderSessionState(persistedState)
+      setActiveGhostreaderSession(nextSession)
+      setLatestGhostreaderResultIds(referencedBookmarkIds)
+      await persistGhostreaderSessions(persistedState)
 
       setGhostreaderAnswerBlock({
         text: analysis.summary,
@@ -426,22 +638,68 @@ export default function SidePanel({ services }: SidePanelProps) {
     } catch (error) {
       if (shouldFallbackToLocalGhostreaderAnswer(error)) {
         if (queryMode === "current-only") {
+          const fallbackAnswer = buildLocalizedAnswerBlock(
+            displayLanguage,
+            t("hybrid.query.query"),
+            query,
+            buildCurrentPageFallbackResults(currentPageContext)
+          )
+          nextSession = appendAssistantMessage(nextSession, {
+            id: `assistant-fallback-${Date.now()}`,
+            text: fallbackAnswer.text,
+            referencedBookmarkIds: []
+          })
+          const persistedState = upsertSession(ghostreaderSessionState, nextSession)
+          setGhostreaderSessionState(persistedState)
+          setActiveGhostreaderSession(nextSession)
           setGhostreaderResults([])
           setGhostreaderActionCards([])
-          setGhostreaderAnswerBlock(
-            buildLocalizedAnswerBlock(
-              displayLanguage,
-              t("hybrid.query.query"),
-              query,
-              buildCurrentPageFallbackResults(currentPageContext)
-            )
-          )
+          setLatestGhostreaderResultIds([])
+          await persistGhostreaderSessions(persistedState)
+          setGhostreaderAnswerBlock(fallbackAnswer)
           return
         }
 
-        const { results, actions } = await runHybridRetrieval(query)
+        const resolvedResults =
+          resolvedReferences.bookmarkIds.length > 0
+            ? buildResolvedBookmarkResults(bookmarks, resolvedReferences.bookmarkIds)
+            : []
+        const { results, actions } = resolvedResults.length > 0
+          ? {
+              results: resolvedResults,
+              actions: buildActionCards({ hasCurrentPage: false, hasSavedMatches: true }).map((action) => ({
+                ...action,
+                label:
+                  action.id === "ask-current-page"
+                    ? t("hybrid.action.askCurrentPage")
+                    : action.id === "ask-top-matches"
+                      ? t("hybrid.action.askTopMatches")
+                      : t("hybrid.action.openDashboard")
+              }))
+            }
+          : await runHybridRetrieval(query)
         setGhostreaderResults(results)
         setGhostreaderActionCards(actions)
+        const referencedBookmarkIds = results
+          .filter((result) => result.document.sourceType === "saved-bookmark" && result.document.bookmarkId)
+          .map((result) => result.document.bookmarkId as string)
+        if (referencedBookmarkIds.length > 0 || resolvedReferences.bookmarkIds.length > 0) {
+          nextSession = replaceWorkingSet(nextSession, [
+            ...resolvedReferences.bookmarkIds,
+            ...referencedBookmarkIds,
+            ...nextSession.workingSetBookmarkIds
+          ])
+        }
+        nextSession = appendAssistantMessage(nextSession, {
+          id: `assistant-fallback-${Date.now()}`,
+          text: buildLocalizedAnswerBlock(displayLanguage, t("hybrid.query.query"), query, results).text,
+          referencedBookmarkIds
+        })
+        const persistedState = upsertSession(ghostreaderSessionState, nextSession)
+        setGhostreaderSessionState(persistedState)
+        setActiveGhostreaderSession(nextSession)
+        setLatestGhostreaderResultIds(referencedBookmarkIds)
+        await persistGhostreaderSessions(persistedState)
         setGhostreaderAnswerBlock(buildLocalizedAnswerBlock(displayLanguage, t("hybrid.query.query"), query, results))
         return
       }
@@ -480,6 +738,124 @@ export default function SidePanel({ services }: SidePanelProps) {
     if (actionId === "ask-top-matches") {
       setActiveAnswer(buildLocalizedAnswerBlock(displayLanguage, t("hybrid.query.query"), activeQuery, activeRankedResults.slice(0, 3)))
     }
+  }
+
+  async function handleGhostreaderBookmarkAdded(message: GhostreaderBookmarkAddedMessage): Promise<void> {
+    const baseSession =
+      activeGhostreaderSession ??
+      createEmptyGhostreaderSession({
+        id: createGhostreaderSessionId(),
+        title: createGhostreaderSessionTitle()
+      })
+    const nextSession = recordBookmarkAddedEvent(baseSession, {
+      bookmarkId: message.bookmarkId,
+      title: message.title,
+      url: message.url,
+      source: message.source
+    })
+    const nextState = upsertSession(ghostreaderSessionState, nextSession)
+    setGhostreaderSessionState(nextState)
+    setActiveGhostreaderSession(nextSession)
+    setLatestGhostreaderResultIds((current) =>
+      current.includes(message.bookmarkId) ? current : [message.bookmarkId, ...current].slice(0, 20)
+    )
+    await persistGhostreaderSessions(nextState)
+  }
+
+  function clearGhostreaderView(): void {
+    setSubmittedGhostreaderQuery("")
+    setSubmittedGhostreaderMode("current-only")
+    setGhostreaderResults([])
+    setGhostreaderActionCards([])
+    setGhostreaderAnswerBlock(null)
+    setLatestGhostreaderResultIds([])
+    setActiveView(searchQuery.trim() ? "search" : null)
+  }
+
+  function restoreGhostreaderView(session: GhostreaderSession | null): void {
+    const snapshot = getGhostreaderSessionSnapshot(session)
+    if (!snapshot) {
+      clearGhostreaderView()
+      return
+    }
+
+    const restoredResults =
+      snapshot.mode === "cross-bookmark"
+        ? buildResolvedBookmarkResults(bookmarks, snapshot.referencedBookmarkIds)
+        : []
+
+    setSubmittedGhostreaderQuery(snapshot.query)
+    setSubmittedGhostreaderMode(snapshot.mode)
+    setGhostreaderResults(restoredResults)
+    setGhostreaderActionCards(
+      snapshot.mode === "cross-bookmark"
+        ? buildActionCards({ hasCurrentPage: false, hasSavedMatches: restoredResults.length > 0 }).map((action) => ({
+            ...action,
+            label:
+              action.id === "ask-current-page"
+                ? t("hybrid.action.askCurrentPage")
+                : action.id === "ask-top-matches"
+                  ? t("hybrid.action.askTopMatches")
+                  : t("hybrid.action.openDashboard")
+          }))
+        : []
+    )
+    setGhostreaderAnswerBlock(
+      snapshot.answerText
+        ? {
+            text: snapshot.answerText,
+            citations:
+              snapshot.mode === "cross-bookmark"
+                ? restoredResults.slice(0, 3).map((result) => ({
+                    sourceType: result.document.sourceType,
+                    title: result.document.title,
+                    url: result.document.url,
+                    matchReason: result.matchReason
+                  }))
+                : []
+          }
+        : null
+    )
+    setLatestGhostreaderResultIds(snapshot.referencedBookmarkIds)
+    setActiveView("ask")
+  }
+
+  async function persistGhostreaderSessions(nextState: GhostreaderPersistedSessions): Promise<void> {
+    try {
+      await sidePanelServices.ghostreaderSessionStore.saveSessions({
+        activeSessionId: nextState.activeSessionId,
+        sessions: nextState.sessions
+      })
+      setSessionPersistenceDisabled(false)
+    } catch {
+      setSessionPersistenceDisabled(true)
+    }
+  }
+
+  async function handleStartNewGhostreaderSession(): Promise<void> {
+    const nextSession = createEmptyGhostreaderSession({
+      id: createGhostreaderSessionId(),
+      title: createGhostreaderSessionTitle()
+    })
+    const nextState = upsertSession(ghostreaderSessionState, nextSession)
+    setGhostreaderInput("")
+    setGhostreaderSessionState(nextState)
+    setActiveGhostreaderSession(nextSession)
+    clearGhostreaderView()
+    await persistGhostreaderSessions(nextState)
+  }
+
+  async function handleContinueGhostreaderSession(): Promise<void> {
+    if (!restorableGhostreaderSession) {
+      return
+    }
+
+    const nextState = upsertSession(ghostreaderSessionState, restorableGhostreaderSession)
+    setGhostreaderInput("")
+    setGhostreaderSessionState(nextState)
+    setActiveGhostreaderSession(restorableGhostreaderSession)
+    restoreGhostreaderView(restorableGhostreaderSession)
+    await persistGhostreaderSessions(nextState)
   }
 
   function handleSearchQueryChange(value: string): void {
@@ -707,6 +1083,57 @@ export default function SidePanel({ services }: SidePanelProps) {
         </div>
 
         <footer style={{ padding: spacing.md, borderTop: `1px solid ${theme.border}`, backgroundColor: theme.surface }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, marginBottom: spacing.sm }}>
+            <div style={{ display: "flex", alignItems: "center", gap: spacing.xs, flexWrap: "wrap" }}>
+              <button
+                data-testid="sidepanel-new-session"
+                disabled={isGhostreaderSubmitting}
+                onClick={() => void handleStartNewGhostreaderSession()}
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  backgroundColor: theme.page,
+                  color: theme.textPrimary,
+                  borderRadius: radius.medium,
+                  padding: "6px 10px",
+                  fontSize: "0.75rem",
+                  cursor: isGhostreaderSubmitting ? "not-allowed" : "pointer",
+                  opacity: isGhostreaderSubmitting ? 0.6 : 1
+                }}
+                type="button"
+              >
+                {t("ghostreader.session.new")}
+              </button>
+              {showContinueGhostreaderSession ? (
+                <button
+                  data-testid="sidepanel-continue-session"
+                  disabled={isGhostreaderSubmitting}
+                  onClick={() => void handleContinueGhostreaderSession()}
+                  style={{
+                    border: `1px solid ${theme.border}`,
+                    backgroundColor: theme.surface,
+                    color: theme.textSecondary,
+                    borderRadius: radius.medium,
+                    padding: "6px 10px",
+                    fontSize: "0.75rem",
+                    cursor: isGhostreaderSubmitting ? "not-allowed" : "pointer",
+                    opacity: isGhostreaderSubmitting ? 0.6 : 1
+                  }}
+                  type="button"
+                >
+                  {t("ghostreader.session.continue")}
+                </button>
+              ) : null}
+            </div>
+            {sessionPersistenceDisabled ? (
+              <div
+                aria-live="polite"
+                data-testid="sidepanel-session-persistence-warning"
+                style={{ fontSize: "0.75rem", color: theme.textMuted, textAlign: "right", maxWidth: "60%" }}
+              >
+                {t("ghostreader.session.persistenceDisabled")}
+              </div>
+            ) : null}
+          </div>
           <div style={{ position: "relative" }}>
             <input
               data-testid="ghostreader-input"

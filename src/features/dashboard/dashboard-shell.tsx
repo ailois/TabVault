@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 
+import type { GhostreaderBookmarkAddedPayload } from "../../features/ghostreader-session/ghostreader-bookmark-events"
+import { isGhostreaderBookmarkAddedMessage } from "../../features/ghostreader-session/ghostreader-bookmark-events"
 import { DEFAULT_APP_SETTINGS } from "../../features/settings/default-settings"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "../../lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "../../lib/config/settings-repository"
@@ -94,6 +96,7 @@ export function DashboardShell({
   const [isSettingsReady, setIsSettingsReady] = useState(false)
   const [analysisState, setAnalysisState] = useState<AnalysisProgressState>({ running: false, current: 0, total: 0 })
   const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [latestGhostreaderBookmarkEvent, setLatestGhostreaderBookmarkEvent] = useState<GhostreaderBookmarkAddedPayload | null>(null)
   const t = useMemo(
     () => (key: Parameters<typeof getMessage>[1]) => getMessage(displayLanguage, key),
     [displayLanguage]
@@ -176,7 +179,19 @@ export function DashboardShell({
       current?: number
       total?: number
       bookmarkId?: string
+      title?: string
+      url?: string
+      source?: "manual" | "page-save" | "session-action"
     }) => {
+      if (isGhostreaderBookmarkAddedMessage(message)) {
+        setLatestGhostreaderBookmarkEvent({
+          bookmarkId: message.bookmarkId,
+          title: message.title,
+          url: message.url,
+          source: message.source
+        })
+      }
+
       if (message.type === "IMPORT_COMPLETE" || message.type === "BOOKMARKS_CHANGED" || message.type === "ANALYSIS_COMPLETE") {
         if (message.type === "ANALYSIS_COMPLETE") {
           setAnalysisState({ running: false, current: 0, total: 0 })
@@ -551,6 +566,7 @@ export function DashboardShell({
                 onSaveSummary={handleSaveSummary}
                 onSaveTags={handleSaveTags}
                 settingsRepository={dashboardSettingsRepository}
+                latestGhostreaderBookmarkEvent={latestGhostreaderBookmarkEvent}
               />
             )}
           </>

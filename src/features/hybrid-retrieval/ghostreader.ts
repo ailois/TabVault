@@ -4,6 +4,13 @@ import type { GhostreaderQueryMode } from "./hybrid-types"
 import type { RankedHybridResult } from "./rank-hybrid-results"
 
 type GhostreaderLanguage = "en" | "zh"
+type GhostreaderPromptCopy = (typeof GHOSTREADER_PROMPT_COPY)[GhostreaderLanguage]
+
+type GhostreaderSessionContext = {
+  intentSummary?: string
+  recentMessages?: string[]
+  recentAddedBookmarks?: Array<{ title: string; url: string }>
+}
 
 const GHOSTREADER_PROMPT_COPY = {
   en: {
@@ -18,6 +25,10 @@ const GHOSTREADER_PROMPT_COPY = {
     currentPageUnavailable: "Current page unavailable",
     savedMatchesHeading: "Saved bookmark matches",
     savedMatchesEmpty: "none",
+    sessionHeading: "Session context",
+    sessionIntent: "Current session goal",
+    sessionRecentMessages: "Recent session messages",
+    sessionRecentAddedBookmarks: "Recently added bookmarks",
     savedMatchTitle: (index: number) => `Saved match ${index} title`,
     savedMatchUrl: (index: number) => `Saved match ${index} URL`,
     savedMatchReason: (index: number) => `Saved match ${index} reason`,
@@ -35,6 +46,10 @@ const GHOSTREADER_PROMPT_COPY = {
     currentPageUnavailable: "当前页面内容不可用",
     savedMatchesHeading: "已保存书签匹配",
     savedMatchesEmpty: "无",
+    sessionHeading: "会话上下文",
+    sessionIntent: "当前会话目标",
+    sessionRecentMessages: "最近会话消息",
+    sessionRecentAddedBookmarks: "最近新增书签",
     savedMatchTitle: (index: number) => `匹配书签 ${index} 标题`,
     savedMatchUrl: (index: number) => `匹配书签 ${index} URL`,
     savedMatchReason: (index: number) => `匹配书签 ${index} 原因`,
@@ -81,6 +96,7 @@ export function buildGhostreaderContent(input: {
   currentPageContext: { title?: string; url?: string; extractedText?: string } | null
   rankedResults: RankedHybridResult[]
   mode?: GhostreaderQueryMode
+  sessionContext?: GhostreaderSessionContext
 }): string {
   const copy = GHOSTREADER_PROMPT_COPY[input.language]
   const mode = input.mode ?? "cross-bookmark"
@@ -91,34 +107,43 @@ export function buildGhostreaderContent(input: {
         `${copy.currentPageContent}: ${truncatePromptText(input.currentPageContext.extractedText ?? "", GHOSTREADER_MAX_CURRENT_PAGE_CHARS)}`
       ].join("\n")
     : copy.currentPageUnavailable
+  const sessionBlock = buildSessionBlock(copy, input.sessionContext)
 
   if (mode === "current-only") {
     return [
       copy.currentOnlyInstruction,
       copy.responseShape,
       `${copy.userQuestion}: ${input.query}`,
+      sessionBlock,
       currentPageBlock
-    ].join("\n\n")
+    ]
+      .filter(Boolean)
+      .join("\n\n")
   }
 
   const savedMatchesBlock = input.rankedResults
     .filter((result) => result.document.sourceType === "saved-bookmark")
     .slice(0, GHOSTREADER_MAX_MATCHES)
-    .map((result, index) => [
-      `${copy.savedMatchTitle(index + 1)}: ${result.document.title}`,
-      `${copy.savedMatchUrl(index + 1)}: ${result.document.url}`,
-      `${copy.savedMatchReason(index + 1)}: ${result.matchReason}`,
-      `${copy.savedMatchContent(index + 1)}: ${truncatePromptText(result.document.summary ?? result.document.bodyText ?? "", GHOSTREADER_MAX_MATCH_CHARS)}`
-    ].join("\n"))
+    .map((result, index) =>
+      [
+        `${copy.savedMatchTitle(index + 1)}: ${result.document.title}`,
+        `${copy.savedMatchUrl(index + 1)}: ${result.document.url}`,
+        `${copy.savedMatchReason(index + 1)}: ${result.matchReason}`,
+        `${copy.savedMatchContent(index + 1)}: ${truncatePromptText(result.document.summary ?? result.document.bodyText ?? "", GHOSTREADER_MAX_MATCH_CHARS)}`
+      ].join("\n")
+    )
     .join("\n\n")
 
   return [
     copy.crossBookmarkInstruction,
     copy.responseShape,
     `${copy.userQuestion}: ${input.query}`,
+    sessionBlock,
     currentPageBlock,
     savedMatchesBlock ? `${copy.savedMatchesHeading}:\n${savedMatchesBlock}` : `${copy.savedMatchesHeading}: ${copy.savedMatchesEmpty}`
-  ].join("\n\n")
+  ]
+    .filter(Boolean)
+    .join("\n\n")
 }
 
 export function shouldFallbackToLocalGhostreaderAnswer(error: unknown): boolean {
@@ -157,4 +182,43 @@ function truncatePromptText(text: string, maxChars: number): string {
   }
 
   return `${normalized.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`
+}
+
+function buildSessionBlock(
+  copy: GhostreaderPromptCopy,
+  sessionContext?: GhostreaderSessionContext
+): string {
+  if (!sessionContext) {
+    return ""
+  }
+
+  const sections: string[] = []
+
+  if (sessionContext.intentSummary?.trim()) {
+    sections.push(`${copy.sessionIntent}: ${sessionContext.intentSummary.trim()}`)
+  }
+
+  if (sessionContext.recentMessages && sessionContext.recentMessages.length > 0) {
+    sections.push(
+      `${copy.sessionRecentMessages}:\n${sessionContext.recentMessages
+        .slice(-3)
+        .map((message, index) => `${index + 1}. ${message}`)
+        .join("\n")}`
+    )
+  }
+
+  if (sessionContext.recentAddedBookmarks && sessionContext.recentAddedBookmarks.length > 0) {
+    sections.push(
+      `${copy.sessionRecentAddedBookmarks}:\n${sessionContext.recentAddedBookmarks
+        .slice(-3)
+        .map((bookmark, index) => `${index + 1}. ${bookmark.title} (${bookmark.url})`)
+        .join("\n")}`
+    )
+  }
+
+  if (sections.length === 0) {
+    return ""
+  }
+
+  return `${copy.sessionHeading}:\n${sections.join("\n\n")}`
 }

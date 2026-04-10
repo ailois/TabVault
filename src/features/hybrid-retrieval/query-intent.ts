@@ -69,6 +69,19 @@ const GHOSTREADER_CURRENT_ONLY_MARKERS = [
   "\u8fd9\u7bc7\u6587\u7ae0",
   "\u8fd9\u4e2a\u9875\u9762"
 ]
+const GHOSTREADER_SESSION_REFERENCE_MARKERS = [
+  "this bookmark",
+  "this result",
+  "these bookmarks",
+  "these results",
+  "just added",
+  "recently added",
+  "\u8fd9\u4e2a\u4e66\u7b7e",
+  "\u8fd9\u4e9b\u4e66\u7b7e",
+  "\u521a\u52a0\u7684",
+  "\u521a\u6dfb\u52a0\u7684",
+  "\u4e0a\u4e00\u4e2a\u7ed3\u679c"
+]
 
 export function detectQueryIntent(query: string): QueryIntent {
   const normalized = normalizeQuery(query)
@@ -104,4 +117,14 @@ export function detectGhostreaderQueryMode(query: string): GhostreaderQueryMode 
   }
 
   return "current-only"
+}
+
+export function isSessionReferenceQuery(query: string): boolean {
+  const normalized = normalizeQuery(query)
+
+  if (!normalized) {
+    return false
+  }
+
+  return GHOSTREADER_SESSION_REFERENCE_MARKERS.some((marker) => normalized.includes(marker))
 }

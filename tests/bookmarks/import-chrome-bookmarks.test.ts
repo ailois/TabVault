@@ -26,13 +26,16 @@ describe("importChromeBookmarks", () => {
       clearAllAnalysis: vi.fn(),
       clearErrorAnalysis: vi.fn()
     }
+    const onBookmarkImported = vi.fn()
 
     await importChromeBookmarks({
       getTree: async () => mockTree as any,
-      bookmarkRepository: repo
+      bookmarkRepository: repo,
+      onBookmarkImported
     })
 
     expect(save).toHaveBeenCalledTimes(2)
+    expect(onBookmarkImported).toHaveBeenCalledTimes(2)
     // Verify first call
     const savedA = save.mock.calls[0]?.[0] as BookmarkRecord
     expect(savedA.title).toBe("A")

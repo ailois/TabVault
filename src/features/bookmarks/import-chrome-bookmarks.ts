@@ -11,9 +11,14 @@ type ChromeBookmarkTreeNode = {
 type ImportDependencies = {
   getTree: () => Promise<ChromeBookmarkTreeNode[]>
   bookmarkRepository: BookmarkRepository
+  onBookmarkImported?: (bookmark: BookmarkRecord) => void | Promise<void>
 }
 
-export async function importChromeBookmarks({ getTree, bookmarkRepository }: ImportDependencies): Promise<number> {
+export async function importChromeBookmarks({
+  getTree,
+  bookmarkRepository,
+  onBookmarkImported
+}: ImportDependencies): Promise<number> {
   const tree = await getTree()
   const existing = await bookmarkRepository.list()
   const existingUrls = new Set(existing.map(b => b.url))
@@ -45,6 +50,7 @@ export async function importChromeBookmarks({ getTree, bookmarkRepository }: Imp
         updatedAt: new Date().toISOString()
       }
       await bookmarkRepository.save(record)
+      await onBookmarkImported?.(record)
       count++
     }
   }
