@@ -17,6 +17,12 @@ const EMPTY_FOLLOW_UP_MEMORY = {
   updatedAt: null
 }
 
+const EMPTY_INHERITED_MEMORY = {
+  recentTopicSummary: "",
+  bookmarkIds: [],
+  sourceSessionIds: []
+}
+
 describe("ghostreader session store", () => {
   it("loads empty state when storage has nothing persisted", async () => {
     const get = vi.fn(async () => ({}))
@@ -54,6 +60,7 @@ describe("ghostreader session store", () => {
     const session = createEmptyGhostreaderSession({ id: "session-1", title: "New session" })
 
     expect(session.followUpMemory).toEqual(EMPTY_FOLLOW_UP_MEMORY)
+    expect(session.inheritedMemory).toEqual(EMPTY_INHERITED_MEMORY)
 
     await store.saveSessions({ activeSessionId: session.id, sessions: [session] })
 
@@ -101,7 +108,8 @@ describe("ghostreader session store", () => {
     await expect(store.loadSessions()).resolves.toMatchObject({
       sessions: [
         expect.objectContaining({
-          followUpMemory: EMPTY_FOLLOW_UP_MEMORY
+          followUpMemory: EMPTY_FOLLOW_UP_MEMORY,
+          inheritedMemory: EMPTY_INHERITED_MEMORY
         })
       ]
     })

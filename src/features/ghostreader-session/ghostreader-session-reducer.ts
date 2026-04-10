@@ -22,6 +22,7 @@ type AppendAssistantMessageInput = {
   text: string
   referencedBookmarkIds?: string[]
   retrievalSummary?: string
+  isError?: boolean
 }
 
 type RecordBookmarkAddedEventInput = {
@@ -105,7 +106,8 @@ export function appendAssistantMessage(
     text: input.text,
     createdAt,
     referencedBookmarkIds: input.referencedBookmarkIds ?? [],
-    retrievalSummary: input.retrievalSummary
+    retrievalSummary: input.retrievalSummary,
+    isError: input.isError
   }
 
   return {

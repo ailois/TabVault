@@ -21,4 +21,31 @@ describe("ghostreader session content", () => {
     expect(content).toContain("关于杨幂的书签有哪些？")
     expect(content).toContain("杨幂采访合集")
   })
+
+  it("includes inherited memory summary and bookmark ids in prompt content", () => {
+    const content = buildGhostreaderContent({
+      language: "zh",
+      query: "继续这个话题",
+      currentPageContext: null,
+      rankedResults: [],
+      mode: "cross-bookmark",
+      sessionContext: {
+        followUpMemory: {
+          lastQuery: "",
+          lastAnswer: "",
+          lastReferencedBookmarkIds: [],
+          lastQueryMode: null,
+          updatedAt: null
+        },
+        inheritedMemory: {
+          recentTopicSummary: "之前聊过：杨幂采访与角色盘点",
+          bookmarkIds: ["bm-yangmi-1", "bm-yangmi-2"]
+        }
+      }
+    })
+
+    expect(content).toContain("继承记忆")
+    expect(content).toContain("之前聊过：杨幂采访与角色盘点")
+    expect(content).toContain("bm-yangmi-1, bm-yangmi-2")
+  })
 })

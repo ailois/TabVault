@@ -30,7 +30,10 @@ import {
   createEmptyGhostreaderSession,
   type GhostreaderSession
 } from "../../features/ghostreader-session/ghostreader-session-types"
-import { getGhostreaderSessionSnapshot } from "../../features/ghostreader-session/ghostreader-session-view"
+import {
+  buildGhostreaderInheritedMemory,
+  getGhostreaderTranscript
+} from "../../features/ghostreader-session/ghostreader-session-view"
 import type { GhostreaderQueryMode } from "../../features/hybrid-retrieval/hybrid-types"
 import { detectGhostreaderQueryMode } from "../../features/hybrid-retrieval/query-intent"
 import { retrieveHybridResults } from "../../features/hybrid-retrieval/retrieve-hybrid-results"
@@ -137,7 +140,7 @@ function getMostRecentRestorableSession(
   return state.sessions.find((session) => session.id !== activeSessionId && session.messages.length > 0) ?? null
 }
 
-function buildRecentTurns(session: GhostreaderSession): Array<{ user: string; assistant?: string }> {
+function buildTranscriptTurns(session: GhostreaderSession): Array<{ user: string; assistant?: string }> {
   const turns: Array<{ user: string; assistant?: string }> = []
   let pendingUser: string | null = null
 
@@ -160,7 +163,11 @@ function buildRecentTurns(session: GhostreaderSession): Array<{ user: string; as
     turns.push({ user: pendingUser })
   }
 
-  return turns.slice(-3)
+  return turns
+}
+
+function buildRecentTurns(session: GhostreaderSession): Array<{ user: string; assistant?: string }> {
+  return buildTranscriptTurns(session).slice(-3)
 }
 
 function getFollowUpReferencedBookmarkIds(
@@ -203,10 +210,20 @@ export function DashboardAskBox({
     sessions: [],
     version: GHOSTREADER_SESSIONS_VERSION
   })
+  const ghostreaderSessionStateRef = useRef<GhostreaderPersistedSessions>({
+    activeSessionId: null,
+    sessions: [],
+    version: GHOSTREADER_SESSIONS_VERSION
+  })
   const [activeGhostreaderSession, setActiveGhostreaderSession] = useState<GhostreaderSession | null>(null)
+  const activeGhostreaderSessionRef = useRef<GhostreaderSession | null>(null)
   const [latestGhostreaderResultIds, setLatestGhostreaderResultIds] = useState<string[]>([])
   const [sessionPersistenceDisabled, setSessionPersistenceDisabled] = useState(false)
   const requestIdRef = useRef(0)
+  const dashboardTranscriptTurns = useMemo(
+    () => (activeGhostreaderSession ? buildTranscriptTurns(activeGhostreaderSession) : []),
+    [activeGhostreaderSession]
+  )
   const bookmarkContext = useMemo(() => buildBookmarkContext(bookmark), [bookmark])
   const availableBookmarks = useMemo(() => {
     if (bookmarks && bookmarks.length > 0) {
@@ -225,6 +242,14 @@ export function DashboardAskBox({
     Boolean(activeGhostreaderSession) &&
     activeGhostreaderSession?.messages.length === 0 &&
     !submittedQuery
+
+  useEffect(() => {
+    ghostreaderSessionStateRef.current = ghostreaderSessionState
+  }, [ghostreaderSessionState])
+
+  useEffect(() => {
+    activeGhostreaderSessionRef.current = activeGhostreaderSession
+  }, [activeGhostreaderSession])
 
   useEffect(() => {
     let cancelled = false
@@ -298,38 +323,65 @@ export function DashboardAskBox({
   }
 
   function restoreSessionView(session: GhostreaderSession | null): void {
-    const snapshot = getGhostreaderSessionSnapshot(session)
-    if (!snapshot) {
+    const transcript = getGhostreaderTranscript(session)
+    let lastUserMessageIndex = -1
+
+    for (let index = transcript.length - 1; index >= 0; index -= 1) {
+      if (transcript[index]?.role === "user") {
+        lastUserMessageIndex = index
+        break
+      }
+    }
+
+    const lastUserMessage = lastUserMessageIndex >= 0 ? transcript[lastUserMessageIndex] : null
+    let matchedAssistantMessage: (typeof transcript)[number] | null = null
+
+    if (lastUserMessageIndex >= 0) {
+      for (let index = lastUserMessageIndex + 1; index < transcript.length; index += 1) {
+        const message = transcript[index]
+        if (!message) {
+          continue
+        }
+
+        if (message.role === "user") {
+          break
+        }
+
+        if (message.role === "assistant") {
+          matchedAssistantMessage = message
+          break
+        }
+      }
+    }
+
+    const latestReferencedBookmarkIds = Array.from(
+      new Set([
+        ...(lastUserMessage?.referencedBookmarkIds ?? []),
+        ...(matchedAssistantMessage?.referencedBookmarkIds ?? [])
+      ])
+    )
+
+    if (!lastUserMessage) {
       clearSessionView()
       return
     }
 
-    const restoredResults =
-      snapshot.mode === "cross-bookmark"
-        ? buildResolvedBookmarkResults(availableBookmarks, snapshot.referencedBookmarkIds)
-        : []
+    const mode = lastUserMessage.queryMode ?? "current-only"
+    const restoredResults = mode === "cross-bookmark" ? buildResolvedBookmarkResults(availableBookmarks, latestReferencedBookmarkIds) : []
 
-    setSubmittedQuery(snapshot.query)
-    setSubmittedMode(snapshot.mode)
+    setSubmittedQuery(lastUserMessage.text)
+    setSubmittedMode(mode)
     setRankedResults(restoredResults)
-    setActions(snapshot.mode === "cross-bookmark" ? getLocalizedActions(t, restoredResults) : [])
-    setAnswer(
-      snapshot.answerText
-        ? {
-            text: snapshot.answerText,
-            citations:
-              snapshot.mode === "cross-bookmark"
-                ? restoredResults.slice(0, 3).map((result) => ({
-                    sourceType: result.document.sourceType,
-                    title: result.document.title,
-                    url: result.document.url,
-                    matchReason: result.matchReason
-                  }))
-                : []
-          }
-        : null
-    )
-    setLatestGhostreaderResultIds(snapshot.referencedBookmarkIds)
+    setActions(mode === "cross-bookmark" ? getLocalizedActions(t, restoredResults) : [])
+    setAnswer(null)
+    setLatestGhostreaderResultIds(latestReferencedBookmarkIds)
+  }
+
+  function applySessionState(nextState: GhostreaderPersistedSessions, nextSession: GhostreaderSession): void {
+    ghostreaderSessionStateRef.current = nextState
+    activeGhostreaderSessionRef.current = nextSession
+    setGhostreaderSessionState(nextState)
+    setActiveGhostreaderSession(nextSession)
   }
 
   async function persistGhostreaderSessions(nextState: GhostreaderPersistedSessions): Promise<void> {
@@ -346,15 +398,14 @@ export function DashboardAskBox({
 
   async function handleBookmarkEvent(payload: GhostreaderBookmarkAddedPayload): Promise<void> {
     const baseSession =
-      activeGhostreaderSession ??
+      activeGhostreaderSessionRef.current ??
       createEmptyGhostreaderSession({
         id: createGhostreaderSessionId(),
         title: createGhostreaderSessionTitle()
       })
     const nextSession = recordBookmarkAddedEvent(baseSession, payload)
-    const nextState = upsertSession(ghostreaderSessionState, nextSession)
-    setGhostreaderSessionState(nextState)
-    setActiveGhostreaderSession(nextSession)
+    const nextState = upsertSession(ghostreaderSessionStateRef.current, nextSession)
+    applySessionState(nextState, nextSession)
     setLatestGhostreaderResultIds((current) =>
       current.includes(payload.bookmarkId) ? current : [payload.bookmarkId, ...current].slice(0, 20)
     )
@@ -362,15 +413,18 @@ export function DashboardAskBox({
   }
 
   async function handleStartNewSession(): Promise<void> {
-    const nextSession = createEmptyGhostreaderSession({
+    const baseSession = createEmptyGhostreaderSession({
       id: createGhostreaderSessionId(),
       title: createGhostreaderSessionTitle()
     })
+    const nextSession = {
+      ...baseSession,
+      inheritedMemory: buildGhostreaderInheritedMemory(ghostreaderSessionState.sessions, baseSession.id)
+    }
     const nextState = upsertSession(ghostreaderSessionState, nextSession)
     setQuery("")
     setErrorMessage(null)
-    setGhostreaderSessionState(nextState)
-    setActiveGhostreaderSession(nextSession)
+    applySessionState(nextState, nextSession)
     clearSessionView()
     await persistGhostreaderSessions(nextState)
   }
@@ -422,6 +476,7 @@ export function DashboardAskBox({
           ? "cross-bookmark"
           : detectGhostreaderQueryMode(trimmedQuery)
     const recentTurns = buildRecentTurns(baseSession)
+    const shouldInjectInheritedMemory = baseSession.messages.length === 0
     const recentAddedBookmarks = baseSession.bookmarksAddedInSession.slice(-3).map((event) => ({
       title: event.title,
       url: event.url
@@ -440,15 +495,6 @@ export function DashboardAskBox({
       results: [],
       actions: []
     }
-
-    setQuery("")
-    setSubmittedQuery(trimmedQuery)
-    setSubmittedMode(queryMode)
-    setAnswer(null)
-    setErrorMessage(null)
-    setIsSubmitting(true)
-    setRankedResults([])
-    setActions([])
 
     try {
       const repository =
@@ -470,10 +516,21 @@ export function DashboardAskBox({
 
       if (!selectedProvider?.apiKey.trim()) {
         setErrorMessage(t("sidepanel.apiKeyMissing"))
-        setRankedResults([])
-        setActions([])
+        clearSessionView()
         return
       }
+
+      setQuery("")
+      setSubmittedQuery(trimmedQuery)
+      setSubmittedMode(queryMode)
+      setAnswer(null)
+      setErrorMessage(null)
+      setIsSubmitting(true)
+      setRankedResults([])
+      setActions([])
+
+      const pendingState = upsertSession(ghostreaderSessionStateRef.current, nextSession)
+      applySessionState(pendingState, nextSession)
 
       nextState =
         queryMode === "cross-bookmark"
@@ -506,6 +563,7 @@ export function DashboardAskBox({
             intentSummary: nextSession.intentMemory.summary,
             recentTurns,
             followUpMemory: nextSession.followUpMemory,
+            inheritedMemory: shouldInjectInheritedMemory ? nextSession.inheritedMemory : undefined,
             recentAddedBookmarks
           }
         }),
@@ -518,19 +576,20 @@ export function DashboardAskBox({
       const referencedBookmarkIds = nextState.results
         .filter((result) => result.document.sourceType === "saved-bookmark" && result.document.bookmarkId)
         .map((result) => result.document.bookmarkId as string)
+      let completedSession = activeGhostreaderSessionRef.current ?? nextSession
       if (referencedBookmarkIds.length > 0 || resolvedReferences.bookmarkIds.length > 0) {
-        nextSession = replaceWorkingSet(nextSession, [
+        completedSession = replaceWorkingSet(completedSession, [
           ...resolvedReferences.bookmarkIds,
           ...referencedBookmarkIds,
-          ...nextSession.workingSetBookmarkIds
+          ...completedSession.workingSetBookmarkIds
         ])
       }
-      nextSession = appendAssistantMessage(nextSession, {
+      completedSession = appendAssistantMessage(completedSession, {
         id: `assistant-${Date.now()}`,
         text: analysis.summary,
         referencedBookmarkIds
       })
-      nextSession = updateFollowUpMemory(nextSession, {
+      completedSession = updateFollowUpMemory(completedSession, {
         lastQuery: trimmedQuery,
         lastAnswer: formatFollowUpAnswer(analysis.summary),
         lastReferencedBookmarkIds: getFollowUpReferencedBookmarkIds(
@@ -539,9 +598,8 @@ export function DashboardAskBox({
         ),
         lastQueryMode: queryMode
       })
-      const persistedState = upsertSession(ghostreaderSessionState, nextSession)
-      setGhostreaderSessionState(persistedState)
-      setActiveGhostreaderSession(nextSession)
+      const persistedState = upsertSession(ghostreaderSessionStateRef.current, completedSession)
+      applySessionState(persistedState, completedSession)
       setLatestGhostreaderResultIds(referencedBookmarkIds)
       await persistGhostreaderSessions(persistedState)
 
@@ -569,12 +627,13 @@ export function DashboardAskBox({
             trimmedQuery,
             buildCurrentPageFallbackResults(bookmarkContext)
           )
-          nextSession = appendAssistantMessage(nextSession, {
+          let completedSession = activeGhostreaderSessionRef.current ?? nextSession
+          completedSession = appendAssistantMessage(completedSession, {
             id: `assistant-fallback-${Date.now()}`,
             text: fallbackAnswer.text,
             referencedBookmarkIds: []
           })
-          nextSession = updateFollowUpMemory(nextSession, {
+          completedSession = updateFollowUpMemory(completedSession, {
             lastQuery: trimmedQuery,
             lastAnswer: formatFollowUpAnswer(fallbackAnswer.text),
             lastReferencedBookmarkIds: getFollowUpReferencedBookmarkIds(
@@ -583,9 +642,8 @@ export function DashboardAskBox({
             ),
             lastQueryMode: queryMode
           })
-          const persistedState = upsertSession(ghostreaderSessionState, nextSession)
-          setGhostreaderSessionState(persistedState)
-          setActiveGhostreaderSession(nextSession)
+          const persistedState = upsertSession(ghostreaderSessionStateRef.current, completedSession)
+          applySessionState(persistedState, completedSession)
           setRankedResults([])
           setActions([])
           setLatestGhostreaderResultIds([])
@@ -600,20 +658,21 @@ export function DashboardAskBox({
         const referencedBookmarkIds = nextState.results
           .filter((result) => result.document.sourceType === "saved-bookmark" && result.document.bookmarkId)
           .map((result) => result.document.bookmarkId as string)
+        let completedSession = activeGhostreaderSessionRef.current ?? nextSession
         if (referencedBookmarkIds.length > 0 || resolvedReferences.bookmarkIds.length > 0) {
-          nextSession = replaceWorkingSet(nextSession, [
+          completedSession = replaceWorkingSet(completedSession, [
             ...resolvedReferences.bookmarkIds,
             ...referencedBookmarkIds,
-            ...nextSession.workingSetBookmarkIds
+            ...completedSession.workingSetBookmarkIds
           ])
         }
         const fallbackAnswer = buildLocalizedAnswerBlock(language, t("hybrid.query.query"), trimmedQuery, nextState.results)
-        nextSession = appendAssistantMessage(nextSession, {
+        completedSession = appendAssistantMessage(completedSession, {
           id: `assistant-fallback-${Date.now()}`,
           text: fallbackAnswer.text,
           referencedBookmarkIds
         })
-        nextSession = updateFollowUpMemory(nextSession, {
+        completedSession = updateFollowUpMemory(completedSession, {
           lastQuery: trimmedQuery,
           lastAnswer: formatFollowUpAnswer(fallbackAnswer.text),
           lastReferencedBookmarkIds: getFollowUpReferencedBookmarkIds(
@@ -622,9 +681,8 @@ export function DashboardAskBox({
           ),
           lastQueryMode: queryMode
         })
-        const persistedState = upsertSession(ghostreaderSessionState, nextSession)
-        setGhostreaderSessionState(persistedState)
-        setActiveGhostreaderSession(nextSession)
+        const persistedState = upsertSession(ghostreaderSessionStateRef.current, completedSession)
+        applySessionState(persistedState, completedSession)
         setLatestGhostreaderResultIds(referencedBookmarkIds)
         await persistGhostreaderSessions(persistedState)
         setRankedResults(nextState.results)
@@ -633,7 +691,18 @@ export function DashboardAskBox({
         return
       }
 
-      setErrorMessage(getLocalizedErrorMessage(language, error, "sidepanel.error.ghostreaderFailed"))
+      const localizedError = getLocalizedErrorMessage(language, error, "sidepanel.error.ghostreaderFailed")
+      let completedSession = activeGhostreaderSessionRef.current ?? nextSession
+      completedSession = appendAssistantMessage(completedSession, {
+        id: `assistant-error-${Date.now()}`,
+        text: localizedError,
+        referencedBookmarkIds: [],
+        isError: true
+      })
+      const persistedState = upsertSession(ghostreaderSessionStateRef.current, completedSession)
+      applySessionState(persistedState, completedSession)
+      await persistGhostreaderSessions(persistedState)
+      setErrorMessage(localizedError)
     } finally {
       if (requestIdRef.current === requestId) {
         setIsSubmitting(false)
@@ -777,18 +846,27 @@ export function DashboardAskBox({
           {errorMessage}
         </div>
       ) : null}
-      {submittedQuery ? (
-        <div style={{ marginTop: spacing.sm }}>
-          <HybridQueryStream
-            actions={actions}
-            answer={answer}
-            language={language}
-            onAction={handleAction}
-            onOpenBookmark={onOpenBookmark}
-            query={submittedQuery}
-            rankedResults={rankedResults}
-            showSupportingResults={submittedMode === "cross-bookmark"}
-          />
+      {dashboardTranscriptTurns.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm, marginTop: spacing.sm }}>
+          {dashboardTranscriptTurns.map((turn, index) => {
+            const isLastTurn = index === dashboardTranscriptTurns.length - 1
+            const transcriptAnswer = turn.assistant ? { text: turn.assistant, citations: [] } : null
+            const turnAnswer = isLastTurn ? answer ?? transcriptAnswer : transcriptAnswer
+
+            return (
+              <HybridQueryStream
+                actions={isLastTurn ? actions : []}
+                answer={turnAnswer}
+                key={`${turn.user}-${index}`}
+                language={language}
+                onAction={handleAction}
+                onOpenBookmark={onOpenBookmark}
+                query={turn.user}
+                rankedResults={isLastTurn ? rankedResults : []}
+                showSupportingResults={isLastTurn && submittedMode === "cross-bookmark"}
+              />
+            )
+          })}
         </div>
       ) : null}
     </div>

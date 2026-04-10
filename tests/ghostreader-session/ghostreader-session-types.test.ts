@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { createEmptyGhostreaderSession } from "../../src/features/ghostreader-session/ghostreader-session-types"
 
 describe("ghostreader session types", () => {
-  it("creates an empty active session with intent memory and working set", () => {
+  it("creates an empty active session with intent memory, working set, and inherited memory", () => {
     const session = createEmptyGhostreaderSession({ id: "session-1", title: "New session" })
 
     expect(session.id).toBe("session-1")
@@ -16,6 +16,11 @@ describe("ghostreader session types", () => {
       summary: "",
       updatedAt: null,
       source: "rule-based"
+    })
+    expect(session.inheritedMemory).toEqual({
+      recentTopicSummary: "",
+      bookmarkIds: [],
+      sourceSessionIds: []
     })
   })
 })

@@ -19,10 +19,16 @@ type GhostreaderFollowUpMemoryContext = {
 type GhostreaderLanguage = "en" | "zh"
 type GhostreaderPromptCopy = (typeof GHOSTREADER_PROMPT_COPY)[GhostreaderLanguage]
 
+type GhostreaderInheritedMemoryContext = {
+  recentTopicSummary: string
+  bookmarkIds: string[]
+}
+
 type GhostreaderSessionContext = {
   intentSummary?: string
   recentTurns?: GhostreaderRecentTurn[]
   followUpMemory?: GhostreaderFollowUpMemoryContext
+  inheritedMemory?: GhostreaderInheritedMemoryContext
   recentAddedBookmarks?: Array<{ title: string; url: string }>
 }
 
@@ -43,6 +49,7 @@ const GHOSTREADER_PROMPT_COPY = {
     sessionIntent: "Current session goal",
     sessionRecentMessages: "Recent turns",
     sessionFollowUpMemory: "Follow-up memory",
+    sessionInheritedMemory: "Inherited memory",
     sessionRecentAddedBookmarks: "Recently added bookmarks",
     savedMatchTitle: (index: number) => `Saved match ${index} title`,
     savedMatchUrl: (index: number) => `Saved match ${index} URL`,
@@ -65,6 +72,7 @@ const GHOSTREADER_PROMPT_COPY = {
     sessionIntent: "当前会话目标",
     sessionRecentMessages: "最近对话",
     sessionFollowUpMemory: "follow-up",
+    sessionInheritedMemory: "继承记忆",
     sessionRecentAddedBookmarks: "最近新增书签",
     savedMatchTitle: (index: number) => `匹配书签 ${index} 标题`,
     savedMatchUrl: (index: number) => `匹配书签 ${index} URL`,
@@ -237,6 +245,16 @@ function buildSessionBlock(
   ) {
     sections.push(
       `${copy.sessionFollowUpMemory}:\n- lastQuery: ${sessionContext.followUpMemory.lastQuery || ""}\n- lastAnswer: ${sessionContext.followUpMemory.lastAnswer || ""}\n- lastReferencedBookmarkIds: ${sessionContext.followUpMemory.lastReferencedBookmarkIds.join(", ") || "none"}\n- lastQueryMode: ${sessionContext.followUpMemory.lastQueryMode ?? "none"}`
+    )
+  }
+
+  if (
+    sessionContext.inheritedMemory &&
+    (sessionContext.inheritedMemory.recentTopicSummary.trim() ||
+      sessionContext.inheritedMemory.bookmarkIds.length > 0)
+  ) {
+    sections.push(
+      `${copy.sessionInheritedMemory}:\n- recentTopicSummary: ${sessionContext.inheritedMemory.recentTopicSummary || ""}\n- bookmarkIds: ${sessionContext.inheritedMemory.bookmarkIds.join(", ") || "none"}`
     )
   }
 

@@ -66,12 +66,15 @@ function defaultStorage(): StorageShape {
 }
 
 function normalizeSessionShape(session: GhostreaderSession): GhostreaderSession {
+  const emptySession = createEmptyGhostreaderSession({
+    id: session.id,
+    title: session.title
+  })
+
   return {
     ...session,
-    followUpMemory: session.followUpMemory ?? createEmptyGhostreaderSession({
-      id: session.id,
-      title: session.title
-    }).followUpMemory
+    followUpMemory: session.followUpMemory ?? emptySession.followUpMemory,
+    inheritedMemory: session.inheritedMemory ?? emptySession.inheritedMemory
   }
 }
 

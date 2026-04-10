@@ -40,7 +40,10 @@ import {
   type GhostreaderPersistedSessions
 } from "./features/ghostreader-session/ghostreader-session-store"
 import { createEmptyGhostreaderSession, type GhostreaderSession } from "./features/ghostreader-session/ghostreader-session-types"
-import { getGhostreaderSessionSnapshot } from "./features/ghostreader-session/ghostreader-session-view"
+import {
+  buildGhostreaderInheritedMemory,
+  getGhostreaderTranscript
+} from "./features/ghostreader-session/ghostreader-session-view"
 import { APP_SETTINGS_KEY, ChromeSettingsRepository } from "./lib/config/chrome-settings-repository"
 import type { SettingsRepository } from "./lib/config/settings-repository"
 import { ChromeThemeRepository } from "./lib/config/theme-repository"
@@ -158,7 +161,7 @@ function getMostRecentRestorableSession(
   return state.sessions.find((session) => session.id !== activeSessionId && session.messages.length > 0) ?? null
 }
 
-function buildRecentTurns(session: GhostreaderSession): Array<{ user: string; assistant?: string }> {
+function buildTranscriptTurns(session: GhostreaderSession): Array<{ user: string; assistant?: string }> {
   const turns: Array<{ user: string; assistant?: string }> = []
   let pendingUser: string | null = null
 
@@ -181,7 +184,11 @@ function buildRecentTurns(session: GhostreaderSession): Array<{ user: string; as
     turns.push({ user: pendingUser })
   }
 
-  return turns.slice(-3)
+  return turns
+}
+
+function buildRecentTurns(session: GhostreaderSession): Array<{ user: string; assistant?: string }> {
+  return buildTranscriptTurns(session).slice(-3)
 }
 
 function getFollowUpReferencedBookmarkIds(
@@ -409,11 +416,19 @@ export default function SidePanel({ services }: SidePanelProps) {
     }
   }, [activeView, runHybridRetrieval, searchQuery, submittedGhostreaderQuery])
 
+  const ghostreaderTranscript = useMemo(
+    () => getGhostreaderTranscript(activeGhostreaderSession),
+    [activeGhostreaderSession]
+  )
+  const ghostreaderTranscriptTurns = useMemo(
+    () => (activeGhostreaderSession ? buildTranscriptTurns(activeGhostreaderSession) : []),
+    [activeGhostreaderSession]
+  )
   const activeQuery = activeView === "search" ? searchQuery.trim() : submittedGhostreaderQuery
   const activeRankedResults = activeView === "search" ? searchResults : ghostreaderResults
   const activeActionCards = activeView === "search" ? searchActionCards : ghostreaderActionCards
   const activeAnswerBlock = activeView === "search" ? searchAnswerBlock : ghostreaderAnswerBlock
-  const shouldShowQueryStream = Boolean(activeView && activeQuery)
+  const shouldShowSearchStream = activeView === "search" && Boolean(activeQuery)
   const restorableGhostreaderSession = useMemo(
     () => getMostRecentRestorableSession(ghostreaderSessionState, activeGhostreaderSession?.id ?? null),
     [activeGhostreaderSession?.id, ghostreaderSessionState]
@@ -554,6 +569,7 @@ export default function SidePanel({ services }: SidePanelProps) {
     const queryMode: GhostreaderQueryMode =
       resolvedReferences.bookmarkIds.length > 0 ? "cross-bookmark" : detectGhostreaderQueryMode(query)
     const recentTurns = buildRecentTurns(baseSession)
+    const shouldInjectInheritedMemory = baseSession.messages.length === 0
     const recentAddedBookmarks = baseSession.bookmarksAddedInSession.slice(-3).map((event) => ({
       title: event.title,
       url: event.url
@@ -632,6 +648,7 @@ export default function SidePanel({ services }: SidePanelProps) {
             intentSummary: nextSession.intentMemory.summary,
             recentTurns,
             followUpMemory: nextSession.followUpMemory,
+            inheritedMemory: shouldInjectInheritedMemory ? nextSession.inheritedMemory : undefined,
             recentAddedBookmarks
           }
         }),
@@ -767,7 +784,18 @@ export default function SidePanel({ services }: SidePanelProps) {
         return
       }
 
-      setErrorMessage(getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.ghostreaderFailed"))
+      const localizedError = getLocalizedErrorMessage(displayLanguage, error, "sidepanel.error.ghostreaderFailed")
+      nextSession = appendAssistantMessage(nextSession, {
+        id: `assistant-error-${Date.now()}`,
+        text: localizedError,
+        referencedBookmarkIds: [],
+        isError: true
+      })
+      const persistedState = upsertSession(ghostreaderSessionState, nextSession)
+      setGhostreaderSessionState(persistedState)
+      setActiveGhostreaderSession(nextSession)
+      await persistGhostreaderSessions(persistedState)
+      setErrorMessage(localizedError)
     } finally {
       setIsGhostreaderSubmitting(false)
     }
@@ -836,22 +864,59 @@ export default function SidePanel({ services }: SidePanelProps) {
   }
 
   function restoreGhostreaderView(session: GhostreaderSession | null): void {
-    const snapshot = getGhostreaderSessionSnapshot(session)
-    if (!snapshot) {
+    const transcript = getGhostreaderTranscript(session)
+    let lastUserMessageIndex = -1
+
+    for (let index = transcript.length - 1; index >= 0; index -= 1) {
+      if (transcript[index]?.role === "user") {
+        lastUserMessageIndex = index
+        break
+      }
+    }
+
+    const lastUserMessage = lastUserMessageIndex >= 0 ? transcript[lastUserMessageIndex] : null
+    let matchedAssistantMessage: (typeof transcript)[number] | null = null
+
+    if (lastUserMessageIndex >= 0) {
+      for (let index = lastUserMessageIndex + 1; index < transcript.length; index += 1) {
+        const message = transcript[index]
+        if (!message) {
+          continue
+        }
+
+        if (message.role === "user") {
+          break
+        }
+
+        if (message.role === "assistant") {
+          matchedAssistantMessage = message
+          break
+        }
+      }
+    }
+
+    const latestReferencedBookmarkIds = Array.from(
+      new Set([
+        ...(lastUserMessage?.referencedBookmarkIds ?? []),
+        ...(matchedAssistantMessage?.referencedBookmarkIds ?? [])
+      ])
+    )
+
+    if (!lastUserMessage) {
       clearGhostreaderView()
       return
     }
 
     const restoredResults =
-      snapshot.mode === "cross-bookmark"
-        ? buildResolvedBookmarkResults(bookmarks, snapshot.referencedBookmarkIds)
+      lastUserMessage.queryMode === "cross-bookmark"
+        ? buildResolvedBookmarkResults(bookmarks, latestReferencedBookmarkIds)
         : []
 
-    setSubmittedGhostreaderQuery(snapshot.query)
-    setSubmittedGhostreaderMode(snapshot.mode)
+    setSubmittedGhostreaderQuery(lastUserMessage.text)
+    setSubmittedGhostreaderMode(lastUserMessage.queryMode ?? "current-only")
     setGhostreaderResults(restoredResults)
     setGhostreaderActionCards(
-      snapshot.mode === "cross-bookmark"
+      (lastUserMessage.queryMode ?? "current-only") === "cross-bookmark"
         ? buildActionCards({ hasCurrentPage: false, hasSavedMatches: restoredResults.length > 0 }).map((action) => ({
             ...action,
             label:
@@ -863,23 +928,8 @@ export default function SidePanel({ services }: SidePanelProps) {
           }))
         : []
     )
-    setGhostreaderAnswerBlock(
-      snapshot.answerText
-        ? {
-            text: snapshot.answerText,
-            citations:
-              snapshot.mode === "cross-bookmark"
-                ? restoredResults.slice(0, 3).map((result) => ({
-                    sourceType: result.document.sourceType,
-                    title: result.document.title,
-                    url: result.document.url,
-                    matchReason: result.matchReason
-                  }))
-                : []
-          }
-        : null
-    )
-    setLatestGhostreaderResultIds(snapshot.referencedBookmarkIds)
+    setGhostreaderAnswerBlock(null)
+    setLatestGhostreaderResultIds(latestReferencedBookmarkIds)
     setActiveView("ask")
   }
 
@@ -896,10 +946,17 @@ export default function SidePanel({ services }: SidePanelProps) {
   }
 
   async function handleStartNewGhostreaderSession(): Promise<void> {
-    const nextSession = createEmptyGhostreaderSession({
+    const baseSession = createEmptyGhostreaderSession({
       id: createGhostreaderSessionId(),
       title: createGhostreaderSessionTitle()
     })
+    const nextSession = {
+      ...baseSession,
+      inheritedMemory: buildGhostreaderInheritedMemory(
+        ghostreaderSessionState.sessions,
+        baseSession.id
+      )
+    }
     const nextState = upsertSession(ghostreaderSessionState, nextSession)
     setGhostreaderInput("")
     setGhostreaderSessionState(nextState)
@@ -1097,14 +1154,14 @@ export default function SidePanel({ services }: SidePanelProps) {
           </div>
 
           <section style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: `0 ${spacing.md} ${spacing.md}` }}>
-            {shouldShowQueryStream ? (
+            {shouldShowSearchStream ? (
               <HybridQueryStream
                 query={activeQuery}
                 rankedResults={activeRankedResults}
                 actions={activeActionCards}
                 answer={activeAnswerBlock}
                 language={displayLanguage}
-                showSupportingResults={activeView === "search" || submittedGhostreaderMode === "cross-bookmark"}
+                showSupportingResults={true}
                 onOpenBookmark={(bookmarkId) => {
                   const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
                   setSelectedBookmark(bookmark)
@@ -1113,6 +1170,37 @@ export default function SidePanel({ services }: SidePanelProps) {
                   void handleHybridAction(actionId)
                 }}
               />
+            ) : activeView === "ask" && ghostreaderTranscriptTurns.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
+                {ghostreaderTranscriptTurns.map((turn, index) => {
+                  const isLastTurn = index === ghostreaderTranscriptTurns.length - 1
+                  const transcriptAnswer = turn.assistant ? { text: turn.assistant, citations: [] } : null
+                  const turnAnswer = isLastTurn ? activeAnswerBlock ?? transcriptAnswer : transcriptAnswer
+
+                  return (
+                    <React.Fragment key={`${turn.user}-${index}`}>
+                      <HybridQueryStream
+                        query={turn.user}
+                        rankedResults={isLastTurn ? activeRankedResults : []}
+                        actions={isLastTurn ? activeActionCards : []}
+                        answer={turnAnswer}
+                        language={displayLanguage}
+                        showSupportingResults={isLastTurn && submittedGhostreaderMode === "cross-bookmark"}
+                        onOpenBookmark={(bookmarkId) => {
+                          const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
+                          setSelectedBookmark(bookmark)
+                        }}
+                        onAction={(actionId) => {
+                          if (!isLastTurn) {
+                            return
+                          }
+                          void handleHybridAction(actionId)
+                        }}
+                      />
+                    </React.Fragment>
+                  )
+                })}
+              </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
                 <div style={{

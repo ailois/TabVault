@@ -147,6 +147,84 @@ describe("Dashboard ask box", () => {
     expect(secondCall?.content).toContain("关于杨幂的书签有哪些？")
   })
 
+  it("keeps prior dashboard Ghostreader turns visible after follow-up questions", async () => {
+    const analyze = vi
+      .fn(async () => ({ summary: "unused", tags: [] }))
+      .mockResolvedValueOnce({ summary: "第一轮回答", tags: [] })
+      .mockResolvedValueOnce({ summary: "第二轮回答", tags: [] })
+
+    await renderSidebar(createBookmark(), "zh", {
+      createProvider: vi.fn(() => ({ analyze })),
+      settingsRepository: createSettingsRepository(),
+      ghostreaderSessionStore: createGhostreaderSessionStore()
+    })
+
+    await submitDashboardQuestion("先总结这个书签")
+    await submitDashboardQuestion("再详细一点")
+
+    const secondCall = analyze.mock.calls.at(1)?.at(0) as { content: string } | undefined
+    expect(secondCall?.content).toContain("先总结这个书签")
+    expect(container?.textContent).toContain("先总结这个书签")
+    expect(container?.textContent).toContain("第一轮回答")
+    expect(container?.textContent).toContain("再详细一点")
+    expect(container?.textContent).toContain("第二轮回答")
+  })
+
+  it("injects inherited memory only on the first dashboard turn after starting a new session", async () => {
+    const analyze = vi
+      .fn(async () => ({ summary: "unused", tags: [] }))
+      .mockResolvedValueOnce({ summary: "旧会话回答", tags: [] })
+      .mockResolvedValueOnce({ summary: "新会话首轮回答", tags: [] })
+      .mockResolvedValueOnce({ summary: "新会话次轮回答", tags: [] })
+
+    await renderSidebar(
+      createBookmark({
+        id: "bm-yangmi",
+        title: "Yang Mi interview archive",
+        url: "https://yangmi.example",
+        extractedText: "Yang Mi profile and interview references"
+      }),
+      "zh",
+      {
+        bookmarks: [
+          createBookmark({
+            id: "bm-yangmi",
+            title: "Yang Mi interview archive",
+            url: "https://yangmi.example",
+            extractedText: "Yang Mi profile and interview references"
+          })
+        ],
+        createProvider: vi.fn(() => ({ analyze })),
+        settingsRepository: createSettingsRepository(),
+        ghostreaderSessionStore: createGhostreaderSessionStore()
+      }
+    )
+
+    await submitDashboardQuestion("What bookmarks mention Yang Mi?")
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-new-session']")?.click()
+    })
+
+    expect(container?.textContent).not.toContain("旧会话回答")
+
+    await submitDashboardQuestion("继续聊杨幂")
+    await submitDashboardQuestion("再补充两点")
+
+    const firstTurnAfterNewSession = analyze.mock.calls.at(1)?.at(0) as { content: string } | undefined
+    const secondTurnAfterNewSession = analyze.mock.calls.at(2)?.at(0) as { content: string } | undefined
+
+    expect(firstTurnAfterNewSession?.content).toContain("继承记忆")
+    expect(firstTurnAfterNewSession?.content).toContain("What bookmarks mention Yang Mi?")
+    expect(firstTurnAfterNewSession?.content).toContain("recentTopicSummary")
+    expect(firstTurnAfterNewSession?.content).toContain("bm-yangmi")
+
+    expect(secondTurnAfterNewSession?.content).not.toContain("Inherited memory")
+    expect(secondTurnAfterNewSession?.content).not.toContain("recentTopicSummary")
+    expect(secondTurnAfterNewSession?.content).not.toContain("bm-yangmi")
+    expect(container?.textContent).not.toContain("旧会话回答")
+  })
+
   it("keeps current-bookmark summary questions out of cross-bookmark dashboard context", async () => {
     const provider = {
       analyze: vi.fn(async () => ({ summary: "This bookmark focuses on React UI concepts.", tags: [] }))
@@ -287,7 +365,10 @@ describe("Dashboard ask box", () => {
 
   it("starts a new dashboard session and can continue the previous one", async () => {
     const provider = {
-      analyze: vi.fn(async () => ({ summary: "First dashboard answer", tags: [] }))
+      analyze: vi
+        .fn(async () => ({ summary: "unused", tags: [] }))
+        .mockResolvedValueOnce({ summary: "First dashboard answer", tags: [] })
+        .mockResolvedValueOnce({ summary: "Second dashboard answer", tags: [] })
     }
     const ghostreaderSessionStore = createGhostreaderSessionStore()
 
@@ -317,23 +398,61 @@ describe("Dashboard ask box", () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
     })
 
-    expect(container?.textContent).toContain("First dashboard answer")
+    await act(async () => {
+      setValue?.call(input, "Can you summarize it?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-submit']")?.click()
+    })
+
     expect(container?.textContent).toContain("What is this page?")
+    expect(container?.textContent).toContain("First dashboard answer")
+    expect(container?.textContent).toContain("Can you summarize it?")
+    expect(container?.textContent).toContain("Second dashboard answer")
 
     await act(async () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-new-session']")?.click()
     })
 
     expect(container?.textContent).not.toContain("First dashboard answer")
-    expect(container?.textContent).not.toContain("What is this page?")
+    expect(container?.textContent).not.toContain("Second dashboard answer")
     expect(container?.querySelector("[data-testid='dashboard-ask-continue-session']")).not.toBeNull()
 
     await act(async () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ask-continue-session']")?.click()
     })
 
-    expect(container?.textContent).toContain("First dashboard answer")
     expect(container?.textContent).toContain("What is this page?")
+    expect(container?.textContent).toContain("First dashboard answer")
+    expect(container?.textContent).toContain("Can you summarize it?")
+    expect(container?.textContent).toContain("Second dashboard answer")
+  })
+
+  it("keeps transcript and appends an assistant error turn when a later dashboard ask fails", async () => {
+    const analyze = vi.fn(async (_input: unknown) => {
+      if (analyze.mock.calls.length === 1) {
+        return { summary: "第一轮正常回答", tags: [] }
+      }
+
+      const error = new Error("OpenAI-compatible authentication failed") as Error & { code?: string }
+      error.code = "auth_error"
+      throw error
+    })
+
+    await renderSidebar(createBookmark(), "zh", {
+      createProvider: vi.fn(() => ({ analyze })),
+      settingsRepository: createSettingsRepository(),
+      ghostreaderSessionStore: createGhostreaderSessionStore()
+    })
+
+    await submitDashboardQuestion("第一问")
+    await submitDashboardQuestion("第二问")
+
+    expect(container?.textContent).toContain("第一问")
+    expect(container?.textContent).toContain("第一轮正常回答")
+    expect(container?.textContent).toContain("第二问")
+    expect(container?.textContent).toContain("OpenAI-compatible 身份验证失败")
   })
 
   it("ignores an in-flight Ghostreader response after switching to another bookmark", async () => {
@@ -516,6 +635,84 @@ describe("Dashboard ask box", () => {
     expect(container?.textContent).not.toContain("Old bookmark answer")
   })
 
+  it("preserves bookmark-added session events while a dashboard response is in flight", async () => {
+    let resolveAnalyze: ((value: { summary: string; tags: string[] }) => void) | null = null
+    const provider = {
+      analyze: vi.fn(
+        () =>
+          new Promise<{ summary: string; tags: string[] }>((resolve) => {
+            resolveAnalyze = resolve
+          })
+      )
+    }
+    const ghostreaderSessionStore = createGhostreaderSessionStore()
+
+    await renderSidebar(createBookmark(), "en", {
+      createProvider: vi.fn(() => provider),
+      settingsRepository: createSettingsRepository(),
+      ghostreaderSessionStore
+    })
+
+    await submitDashboardQuestion("What did I just save?")
+
+    await rerenderSidebar(createBookmark(), "en", {
+      createProvider: vi.fn(() => provider),
+      settingsRepository: createSettingsRepository(),
+      ghostreaderSessionStore,
+      latestGhostreaderBookmarkEvent: {
+        bookmarkId: "saved-bm",
+        title: "Saved bookmark",
+        url: "https://saved.example",
+        source: "session-action"
+      }
+    })
+
+    await act(async () => {
+      resolveAnalyze?.({ summary: "Saved bookmark answer", tags: [] })
+      await Promise.resolve()
+    })
+
+    const savedState = await ghostreaderSessionStore.loadSessions()
+    const activeSession = savedState.sessions.find((session) => session.id === savedState.activeSessionId)
+    expect(activeSession?.bookmarksAddedInSession).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ bookmarkId: "saved-bm", title: "Saved bookmark" })
+      ])
+    )
+  })
+
+  it("does not leave a pending dashboard turn when the API key is missing", async () => {
+    const settingsRepository: SettingsRepository = {
+      getAppSettings: async () => ({ ...DEFAULT_APP_SETTINGS, defaultProvider: "openai", summaryLanguage: "en" }),
+      saveAppSettings: async () => {},
+      getProviders: async () => [
+        {
+          provider: "openai",
+          enabled: true,
+          apiKey: "",
+          model: "gpt-test"
+        }
+      ],
+      saveProviders: async () => {}
+    }
+    const ghostreaderSessionStore = createGhostreaderSessionStore()
+
+    await renderSidebar(createBookmark(), "en", {
+      createProvider: vi.fn(() => ({ analyze: vi.fn(async () => ({ summary: "unused", tags: [] })) })),
+      settingsRepository,
+      ghostreaderSessionStore
+    })
+
+    await submitDashboardQuestion("Why is my key missing?")
+
+    expect(container?.textContent).toContain("API key")
+    expect(container?.textContent).not.toContain("Why is my key missing?")
+
+    const savedState = await ghostreaderSessionStore.loadSessions()
+    const activeSession = savedState.sessions.find((session) => session.id === savedState.activeSessionId)
+    expect(activeSession?.messages ?? []).toEqual([])
+  })
+
   it("clears previous supporting results when a later dashboard ask fails", async () => {
     const provider = {
       analyze: vi.fn(async (_input: unknown) => {
@@ -569,8 +766,13 @@ describe("Dashboard ask box", () => {
     })
 
     expect(container?.textContent).toContain("OpenAI-compatible authentication failed")
-    expect(container?.textContent).not.toContain("Yang Mi interview archive")
-    expect(container?.textContent).not.toContain("Yang Mi matches found.")
+    expect(container?.textContent).toContain("Yang Mi matches found.")
+
+    const supportingResults = Array.from(
+      container?.querySelectorAll<HTMLElement>("[data-testid='hybrid-supporting-result-title']") ?? []
+    ).map((element) => element.textContent ?? "")
+
+    expect(supportingResults).not.toContain("Yang Mi interview archive")
   })
 
   it("uses fresh retrieval results for dashboard fallback instead of stale previous matches", async () => {
@@ -648,6 +850,7 @@ async function renderSidebar(
     settingsRepository?: SettingsRepository
     createProvider?: (config: ProviderConfig) => AiProvider
     ghostreaderSessionStore?: Pick<ChromeGhostreaderSessionStore, "loadSessions" | "saveSessions" | "clearActiveSession">
+    latestGhostreaderBookmarkEvent?: { bookmarkId: string; title: string; url: string; source: "manual" | "page-save" | "session-action" } | null
   } = {}
 ) {
   container = document.createElement("div")
@@ -675,6 +878,7 @@ async function rerenderSidebar(
     settingsRepository?: SettingsRepository
     createProvider?: (config: ProviderConfig) => AiProvider
     ghostreaderSessionStore?: Pick<ChromeGhostreaderSessionStore, "loadSessions" | "saveSessions" | "clearActiveSession">
+    latestGhostreaderBookmarkEvent?: { bookmarkId: string; title: string; url: string; source: "manual" | "page-save" | "session-action" } | null
   } = {}
 ) {
   await act(async () => {

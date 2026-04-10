@@ -163,8 +163,11 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).not.toContain("React Notes")
   })
 
-  it("continues the active Ghostreader session for follow-up questions", async () => {
-    const analyze = vi.fn(async () => ({ summary: "follow-up answer", tags: [] }))
+  it("keeps previous user and assistant turns visible after follow-up questions", async () => {
+    const analyze = vi
+      .fn(async () => ({ summary: "unused", tags: [] }))
+      .mockResolvedValueOnce({ summary: "first answer", tags: [] })
+      .mockResolvedValueOnce({ summary: "second answer", tags: [] })
 
     await renderSidePanel(
       createServices({
@@ -204,10 +207,158 @@ describe("SidePanel Ghostreader", () => {
 
     const secondCall = analyze.mock.calls.at(1)?.at(0) as { content: string } | undefined
     expect(secondCall?.content).toContain("关于杨幂的书签有哪些？")
+    expect(container?.textContent).toContain("关于杨幂的书签有哪些？")
+    expect(container?.textContent).toContain("first answer")
+    expect(container?.textContent).toContain("帮我总结一下这个书签")
+    expect(container?.textContent).toContain("second answer")
   })
 
-  it("starts a new session and can continue the previous one", async () => {
-    const analyze = vi.fn(async () => ({ summary: "First session answer", tags: [] }))
+  it("updates last transcript answer when clicking action cards", async () => {
+    const analyze = vi
+      .fn(async () => ({ summary: "unused", tags: [] }))
+      .mockResolvedValueOnce({ summary: "Follow-up answer", tags: [] })
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "yangmi-bookmark",
+              title: "Yang Mi interview archive",
+              url: "https://example.com/yangmi",
+              extractedText: "Yang Mi profile and interview references"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    const actionButton = container?.querySelector<HTMLButtonElement>("[data-testid='hybrid-action-ask-top-matches']")
+    expect(actionButton).not.toBeNull()
+
+    const answerCardsBefore = container?.querySelectorAll<HTMLElement>("[data-testid='hybrid-answer-card']")
+    const lastAnswerBefore = answerCardsBefore?.item((answerCardsBefore.length ?? 1) - 1)?.textContent ?? ""
+    expect(lastAnswerBefore).toContain("Follow-up answer")
+
+    await act(async () => {
+      actionButton?.click()
+    })
+
+    const answerCardsAfter = container?.querySelectorAll<HTMLElement>("[data-testid='hybrid-answer-card']")
+    const lastAnswerAfter = answerCardsAfter?.item((answerCardsAfter.length ?? 1) - 1)?.textContent ?? ""
+    expect(lastAnswerAfter).not.toContain("Follow-up answer")
+    expect(lastAnswerAfter).toContain("Based on Yang Mi interview archive")
+  })
+
+  it("injects inherited memory only on the first turn after starting a new session", async () => {
+    const analyze = vi
+      .fn(async () => ({ summary: "unused", tags: [] }))
+      .mockResolvedValueOnce({ summary: "Legacy answer", tags: [] })
+      .mockResolvedValueOnce({ summary: "New session first answer", tags: [] })
+      .mockResolvedValueOnce({ summary: "New session second answer", tags: [] })
+
+    await renderSidePanel(
+      createServices({
+        createProvider: vi.fn(() => ({ analyze })),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({
+              id: "bm-yangmi",
+              title: "Yang Mi interview archive",
+              url: "https://example.com/yangmi",
+              extractedText: "Yang Mi profile and interview references"
+            })
+          ])
+        }),
+        settingsRepository: createSettingsRepository({
+          getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [
+            {
+              provider: "openai",
+              apiKey: "test-key",
+              baseUrl: "https://api.openai.com/v1",
+              model: "gpt-4o-mini",
+              enabled: true
+            }
+          ])
+        })
+      })
+    )
+
+    const input = container?.querySelector<HTMLInputElement>("[data-testid='ghostreader-input']")
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
+
+    await act(async () => {
+      setValue?.call(input, "What bookmarks mention Yang Mi?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-new-session']")?.click()
+    })
+
+    expect(container?.textContent).not.toContain("Legacy answer")
+
+    await act(async () => {
+      setValue?.call(input, "继续聊杨幂")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    await act(async () => {
+      setValue?.call(input, "再补充两点")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
+    const firstTurnAfterNewSession = analyze.mock.calls.at(1)?.at(0) as { content: string } | undefined
+    const secondTurnAfterNewSession = analyze.mock.calls.at(2)?.at(0) as { content: string } | undefined
+
+    expect(firstTurnAfterNewSession?.content).toContain("Inherited memory")
+    expect(firstTurnAfterNewSession?.content).toContain("What bookmarks mention Yang Mi?")
+    expect(firstTurnAfterNewSession?.content).toContain("recentTopicSummary")
+    expect(firstTurnAfterNewSession?.content).toContain("bm-yangmi")
+
+    expect(secondTurnAfterNewSession?.content).not.toContain("Inherited memory")
+    expect(secondTurnAfterNewSession?.content).not.toContain("recentTopicSummary")
+    expect(secondTurnAfterNewSession?.content).not.toContain("bm-yangmi")
+    expect(container?.textContent).not.toContain("Legacy answer")
+  })
+
+  it("restores full transcript when continuing a previous session", async () => {
+    const analyze = vi
+      .fn(async () => ({ summary: "unused", tags: [] }))
+      .mockResolvedValueOnce({ summary: "First session answer", tags: [] })
+      .mockResolvedValueOnce({ summary: "Follow-up answer", tags: [] })
     const ghostreaderSessionStore = createGhostreaderSessionStore()
 
     await renderSidePanel(
@@ -239,23 +390,35 @@ describe("SidePanel Ghostreader", () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
     })
 
-    expect(container?.textContent).toContain("First session answer")
+    await act(async () => {
+      setValue?.call(input, "Can you summarize it?")
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='ghostreader-submit']")?.click()
+    })
+
     expect(container?.textContent).toContain("What is this page?")
+    expect(container?.textContent).toContain("First session answer")
+    expect(container?.textContent).toContain("Can you summarize it?")
+    expect(container?.textContent).toContain("Follow-up answer")
 
     await act(async () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-new-session']")?.click()
     })
 
     expect(container?.textContent).not.toContain("First session answer")
-    expect(container?.textContent).not.toContain("What is this page?")
+    expect(container?.textContent).not.toContain("Follow-up answer")
     expect(container?.querySelector("[data-testid='sidepanel-continue-session']")).not.toBeNull()
 
     await act(async () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='sidepanel-continue-session']")?.click()
     })
 
-    expect(container?.textContent).toContain("First session answer")
     expect(container?.textContent).toContain("What is this page?")
+    expect(container?.textContent).toContain("First session answer")
+    expect(container?.textContent).toContain("Can you summarize it?")
+    expect(container?.textContent).toContain("Follow-up answer")
   })
 
   it("records bookmark-added runtime events into the active Ghostreader session", async () => {
@@ -806,7 +969,7 @@ describe("SidePanel Ghostreader", () => {
     expect(container?.textContent).not.toContain("Yang Mi interview archive")
   })
 
-  it("clears previous Ghostreader results when a later sidepanel ask fails", async () => {
+  it("keeps transcript and appends an assistant error turn when a later sidepanel ask fails", async () => {
     const analyze = vi.fn(async (_input: unknown) => {
       if (analyze.mock.calls.length === 1) {
         return { summary: "Yang Mi matches found.", tags: [] }
@@ -858,7 +1021,8 @@ describe("SidePanel Ghostreader", () => {
     })
     await act(async () => { await Promise.resolve() })
 
-    expect(container?.textContent).toContain("Yang Mi interview archive")
+    expect(container?.textContent).toContain("What bookmarks mention Yang Mi?")
+    expect(container?.textContent).toContain("Yang Mi matches found.")
 
     await act(async () => {
       setter?.call(input, "What bookmarks mention Vue?")
@@ -872,8 +1036,8 @@ describe("SidePanel Ghostreader", () => {
     await act(async () => { await Promise.resolve() })
 
     expect(container?.textContent).toContain("OpenAI-compatible authentication failed")
-    expect(container?.textContent).not.toContain("Yang Mi interview archive")
-    expect(container?.textContent).not.toContain("Yang Mi matches found.")
+    expect(container?.textContent).toContain("What bookmarks mention Yang Mi?")
+    expect(container?.textContent).toContain("Yang Mi matches found.")
   })
 
   it("clears previous Ghostreader matches immediately when a new sidepanel ask starts", async () => {
