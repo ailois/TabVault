@@ -572,7 +572,7 @@ describe("DashboardShell", () => {
     expect(aiButton?.title).toContain("No matching bookmarks")
   })
 
-  it("uses tab semantics in the reading pane and enables note-format actions", async () => {
+  it("uses details/ai tab semantics and shows detail actions by default", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", extractedText: "React lets you build UIs." })
     ])
@@ -582,24 +582,30 @@ describe("DashboardShell", () => {
       resultButton?.click()
     })
 
-    const notesTab = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-notes-tab']")
+    const detailsTab = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-details-tab']")
     const aiTab = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ai-tab']")
+    const summaryEdit = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-summary-edit']")
+    const tagsEdit = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tags-edit']")
     const boldButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-format-bold']")
     const italicButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-format-italic']")
     const quoteButton = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-format-quote']")
 
-    expect(notesTab?.getAttribute("aria-selected")).toBe("true")
+    expect(detailsTab?.getAttribute("aria-selected")).toBe("true")
     expect(aiTab?.getAttribute("aria-selected")).toBe("false")
+    expect(summaryEdit).not.toBeNull()
+    expect(tagsEdit).not.toBeNull()
     expect(boldButton?.disabled).toBe(false)
     expect(italicButton?.disabled).toBe(false)
     expect(quoteButton?.disabled).toBe(false)
     expect((boldButton?.title?.length ?? 0) > 0).toBe(true)
+    expect(summaryEdit?.querySelector("svg")).not.toBeNull()
+    expect(tagsEdit?.querySelector("svg")).not.toBeNull()
     expect(boldButton?.querySelector("svg")).not.toBeNull()
     expect(italicButton?.querySelector("svg")).not.toBeNull()
     expect(quoteButton?.querySelector("svg")).not.toBeNull()
   })
 
-  it("renders icon-based summary and tags actions in the ai workspace", async () => {
+  it("keeps summary and tags out of the ai workspace", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", summary: "React summary", userTags: ["frontend"] })
     ])
@@ -612,21 +618,9 @@ describe("DashboardShell", () => {
       container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-ai-tab']")?.click()
     })
 
-    const summaryEdit = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-summary-edit']")
-    const tagsEdit = container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-tags-edit']")
-
-    expect(summaryEdit?.querySelector("svg")).not.toBeNull()
-    expect(tagsEdit?.querySelector("svg")).not.toBeNull()
-
-    await act(async () => {
-      summaryEdit?.click()
-      tagsEdit?.click()
-    })
-
-    expect(container?.querySelector("[data-testid='dashboard-summary-save'] svg")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-summary-cancel'] svg")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-tags-save'] svg")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-tags-cancel'] svg")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-ask-input']")).not.toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-summary-edit']")).toBeNull()
+    expect(container?.querySelector("[data-testid='dashboard-tags-edit']")).toBeNull()
   })
 
   it("renders icon-based actions in the bulk edit panel", async () => {

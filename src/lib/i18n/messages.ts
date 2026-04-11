@@ -182,7 +182,7 @@ export type MessageKey =
   | "dashboard.reading.empty"
   | "dashboard.reading.action.open"
   | "dashboard.reading.action.delete"
-  | "dashboard.reading.tab.notes"
+  | "dashboard.reading.tab.details"
   | "dashboard.reading.tab.ai"
   | "dashboard.reading.section.tags"
   | "dashboard.reading.tags.empty"
@@ -418,7 +418,7 @@ const en: Messages = {
   "dashboard.reading.empty": "Select a bookmark to start reading",
   "dashboard.reading.action.open": "Open in browser",
   "dashboard.reading.action.delete": "Delete bookmark",
-  "dashboard.reading.tab.notes": "Notes",
+  "dashboard.reading.tab.details": "Details",
   "dashboard.reading.tab.ai": "AI workspace",
   "dashboard.reading.section.tags": "Tags",
   "dashboard.reading.tags.empty": "No tags yet",
@@ -650,7 +650,7 @@ const zh: Messages = {
   "dashboard.reading.empty": "选择一个书签开始阅读",
   "dashboard.reading.action.open": "在浏览器中打开",
   "dashboard.reading.action.delete": "删除书签",
-  "dashboard.reading.tab.notes": "笔记",
+  "dashboard.reading.tab.details": "详情",
   "dashboard.reading.tab.ai": "AI 工作区",
   "dashboard.reading.section.tags": "标签",
   "dashboard.reading.tags.empty": "暂无标签",

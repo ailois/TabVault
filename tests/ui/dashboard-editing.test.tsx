@@ -4,7 +4,7 @@ import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { DashboardAiSidebar } from "../../src/features/dashboard/dashboard-ai-sidebar"
+import { DashboardReadingPane } from "../../src/features/dashboard/dashboard-reading-pane"
 import { ThemeProvider } from "../../src/ui/theme-context"
 import { buildThemeFromOverride } from "../../src/ui/use-theme"
 import type { BookmarkRecord } from "../../src/types/bookmark"
@@ -24,12 +24,14 @@ describe("Dashboard editing", () => {
     vi.clearAllMocks()
   })
 
-  it("renders summary in read mode and switches to edit mode", async () => {
-    await renderSidebar(createBookmark({ summary: "Original summary" }), {
+  it("renders summary in read mode on the default details tab and switches to edit mode", async () => {
+    await renderReadingPane(createBookmark({ summary: "Original summary" }), {
       onSaveSummary: vi.fn(async () => undefined),
-      onSaveTags: vi.fn(async () => undefined)
+      onSaveTags: vi.fn(async () => undefined),
+      onSaveNotes: vi.fn(async () => undefined)
     })
 
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-details-tab']")?.getAttribute("aria-selected")).toBe("true")
     expect(container?.textContent).toContain("Original summary")
 
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
@@ -46,9 +48,10 @@ describe("Dashboard editing", () => {
   it("saves updated summary through the callback", async () => {
     const onSaveSummary = vi.fn(async () => undefined)
 
-    await renderSidebar(createBookmark({ summary: "Original summary" }), {
+    await renderReadingPane(createBookmark({ summary: "Original summary" }), {
       onSaveSummary,
-      onSaveTags: vi.fn(async () => undefined)
+      onSaveTags: vi.fn(async () => undefined),
+      onSaveNotes: vi.fn(async () => undefined)
     })
 
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
@@ -72,24 +75,26 @@ describe("Dashboard editing", () => {
   })
 
   it("styles summary and tags edit actions as compact design buttons", async () => {
-    await renderSidebar(createBookmark(), {
+    await renderReadingPane(createBookmark(), {
       onSaveSummary: vi.fn(async () => undefined),
-      onSaveTags: vi.fn(async () => undefined)
+      onSaveTags: vi.fn(async () => undefined),
+      onSaveNotes: vi.fn(async () => undefined)
     })
 
     const summaryEdit = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
     const tagsEdit = container?.querySelector<HTMLButtonElement>("[aria-label='Edit tags']")
 
     expect(summaryEdit?.style.borderRadius).toBe("8px")
-    expect(summaryEdit?.style.padding).toBe("4px 10px")
+    expect(summaryEdit?.style.padding).toBe("6px 10px")
     expect(tagsEdit?.style.borderRadius).toBe("8px")
-    expect(tagsEdit?.style.padding).toBe("4px 10px")
+    expect(tagsEdit?.style.padding).toBe("6px 10px")
   })
 
   it("styles summary save and cancel buttons in edit mode", async () => {
-    await renderSidebar(createBookmark({ summary: "Original summary" }), {
+    await renderReadingPane(createBookmark({ summary: "Original summary" }), {
       onSaveSummary: vi.fn(async () => undefined),
-      onSaveTags: vi.fn(async () => undefined)
+      onSaveTags: vi.fn(async () => undefined),
+      onSaveNotes: vi.fn(async () => undefined)
     })
 
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
@@ -101,15 +106,16 @@ describe("Dashboard editing", () => {
     const saveButton = container?.querySelector<HTMLButtonElement>("[aria-label='Save summary']")
 
     expect(cancelButton?.style.borderRadius).toBe("8px")
-    expect(cancelButton?.style.padding).toBe("4px 10px")
+    expect(cancelButton?.style.padding).toBe("6px 10px")
     expect(saveButton?.style.borderRadius).toBe("8px")
-    expect(saveButton?.style.padding).toBe("4px 10px")
+    expect(saveButton?.style.padding).toBe("6px 10px")
   })
 
   it("disables tag saving until a new tag is entered", async () => {
-    await renderSidebar(createBookmark(), {
+    await renderReadingPane(createBookmark(), {
       onSaveSummary: vi.fn(async () => undefined),
-      onSaveTags: vi.fn(async () => undefined)
+      onSaveTags: vi.fn(async () => undefined),
+      onSaveNotes: vi.fn(async () => undefined)
     })
 
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit tags']")
@@ -131,18 +137,17 @@ describe("Dashboard editing", () => {
 
     expect(saveButton?.disabled).toBe(false)
   })
-
-
 })
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-async function renderSidebar(
+async function renderReadingPane(
   bookmark: BookmarkRecord,
   callbacks: {
     onSaveSummary: (summary: string) => Promise<void>
     onSaveTags: (aiTags: string[], userTags: string[]) => Promise<void>
+    onSaveNotes: (notes: string) => Promise<void>
   }
 ) {
   container = document.createElement("div")
@@ -152,8 +157,9 @@ async function renderSidebar(
   await act(async () => {
     root?.render(
       <ThemeProvider theme={{ ...buildThemeFromOverride("sage"), toggle: () => {}, setTheme: () => {} }}>
-        <DashboardAiSidebar
+        <DashboardReadingPane
           bookmark={bookmark}
+          onSaveNotes={callbacks.onSaveNotes}
           onSaveSummary={callbacks.onSaveSummary}
           onSaveTags={callbacks.onSaveTags}
         />

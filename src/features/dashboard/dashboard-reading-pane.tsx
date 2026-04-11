@@ -10,6 +10,8 @@ import type { DisplayLanguage, ProviderConfig } from "../../types/settings"
 import { radius, spacing } from "../../ui/design-tokens"
 import { useThemeContext } from "../../ui/theme-context"
 import { DashboardAiSidebar } from "./dashboard-ai-sidebar"
+import { EditableSummaryCard } from "./editable-summary-card"
+import { EditableTagsCard } from "./editable-tags-card"
 import { DashboardIcon } from "./dashboard-icons"
 
 type DashboardReadingPaneProps = {
@@ -27,7 +29,7 @@ type DashboardReadingPaneProps = {
   latestGhostreaderBookmarkEvent?: GhostreaderBookmarkAddedPayload | null
 }
 
-type ReadingTab = "notes" | "ai"
+type ReadingTab = "details" | "ai"
 
 export function DashboardReadingPane({
   bookmark,
@@ -45,14 +47,14 @@ export function DashboardReadingPane({
 }: DashboardReadingPaneProps) {
   const theme = useThemeContext()
   const t = (key: Parameters<typeof getMessage>[1]) => getMessage(language, key)
-  const [activeTab, setActiveTab] = useState<ReadingTab>("notes")
+  const [activeTab, setActiveTab] = useState<ReadingTab>("details")
   const [notesDraft, setNotesDraft] = useState(bookmark?.userNotes ?? "")
   const [isSavingNotes, setIsSavingNotes] = useState(false)
   const hasHydratedNotesRef = useRef(false)
   const notesInputRef = useRef<HTMLTextAreaElement | null>(null)
-  const notesTabId = "dashboard-reading-tab-notes"
+  const detailsTabId = "dashboard-reading-tab-details"
   const aiTabId = "dashboard-reading-tab-ai"
-  const notesPanelId = "dashboard-reading-panel-notes"
+  const detailsPanelId = "dashboard-reading-panel-details"
   const aiPanelId = "dashboard-reading-panel-ai"
   const extractedText = bookmark?.extractedText?.trim() ?? ""
 
@@ -241,16 +243,16 @@ export function DashboardReadingPane({
         role="tablist"
       >
         <button
-          aria-controls={notesPanelId}
-          aria-selected={activeTab === "notes"}
-          data-testid="dashboard-notes-tab"
-          id={notesTabId}
-          onClick={() => setActiveTab("notes")}
+          aria-controls={detailsPanelId}
+          aria-selected={activeTab === "details"}
+          data-testid="dashboard-details-tab"
+          id={detailsTabId}
+          onClick={() => setActiveTab("details")}
           role="tab"
-          style={tabStyle("notes")}
+          style={tabStyle("details")}
           type="button"
         >
-          {t("dashboard.reading.tab.notes")}
+          {t("dashboard.reading.tab.details")}
         </button>
         <button
           aria-controls={aiPanelId}
@@ -267,46 +269,11 @@ export function DashboardReadingPane({
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-        {activeTab === "notes" ? (
-          <div aria-labelledby={notesTabId} id={notesPanelId} role="tabpanel" style={{ display: "grid", gap: "28px" }}>
-            <section>
-              <h3 style={{ margin: "0 0 10px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                {t("dashboard.reading.section.tags")}
-              </h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
-                {[...bookmark.aiTags, ...bookmark.userTags].map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      fontSize: "0.75rem",
-                      backgroundColor: theme.accentSoft,
-                      color: theme.accent,
-                      border: `1px solid ${theme.accent}30`,
-                      padding: "4px 10px",
-                      borderRadius: "8px",
-                      fontWeight: 500
-                    }}
-                  >
-                    #{tag}
-                  </span>
-                ))}
-                {[...bookmark.aiTags, ...bookmark.userTags].length === 0 ? (
-                  <span style={{ fontSize: "0.75rem", color: theme.textMuted }}>{t("dashboard.reading.tags.empty")}</span>
-                ) : null}
-              </div>
-            </section>
+        {activeTab === "details" ? (
+          <div aria-labelledby={detailsTabId} id={detailsPanelId} role="tabpanel" style={{ display: "grid", gap: "28px" }}>
+            <EditableTagsCard aiTags={bookmark.aiTags} language={language} userTags={bookmark.userTags} onSave={onSaveTags} />
 
-            <section>
-              <h3 style={{ margin: "0 0 10px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                {t("dashboard.reading.section.summary")}
-              </h3>
-              <p style={{ margin: 0, fontSize: "0.875rem", color: theme.textPrimary, lineHeight: 1.7 }}>
-                {bookmark.summary ?? t("dashboard.reading.summary.empty")}
-              </p>
-            </section>
+            <EditableSummaryCard language={language} summary={bookmark.summary} onSave={onSaveSummary} />
 
             <section style={{ display: "flex", flexDirection: "column" }}>
               <h3 style={{ margin: "0 0 10px", fontSize: "0.6875rem", fontWeight: 700, color: theme.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
@@ -366,8 +333,6 @@ export function DashboardReadingPane({
               createProvider={createProvider}
               language={language}
               onOpenBookmark={onOpenBookmark}
-              onSaveSummary={onSaveSummary}
-              onSaveTags={onSaveTags}
               settingsRepository={settingsRepository}
               ghostreaderSessionStore={ghostreaderSessionStore}
               latestGhostreaderBookmarkEvent={latestGhostreaderBookmarkEvent}

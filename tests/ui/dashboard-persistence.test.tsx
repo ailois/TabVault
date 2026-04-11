@@ -24,7 +24,7 @@ describe("DashboardShell persistence", () => {
     vi.clearAllMocks()
   })
 
-  it("saves edited summary through updateBookmark and refreshes the sidebar", async () => {
+  it("saves edited summary through updateBookmark from the details tab and refreshes the sidebar", async () => {
     const bookmarks = [
       createBookmark({
         id: "1",
@@ -39,8 +39,6 @@ describe("DashboardShell persistence", () => {
     await renderDashboard(bookmarks, updateBookmark)
 
     await selectBookmark("React Docs")
-    await switchToAiWorkspace()
-
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit summary']")
     await act(async () => {
       editButton?.click()
@@ -73,7 +71,7 @@ describe("DashboardShell persistence", () => {
     expect(container?.textContent).toContain("New summary")
   })
 
-  it("saves edited tags through updateBookmark and refreshes the sidebar", async () => {
+  it("saves edited tags through updateBookmark from the details tab and refreshes the sidebar", async () => {
     const bookmarks = [
       createBookmark({
         id: "1",
@@ -88,8 +86,6 @@ describe("DashboardShell persistence", () => {
     await renderDashboard(bookmarks, updateBookmark)
 
     await selectBookmark("React Docs")
-    await switchToAiWorkspace()
-
     const editButton = container?.querySelector<HTMLButtonElement>("[aria-label='Edit tags']")
     await act(async () => {
       editButton?.click()
