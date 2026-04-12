@@ -21,7 +21,6 @@ import {
   matchesSearch,
   type BookmarkFilterMode
 } from "./bookmark-workspace"
-import { DashboardBulkEditPanel } from "./dashboard-bulk-edit-panel"
 import { DashboardNavigation } from "./dashboard-navigation"
 import { DashboardReadingPane } from "./dashboard-reading-pane"
 import { DashboardResultsList } from "./dashboard-results-list"
@@ -318,11 +317,6 @@ export function DashboardShell({
     [searchedBookmarks]
   )
   const selectedBookmarkIdSet = useMemo(() => new Set(selectedBookmarkIds), [selectedBookmarkIds])
-  const selectedBookmarks = useMemo(
-    () => bookmarks.filter((bookmark) => selectedBookmarkIdSet.has(bookmark.id)),
-    [bookmarks, selectedBookmarkIdSet]
-  )
-  const isBulkEditMode = selectedBookmarks.length > 1
 
   async function persistBookmark(nextBookmark: BookmarkRecord): Promise<void> {
     if (updateBookmark) {
@@ -374,38 +368,6 @@ export function DashboardShell({
     await persistBookmark(nextBookmark)
     setBookmarks((prev) => prev.map((bookmark) => (bookmark.id === nextBookmark.id ? nextBookmark : bookmark)))
     setActiveBookmark(nextBookmark)
-  }
-
-  async function handleBulkEdit(input: { notes: string; tags: string[] }): Promise<void> {
-    const shouldUpdateNotes = input.notes.trim().length > 0
-    const tagsToAppend = input.tags.filter(Boolean)
-
-    if (selectedBookmarks.length === 0 || (!shouldUpdateNotes && tagsToAppend.length === 0)) {
-      return
-    }
-
-    const nextBookmarks = selectedBookmarks.map((bookmark) => {
-      const nextUserTags = Array.from(new Set([...bookmark.userTags, ...tagsToAppend]))
-
-      return updateBookmarkMetadata(bookmark, {
-        summary: bookmark.summary,
-        aiTags: bookmark.aiTags,
-        userTags: nextUserTags,
-        userNotes: shouldUpdateNotes ? input.notes.trim() : bookmark.userNotes
-      })
-    })
-
-    for (const bookmark of nextBookmarks) {
-      await persistBookmark(bookmark)
-    }
-
-    setBookmarks((prev) =>
-      prev.map((bookmark) => nextBookmarks.find((nextBookmark) => nextBookmark.id === bookmark.id) ?? bookmark)
-    )
-    setActiveBookmark((current) =>
-      current ? nextBookmarks.find((bookmark) => bookmark.id === current.id) ?? current : current
-    )
-    setSelectedBookmarkIds([])
   }
 
   function toggleBookmarkSelection(bookmarkId: string) {
@@ -546,30 +508,21 @@ export function DashboardShell({
               selectedBookmarkIds={selectedBookmarkIdSet}
             />
 
-            {isBulkEditMode ? (
-              <DashboardBulkEditPanel
-                bookmarks={selectedBookmarks}
-                language={displayLanguage}
-                onApply={handleBulkEdit}
-                onCancel={() => setSelectedBookmarkIds([])}
-              />
-            ) : (
-              <DashboardReadingPane
-                bookmark={activeBookmark}
-                bookmarks={bookmarks}
-                createProvider={createProvider}
-                language={displayLanguage}
-                onOpenBookmark={(bookmarkId) => {
-                  const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
-                  setActiveBookmark(bookmark)
-                }}
-                onSaveNotes={handleSaveNotes}
-                onSaveSummary={handleSaveSummary}
-                onSaveTags={handleSaveTags}
-                settingsRepository={dashboardSettingsRepository}
-                latestGhostreaderBookmarkEvent={latestGhostreaderBookmarkEvent}
-              />
-            )}
+            <DashboardReadingPane
+              bookmark={activeBookmark}
+              bookmarks={bookmarks}
+              createProvider={createProvider}
+              language={displayLanguage}
+              onOpenBookmark={(bookmarkId) => {
+                const bookmark = bookmarks.find((item) => item.id === bookmarkId) ?? null
+                setActiveBookmark(bookmark)
+              }}
+              onSaveNotes={handleSaveNotes}
+              onSaveSummary={handleSaveSummary}
+              onSaveTags={handleSaveTags}
+              settingsRepository={dashboardSettingsRepository}
+              latestGhostreaderBookmarkEvent={latestGhostreaderBookmarkEvent}
+            />
           </>
         ) : null}
       </div>

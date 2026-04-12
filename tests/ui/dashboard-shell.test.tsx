@@ -164,7 +164,7 @@ describe("DashboardShell", () => {
     expect(container?.querySelector("[data-testid='dashboard-folder-10']")?.textContent).toContain("Frontend")
   })
 
-  it("renders design-aligned dashboard with browse and bulk edit views", async () => {
+  it("renders design-aligned dashboard with browse and reading views", async () => {
     await renderDashboard([createBookmark({ id: "1", title: "React Docs" })])
 
     expect(container?.querySelector<HTMLElement>("[data-testid='dashboard-shell']")).not.toBeNull()
@@ -406,11 +406,19 @@ describe("DashboardShell", () => {
     expect(container?.textContent).toContain("React Docs")
   })
 
-  it("enters bulk edit mode when multiple bookmarks are batch-selected", async () => {
+  it("keeps the reading pane visible when multiple bookmarks are batch-selected", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", extractedText: "React content" }),
       createBookmark({ id: "2", title: "Vue Docs", extractedText: "Vue content" })
     ])
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")?.click()
+    })
+
+    expect(container?.querySelector('[data-testid="dashboard-reading-pane"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).toBeNull()
+    expect(container?.textContent).toContain("React Docs")
 
     await act(async () => {
       container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
@@ -419,7 +427,8 @@ describe("DashboardShell", () => {
       container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-2']")?.click()
     })
 
-    expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-reading-pane"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).toBeNull()
     expect(container?.textContent).toContain("2 selected")
     expect(container?.textContent).toContain("React Docs")
   })
@@ -643,23 +652,6 @@ describe("DashboardShell", () => {
     expect(container?.querySelector("[data-testid='dashboard-ask-input']")).not.toBeNull()
     expect(container?.querySelector("[data-testid='dashboard-summary-edit']")).toBeNull()
     expect(container?.querySelector("[data-testid='dashboard-tags-edit']")).toBeNull()
-  })
-
-  it("renders icon-based actions in the bulk edit panel", async () => {
-    await renderDashboard([
-      createBookmark({ id: "1", title: "React Docs" }),
-      createBookmark({ id: "2", title: "Vue Docs" })
-    ])
-
-    await act(async () => {
-      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
-    })
-    await act(async () => {
-      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-2']")?.click()
-    })
-
-    expect(container?.querySelector("[data-testid='dashboard-bulk-apply'] svg")).not.toBeNull()
-    expect(container?.querySelector("[data-testid='dashboard-bulk-cancel'] svg")).not.toBeNull()
   })
 
   it("renders icon-based actions in the results bulk actions panel", async () => {

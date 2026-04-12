@@ -185,68 +185,6 @@ describe("DashboardShell persistence", () => {
     expect(updatedBookmark?.userNotes).toBe("Hello **world**")
   })
 
-  it("applies bulk notes and tags to all selected bookmarks", async () => {
-    const bookmarks = [
-      createBookmark({
-        id: "1",
-        title: "React Docs",
-        userTags: ["frontend"],
-        userNotes: "Old react note"
-      }),
-      createBookmark({
-        id: "2",
-        title: "Vue Docs",
-        userTags: [],
-        userNotes: "Old vue note"
-      })
-    ]
-    const updateBookmark = vi.fn(async () => undefined)
-
-    await renderDashboard(bookmarks, updateBookmark)
-
-    await act(async () => {
-      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
-    })
-    await act(async () => {
-      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-2']")?.click()
-    })
-
-    const notesInput = container?.querySelector<HTMLTextAreaElement>("[data-testid='dashboard-bulk-notes-input']")
-    const notesSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
-    await act(async () => {
-      notesSetter?.call(notesInput, "Shared research note")
-      notesInput?.dispatchEvent(new Event("input", { bubbles: true }))
-    })
-
-    const tagsInput = container?.querySelector<HTMLInputElement>("[data-testid='dashboard-bulk-tags-input']")
-    const tagsSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
-    await act(async () => {
-      tagsSetter?.call(tagsInput, "favorite, review")
-      tagsInput?.dispatchEvent(new Event("input", { bubbles: true }))
-    })
-
-    await act(async () => {
-      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-bulk-apply']")?.click()
-    })
-
-    expect(updateBookmark).toHaveBeenCalledTimes(2)
-    const updatedBookmarks = updateBookmark.mock.calls.map(
-      (call) => call.at(0) as BookmarkRecord | undefined
-    )
-    expect(updatedBookmarks).toEqual([
-      expect.objectContaining({
-        id: "1",
-        userNotes: "Shared research note",
-        userTags: ["frontend", "favorite", "review"]
-      }),
-      expect.objectContaining({
-        id: "2",
-        userNotes: "Shared research note",
-        userTags: ["favorite", "review"]
-      })
-    ])
-    expect(container?.querySelector("[data-testid='dashboard-bulk-edit-view']")?.textContent ?? "").not.toContain("React Docs")
-  })
 })
 
 let container: HTMLDivElement | null = null
