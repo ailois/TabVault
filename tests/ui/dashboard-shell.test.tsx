@@ -292,6 +292,56 @@ describe("DashboardShell", () => {
     expect(container?.querySelector("[data-testid='dashboard-status-2']")?.textContent).toContain("Analyzing")
   })
 
+  it("does not leave bulk analysis stuck running after completion arrives before the runtime response resolves", async () => {
+    let resolveAnalyzeRequest: ((value: { success: true }) => void) | null = null
+    sendMessageMock.mockImplementation((message?: { type?: string }) => {
+      if (message?.type === "GET_ANALYSIS_STATUS") {
+        return Promise.resolve({ running: false, current: 0, total: 0 })
+      }
+
+      return new Promise((resolve) => {
+        resolveAnalyzeRequest = () => resolve({ success: true })
+      })
+    })
+
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", status: "error", url: "https://react.dev" }),
+      createBookmark({ id: "2", title: "Vue Docs", status: "done", url: "https://vuejs.org" })
+    ])
+
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-selected']")?.click()
+    })
+
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-selected']")?.disabled).toBe(true)
+
+    await act(async () => {
+      runtimeMessageListener?.({ type: "ANALYSIS_COMPLETE" })
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-analysis-progress']")).toBeNull()
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-selected']")?.disabled).toBe(false)
+
+    await act(async () => {
+      resolveAnalyzeRequest?.({ success: true })
+      await Promise.resolve()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-analysis-progress']")).toBeNull()
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-selected']")?.disabled).toBe(true)
+
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
+    })
+
+    expect(container?.querySelector("[data-testid='dashboard-analysis-progress']")).toBeNull()
+    expect(container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-analyze-selected']")?.disabled).toBe(false)
+  })
+
   it("forwards bookmark-added runtime events into dashboard Ghostreader session context", async () => {
     const analyze = vi.fn(async () => ({ summary: "Dashboard session-aware answer", tags: [] }))
     const settingsRepository: SettingsRepository = {

@@ -389,6 +389,7 @@ export function DashboardShell({
   async function startAnalysis(message: { type: "ANALYZE_ALL" | "ANALYZE_PENDING" | "ANALYZE_BOOKMARKS"; bookmarkIds?: string[] }) {
     const sendMessage = globalThis.chrome?.runtime?.sendMessage
     if (!sendMessage) {
+      setAnalysisState({ running: false, current: 0, total: 0 })
       setAnalysisError(t("sidepanel.error.analyzeFailed"))
       return false
     }
@@ -407,21 +408,22 @@ export function DashboardShell({
       return false
     }
 
+    setAnalysisState({
+      running: true,
+      current: 0,
+      total
+    })
+
     const response = await sendMessage(message).catch((error: unknown) => ({
       success: false,
       error: error instanceof Error ? error.message : String(error)
     }))
 
     if (response && typeof response === "object" && "success" in response && response.success === false) {
+      setAnalysisState({ running: false, current: 0, total: 0 })
       setAnalysisError(typeof response.error === "string" ? response.error : t("sidepanel.error.analyzeFailed"))
       return false
     }
-
-    setAnalysisState({
-      running: true,
-      current: 0,
-      total
-    })
 
     return true
   }
