@@ -384,7 +384,29 @@ describe("DashboardShell", () => {
     expect(reactButton).not.toBeNull()
   })
 
-  it("enters bulk edit mode when bookmarks are batch-selected", async () => {
+  it("keeps the reading pane visible when only one bookmark is batch-selected", async () => {
+    await renderDashboard([
+      createBookmark({ id: "1", title: "React Docs", extractedText: "React content" }),
+      createBookmark({ id: "2", title: "Vue Docs", extractedText: "Vue content" })
+    ])
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>("[data-testid='dashboard-result-button']")?.click()
+    })
+
+    expect(container?.querySelector('[data-testid="dashboard-reading-pane"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).toBeNull()
+
+    await act(async () => {
+      container?.querySelector<HTMLInputElement>("[data-testid='dashboard-select-1']")?.click()
+    })
+
+    expect(container?.querySelector('[data-testid="dashboard-reading-pane"]')).not.toBeNull()
+    expect(container?.querySelector('[data-testid="dashboard-bulk-edit-view"]')).toBeNull()
+    expect(container?.textContent).toContain("React Docs")
+  })
+
+  it("enters bulk edit mode when multiple bookmarks are batch-selected", async () => {
     await renderDashboard([
       createBookmark({ id: "1", title: "React Docs", extractedText: "React content" }),
       createBookmark({ id: "2", title: "Vue Docs", extractedText: "Vue content" })

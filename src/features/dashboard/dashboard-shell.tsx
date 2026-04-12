@@ -322,6 +322,7 @@ export function DashboardShell({
     () => bookmarks.filter((bookmark) => selectedBookmarkIdSet.has(bookmark.id)),
     [bookmarks, selectedBookmarkIdSet]
   )
+  const isBulkEditMode = selectedBookmarks.length > 1
 
   async function persistBookmark(nextBookmark: BookmarkRecord): Promise<void> {
     if (updateBookmark) {
@@ -545,7 +546,7 @@ export function DashboardShell({
               selectedBookmarkIds={selectedBookmarkIdSet}
             />
 
-            {selectedBookmarks.length > 0 ? (
+            {isBulkEditMode ? (
               <DashboardBulkEditPanel
                 bookmarks={selectedBookmarks}
                 language={displayLanguage}

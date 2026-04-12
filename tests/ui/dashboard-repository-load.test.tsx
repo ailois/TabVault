@@ -59,7 +59,11 @@ describe("DashboardShell repository loading", () => {
       vueButton?.click()
     })
 
-    expect(container?.textContent).toContain("https://vuejs.org/guide/introduction.html")
+    const sourceLink = Array.from(container?.querySelectorAll("a") ?? []).find(
+      (element) => element.getAttribute("href") === "https://vuejs.org/guide/introduction.html"
+    )
+
+    expect(sourceLink?.textContent).toContain("vuejs.org")
     expect(container?.textContent).toContain("Vue is a progressive framework.")
     expect(container?.textContent).toContain("Vue guide summary")
     expect(container?.textContent).toContain("vue")
