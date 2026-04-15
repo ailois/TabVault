@@ -3,11 +3,11 @@ import { getMessage, type MessageKey } from "../../../src/lib/i18n/messages"
 
 describe("getMessage", () => {
   it("returns English string for en locale", () => {
-    expect(getMessage("en", "settings.title")).toBe("Architecture Settings")
+    expect(getMessage("en", "settings.title")).toBe("TabVault Settings")
   })
 
   it("returns Chinese string for zh locale", () => {
-    expect(getMessage("zh", "settings.title")).toBe("架构设置")
+    expect(getMessage("zh", "settings.title")).toBe("TabVault 设置")
   })
 
   it("keeps stable separators in trial remaining messages", () => {
@@ -16,7 +16,7 @@ describe("getMessage", () => {
   })
 
   it("falls back to English when locale is unknown", () => {
-    expect(getMessage("en", "settings.title")).toBe("Architecture Settings")
+    expect(getMessage("en", "settings.title")).toBe("TabVault Settings")
   })
 
   it("returns English for all known keys without throwing", () => {

@@ -304,7 +304,7 @@ describe("Options save state", () => {
 
     expect(container?.textContent).toContain("Storage Overview")
     expect(container?.textContent).toContain("Data cleanup (Danger Zone)")
-    expect(container?.textContent).toContain("Retrieval & Vector Architecture")
+    expect(container?.textContent).toContain("Search & Indexing")
     expect(container?.textContent).toContain("Privacy & Filtering Rules")
     expect(container?.textContent).toContain("Save knowledge settings")
   })

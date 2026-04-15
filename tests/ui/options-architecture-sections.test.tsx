@@ -53,7 +53,7 @@ describe("Options architecture sections", () => {
     const architecturePanel = container?.querySelector<HTMLElement>('[data-testid="settings-panel-architecture"]')
     const knowledgePanel = container?.querySelector<HTMLElement>('[data-testid="settings-panel-knowledge"]')
 
-    expect(container?.querySelector('[data-testid="settings-page-header"]')?.textContent).toContain("Architecture Settings")
+    expect(container?.querySelector('[data-testid="settings-page-header"]')?.textContent).toContain("TabVault Settings")
     expect(architectureNav?.getAttribute("aria-current")).toBe("page")
     expect(knowledgeNav?.textContent).toContain("Knowledge Base")
     expect(architecturePanel).toBeTruthy()

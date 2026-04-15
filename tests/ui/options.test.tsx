@@ -76,12 +76,14 @@ describe("Options", () => {
     expect(container?.querySelector('[data-testid="settings-page-shell"]')).toBeTruthy()
   })
 
-  it("renders settings with architecture-style header and section grouping", async () => {
+  it("renders settings with product-focused header and section grouping", async () => {
     await renderOptions()
 
-    expect(container?.textContent).toContain("Architecture Settings")
-    expect(container?.querySelector('[data-testid="settings-page-description"]')?.textContent).toContain("provider protocols")
-    expect(container?.textContent).toContain("Provider & Protocol")
+    expect(container?.textContent).toContain("TabVault Settings")
+    expect(container?.querySelector('[data-testid="settings-page-description"]')?.textContent).toContain("local-first")
+    expect(container?.textContent).toContain("AI Provider")
+    expect(container?.textContent).not.toContain("Provider & Protocol")
+    expect(container?.textContent).not.toContain("Retrieval Architecture")
     expect(container?.textContent).toContain("Experience & Automation")
     expect(container?.textContent).toContain("Trial & License")
     expect(container?.querySelector('[data-testid="settings-save-actions"]')).toBeTruthy()
@@ -128,7 +130,7 @@ describe("Options", () => {
       root.render(<Options services={{ settingsRepository: zhSettingsRepository, testConnection: async () => {} }} />)
     })
 
-    expect(container?.textContent).toContain("\u67b6\u6784\u8bbe\u7f6e")
+    expect(container?.textContent).toContain("TabVault 设置")
     expect(container?.textContent).toContain("\u77e5\u8bc6\u5e93")
     expect(container?.textContent).toContain("\u4f53\u9a8c\u4e0e\u81ea\u52a8\u5316")
     expect(container?.textContent).toContain("\u754c\u9762\u8bed\u8a00")

@@ -84,6 +84,7 @@ npx vitest run
 
 - Manual testing guide: `docs/manual-testing.md`
 - QA regression checklist: `docs/qa-checklist.md`
+- Productization validation report: `docs/productization-validation-report.md`
 - Design and implementation plans: `docs/plans/`
 - Product Assets Checklist: `docs/product-assets-checklist.md`
 
