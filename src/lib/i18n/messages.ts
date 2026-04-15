@@ -17,6 +17,7 @@ export type MessageKey =
   | "settings.section.license"
   | "settings.provider.heading"
   | "settings.provider.connectionFailed"
+  | "settings.provider.chooseOne"
   | "settings.theme.label"
   | "settings.knowledge.card.title"
   | "settings.knowledge.card.description"
@@ -254,6 +255,7 @@ const en: Messages = {
   "settings.section.license": "Trial & License",
   "settings.provider.heading": "Provider & Protocol",
   "settings.provider.connectionFailed": "Connection failed",
+  "settings.provider.chooseOne": "Choose one provider to start",
   "settings.theme.label": "Theme",
   "settings.knowledge.card.title": "Knowledge management",
   "settings.knowledge.card.description": "Use the Knowledge Base page to inspect storage usage, import browser bookmarks, clear failed analysis, and tune retrieval behavior.",
@@ -491,6 +493,7 @@ const zh: Messages = {
   "settings.section.license": "许可与激活",
   "settings.provider.heading": "模型与提供商",
   "settings.provider.connectionFailed": "\u8fde\u63a5\u5931\u8d25",
+  "settings.provider.chooseOne": "\u9009\u62e9\u4e00\u4e2a\u63d0\u4f9b\u5546\u5f00\u59cb",
   "settings.theme.label": "主题",
   "settings.knowledge.card.title": "知识库概览",
   "settings.knowledge.card.description": "管理本地书签、检索索引和隐私规则，保持 TabVault 默认本地优先。",

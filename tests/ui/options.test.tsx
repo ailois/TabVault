@@ -35,6 +35,11 @@ globalThis.chrome = {
 } as any
 
 describe("Options", () => {
+  it("guides first users to choose one provider and save settings", async () => {
+    await renderOptions()
+    expect(container?.textContent).toContain("Choose one provider to start")
+    expect(container?.textContent).toContain("Save settings")
+  })
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.spyOn(trialHooks, "useTrialStatus").mockReturnValue({
