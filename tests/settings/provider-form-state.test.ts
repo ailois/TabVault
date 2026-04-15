@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { buildProviderFormState } from "../../src/features/settings/provider-form-state"
 
 describe("buildProviderFormState", () => {
-  it("returns fixed rows for openai, claude, and gemini in order", () => {
+  it("returns fixed rows for openai, openai-response, claude, and gemini in order", () => {
     const state = buildProviderFormState([])
 
     expect(state).toEqual([
@@ -12,6 +12,13 @@ describe("buildProviderFormState", () => {
         apiKey: "",
         baseUrl: "https://api.openai.com/v1",
         model: "gpt-4o-mini",
+        enabled: false
+      },
+      {
+        provider: "openai-response",
+        apiKey: "",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4.1-mini",
         enabled: false
       },
       {
@@ -53,6 +60,13 @@ describe("buildProviderFormState", () => {
         baseUrl: "https://openrouter.ai/api/v1",
         model: "gpt-4.1-mini",
         enabled: true
+      },
+      {
+        provider: "openai-response",
+        apiKey: "",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4.1-mini",
+        enabled: false
       },
       {
         provider: "claude",

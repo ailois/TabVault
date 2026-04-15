@@ -177,7 +177,7 @@ describe("DashboardShell", () => {
   it("shows an empty reading state when no bookmark is selected", async () => {
     await renderDashboard([])
 
-    expect(container?.textContent).toContain("Select a bookmark to start reading")
+    expect(container?.textContent).toContain("Select a page from the list to view its details")
   })
 
   it("renders localized dashboard copy when display language is zh", async () => {
@@ -720,6 +720,13 @@ describe("DashboardShell", () => {
 
     expect(container?.querySelector("[data-testid='dashboard-analyze-selected'] svg")).not.toBeNull()
     expect(container?.querySelector("[data-testid='dashboard-clear-selection'] svg")).not.toBeNull()
+  })
+
+  it("dashboard empty state explains how to save the first page", async () => {
+    await renderDashboard([])
+
+    expect(container?.textContent).toContain("Use the popup to save a page")
+    expect(container?.textContent).toContain("Select a page from the list to view its details")
   })
 })
 

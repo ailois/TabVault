@@ -1,21 +1,50 @@
-# TabVault
+# TabVault: Local-First AI Web Memory
 
-Local-first AI bookmark browser extension built with Plasmo, TypeScript, and React.
+**The browser extension that helps you save, understand, and find web pages again—with your own API keys.**
 
-TabVault lets you save the current page, keep bookmarks locally, search them in the popup, and optionally run AI summary/tag generation with your own provider key.
+## Who it's for
 
-## 当前状态 / Current MVP state
+TabVault is designed for developers, researchers, and power users who need to process large amounts of web information locally without trusting another cloud service with their reading history.
 
-- ✅ Save the current tab from the popup
-- ✅ Extract and store page title, URL, and captured content locally
-- ✅ Search saved bookmarks in the popup
-- ✅ Persist bookmarks in IndexedDB
-- ✅ Persist app/provider settings in `chrome.storage.sync`
-- ✅ Run AI analysis with an enabled OpenAI-compatible, Claude, or Gemini provider config when auto-analyze is turned on in settings
-- ✅ OpenAI-compatible, Claude, and Gemini analysis all use real network request paths in the current implementation
-- ⚠️ The options page now supports basic app/provider editing with synchronous validation that blocks obviously invalid provider configs before save, but the settings UI is still intentionally minimal for the MVP and does not yet include connection testing
+## Why TabVault?
 
-## Tech stack
+- **Save instantly:** Extract and store the full readable content of any tab locally in IndexedDB.
+- **Understand quickly:** Automatically generate summaries and tags using OpenAI, Anthropic, or Google APIs.
+- **Find again easily:** Search your local, fully-indexed reading history directly from the browser popup or sidepanel.
+
+## Quickstart
+
+1. **Install:** Download the extension and load it into your browser.
+2. **Configure:** Open Options and enter your API key (OpenAI, Claude, or Gemini).
+3. **Save:** Click the TabVault icon on any page to save and auto-analyze it.
+4. **Find:** Open the Ghostreader sidepanel or Dashboard to search your saved library and chat with your pages.
+
+## Trust FAQ
+
+**Where is my data?**
+All your bookmarks, extracted page content, and AI summaries are stored exclusively on your machine in IndexedDB. 
+
+**Do I need an account?**
+No. TabVault doesn't have a backend server for syncing or user accounts. Settings live entirely in browser sync storage.
+
+**Which AI providers are supported?**
+You can use OpenAI, Anthropic (Claude), or Google (Gemini) by providing your own API keys. TabVault connects directly from your browser to these providers.
+
+**What does it cost to run?**
+TabVault itself is free and runs locally. You only pay your chosen AI provider for the API requests made when analyzing pages or using Ghostreader.
+
+## What it looks like (Demo Flow)
+
+1. **Save a page:** Click the TabVault icon. The page is instantly saved locally.
+2. **Wait for analysis:** If configured, TabVault automatically extracts the content and asks your chosen AI to summarize and tag it.
+3. **Ask Ghostreader:** Open the sidepanel on any page. Ask a question, and TabVault will search your saved library and the current page to give you an answer.
+4. **Browse your library:** Open the full Dashboard to see all your saved pages, read their summaries, and manage your knowledge base.
+
+---
+
+## Developer / Technical Details
+
+### Tech stack
 
 - Plasmo
 - TypeScript
@@ -23,84 +52,54 @@ TabVault lets you save the current page, keep bookmarks locally, search them in 
 - IndexedDB for bookmarks
 - `chrome.storage.sync` for app/provider settings
 
-## Quickstart
+### Build and Test
 
 This repo is Plasmo-based. The environment used for this project has npm available, so the commands below use npm.
 
-### 1. Install dependencies
+#### 1. Install & Build Development Version
 
 ```bash
 npm install
-```
-
-### 2. Start extension development mode
-
-```bash
 npm run dev
 ```
 
 Plasmo will build a development extension. After the first successful build, load the generated `build/chrome-mv3-dev` folder as an unpacked extension in Chromium-based browsers.
 
-### 3. Load the dev extension in Chrome / Edge
-
-1. Open `chrome://extensions` or `edge://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select `build/chrome-mv3-dev`
-
-Open the TabVault popup from the extension toolbar to save and search bookmarks.
-
-## Build, test, and typecheck
-
-### Production build
+#### 2. Production build
 
 ```bash
 npm run build
 ```
 
-This writes the production extension to `build/chrome-mv3-prod`.
+This writes the production extension to `build/chrome-mv3-prod`. To load the production build manually, use **Load unpacked** and select `build/chrome-mv3-prod`.
 
-To load the production build manually, use **Load unpacked** and select `build/chrome-mv3-prod`.
-
-### Typecheck
+#### 3. Typecheck & Test
 
 ```bash
 npm run typecheck
-```
-
-### Test
-
-```bash
 npx vitest run
 ```
 
-## Documentation
+### Documentation
 
 - Manual testing guide: `docs/manual-testing.md`
 - QA regression checklist: `docs/qa-checklist.md`
 - Design and implementation plans: `docs/plans/`
+- Product Assets Checklist: `docs/product-assets-checklist.md`
 
-## Provider keys and settings
+### Current MVP state & Limitations
 
-TabVault stores settings in browser sync storage, not in a remote backend.
+- ✅ Save the current tab from the popup
+- ✅ Extract and store page title, URL, and captured content locally
+- ✅ Search saved bookmarks in the popup
+- ✅ Persist bookmarks in IndexedDB
+- ✅ Persist app/provider settings in `chrome.storage.sync`
+- ✅ Run AI analysis with an enabled OpenAI-compatible, Claude, or Gemini provider config
+- ⚠️ The options page supports basic app/provider editing with synchronous validation, but does not yet include connection testing.
+- Provider configuration is storage-driven under the hood via `chrome.storage.sync`; the UI is a thin editor over those values.
+- Provider keys are user-managed on the client side for this MVP; that preserves the local-first model, but it is a deliberate tradeoff rather than a hardened secret-management story.
 
-That includes user-managed provider API keys for this MVP. This keeps the product local-first and avoids backend key custody, but it also means TabVault is not acting like a server-side secret vault.
-
-- App settings key: `app-settings`
-- Provider configs key: `provider-configs`
-
-Open the extension's **Options** page to edit the current MVP settings UI. The checked-in form supports:
-
-- `defaultProvider`
-- `autoAnalyzeOnSave`
-- provider `enabled` toggle
-- provider `apiKey`
-- provider `model`
-- OpenAI-compatible `baseUrl`
-
-This settings UI is still basic on purpose: it focuses on direct editing of the stored values, now includes basic synchronous validation that blocks obviously invalid provider configs before save, and still does not include connection testing, onboarding, or richer provider management flows.
-
-If you want to seed values directly instead of using the options page, you can still write them from an extension page DevTools console:
+If you want to seed values directly instead of using the options page, you can write them from an extension page DevTools console:
 
 ```js
 await chrome.storage.sync.set({
@@ -115,56 +114,7 @@ await chrome.storage.sync.set({
       baseUrl: "https://api.openai.com/v1",
       model: "gpt-4o-mini",
       enabled: true
-    },
-    {
-      provider: "claude",
-      apiKey: "YOUR_KEY_HERE",
-      model: "claude-sonnet-4-5",
-      enabled: false
-    },
-    {
-      provider: "gemini",
-      apiKey: "YOUR_KEY_HERE",
-      model: "gemini-1.5-flash",
-      enabled: false
     }
   ]
 })
 ```
-
-Current provider config shape:
-
-- `provider`: `openai` | `claude` | `gemini`
-- `apiKey`: provider key
-- `baseUrl?`: OpenAI-compatible endpoint URL; required when the OpenAI-compatible provider is enabled
-- `model`: provider-specific model name string (`gpt-*`, `claude-*`, `gemini-*`, etc.)
-- `enabled`: whether the provider can be selected
-
-Notes:
-
-- The popup now routes provider selection through a shared factory and supports OpenAI-compatible, Claude, and Gemini analysis paths.
-- OpenAI-compatible sends real network requests to `{baseUrl}/chat/completions`, Claude sends real requests to Anthropic's messages API, and Gemini sends real requests to Google's generateContent API.
-- Transport robustness is now aligned across all three providers, but provider support is still intentionally MVP-level overall.
-- `defaultProvider` defaults to `openai`.
-- `autoAnalyzeOnSave` defaults to `false`, so saving a page works without AI setup.
-- The options page is now the primary way to switch default provider, toggle auto-analyze, and edit provider credentials/config for this MVP.
-- Current validation is intentionally basic: it blocks obvious invalid states such as missing required enabled-provider fields, invalid enabled OpenAI-compatible base URLs, or a default provider that is not enabled.
-- Connection testing is still not implemented.
-
-## Loading the built extension
-
-After `npm run build`:
-
-1. Open `chrome://extensions`
-2. Turn on **Developer mode**
-3. Click **Load unpacked**
-4. Select `build/chrome-mv3-prod`
-
-## Current limitations
-
-- The checked-in options UI is a basic MVP form, not a polished/final settings experience.
-- Provider configuration is still storage-driven under the hood via `chrome.storage.sync`; the UI is a thin editor over those values.
-- The current settings validation is intentionally basic and only blocks obvious invalid configs before save; there is still no connection testing, provider-specific guidance, or non-provider settings management beyond the current basic form.
-- Provider support is still MVP-level overall even though all three providers now use real network request paths.
-- The extension still lacks richer provider UX such as connection testing, deeper validation, onboarding help, and more polished provider management flows.
-- Provider keys are user-managed on the client side for this MVP; that preserves the local-first model, but it is a deliberate tradeoff rather than a hardened secret-management story.

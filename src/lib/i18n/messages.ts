@@ -17,6 +17,7 @@ export type MessageKey =
   | "settings.section.license"
   | "settings.provider.heading"
   | "settings.provider.connectionFailed"
+  | "settings.provider.chooseOne"
   | "settings.theme.label"
   | "settings.knowledge.card.title"
   | "settings.knowledge.card.description"
@@ -90,6 +91,7 @@ export type MessageKey =
   | "popup.unsynced.badge"
   | "popup.unsynced.helperTitle"
   | "popup.unsynced.helperBody"
+  | "popup.helper.aiOptional"
   | "sidepanel.header.tagline"
   | "sidepanel.search.label"
   | "sidepanel.search.placeholder"
@@ -179,6 +181,11 @@ export type MessageKey =
   | "dashboard.results.bulk.running"
   | "dashboard.results.summaryBadge"
   | "dashboard.results.savedBadge"
+  | "dashboard.results.reason.title"
+  | "dashboard.results.reason.summary"
+  | "dashboard.results.reason.tag"
+  | "dashboard.results.reason.url"
+  | "dashboard.results.reason.content"
   | "dashboard.reading.empty"
   | "dashboard.reading.action.open"
   | "dashboard.reading.action.delete"
@@ -253,6 +260,7 @@ const en: Messages = {
   "settings.section.license": "Trial & License",
   "settings.provider.heading": "Provider & Protocol",
   "settings.provider.connectionFailed": "Connection failed",
+  "settings.provider.chooseOne": "Choose one provider to start",
   "settings.theme.label": "Theme",
   "settings.knowledge.card.title": "Knowledge management",
   "settings.knowledge.card.description": "Use the Knowledge Base page to inspect storage usage, import browser bookmarks, clear failed analysis, and tune retrieval behavior.",
@@ -316,17 +324,18 @@ const en: Messages = {
   "popup.primary.analyzing": "Analyzing...",
   "popup.status.ready": "Ready to save the current page.",
   "popup.status.saving": "Saving current page...",
-  "popup.status.savedPrefix": "Saved: ",
+  "popup.status.savedPrefix": "Page saved to your library: ",
   "popup.status.analyzing": "Analyzing saved bookmark...",
-  "popup.error.apiKeyMissing": "Add an API key in Settings to enable automatic analysis.",
+  "popup.error.apiKeyMissing": "Page saved \u2014 configure AI in Settings to analyze it",
   "popup.error.saveFallback": "Failed to save current page",
-  "popup.error.saveUnavailableMetadata": "Current tab can't be saved because its title or URL is unavailable.",
+  "popup.error.saveUnavailableMetadata": "Cannot save this page: missing title or URL.",
   "popup.error.analyzeFallback": "Failed to analyze bookmark",
   "popup.synced.badge": "In library",
   "popup.unsynced.badge": "Not saved",
   "popup.unsynced.helperTitle": "Save this page to your AI bookmark library",
   "popup.unsynced.helperBody": "TabVault stores the current page locally so you can analyze it later, search it from the sidepanel, and build a private knowledge base.",
-  "sidepanel.header.tagline": "Ask about the current page and your saved knowledge.",
+  "popup.helper.aiOptional": "AI setup is optional — save pages now and configure AI later",
+  "sidepanel.header.tagline": "Ask about the current page and pages you've saved.",
   "sidepanel.search.label": "Search bookmarks",
   "sidepanel.search.placeholder": "Search bookmarks...",
   "sidepanel.search.clear": "Clear search",
@@ -338,10 +347,10 @@ const en: Messages = {
   "sidepanel.import.button": "Sync Bookmarks",
   "sidepanel.import.syncing": "Syncing...",
   "sidepanel.import.success": "Imported {count} bookmarks",
-  "sidepanel.welcome.prompt": "I've read the current page{title}. What would you like to know?",
+  "sidepanel.welcome.prompt": "Ask about the current page{title} or search your saved knowledge.",
   "sidepanel.welcome.chip.summarize": "Summarize key points",
   "sidepanel.welcome.chip.codeSnippets": "List related code snippets",
-  "sidepanel.bookmarks.connectedPrefix": "Connected {count} saved bookmarks, ask or search freely.",
+  "sidepanel.bookmarks.connectedPrefix": "Connected {count} saved pages — ask, compare, or recall freely.",
   "sidepanel.bookmarks.loading": "Loading bookmarks...",
   "sidepanel.apiKeyMissing": "Add an API key in Settings to enable analysis.",
   "sidepanel.error.loadBookmarks": "Failed to load bookmarks",
@@ -400,7 +409,7 @@ const en: Messages = {
   "dashboard.results.heading": "All bookmarks",
   "dashboard.results.searchPlaceholder": "Search titles, full text, tags, or your notes...",
   "dashboard.results.searchShortcut": "Ctrl+K",
-  "dashboard.results.empty": "No bookmarks match your search.",
+  "dashboard.results.empty": "Use the popup to save a page, then return here to find it again.",
   "dashboard.results.noSummary": "No summary yet.",
   "dashboard.results.filter.all": "All",
   "dashboard.results.filter.analyzed": "Analyzed",
@@ -415,7 +424,12 @@ const en: Messages = {
   "dashboard.results.bulk.running": "Analyzing {current}/{total}",
   "dashboard.results.summaryBadge": "Notes",
   "dashboard.results.savedBadge": "Saved",
-  "dashboard.reading.empty": "Select a bookmark to start reading",
+  "dashboard.results.reason.title": "Matches in title",
+  "dashboard.results.reason.summary": "Matches in summary",
+  "dashboard.results.reason.tag": "Matches in tags",
+  "dashboard.results.reason.url": "Matches in URL",
+  "dashboard.results.reason.content": "Matches in page content",
+  "dashboard.reading.empty": "Select a page from the list to view its details",
   "dashboard.reading.action.open": "Open in browser",
   "dashboard.reading.action.delete": "Delete bookmark",
   "dashboard.reading.tab.details": "Details",
@@ -489,6 +503,7 @@ const zh: Messages = {
   "settings.section.license": "许可与激活",
   "settings.provider.heading": "模型与提供商",
   "settings.provider.connectionFailed": "\u8fde\u63a5\u5931\u8d25",
+  "settings.provider.chooseOne": "\u9009\u62e9\u4e00\u4e2a\u63d0\u4f9b\u5546\u5f00\u59cb",
   "settings.theme.label": "主题",
   "settings.knowledge.card.title": "知识库概览",
   "settings.knowledge.card.description": "管理本地书签、检索索引和隐私规则，保持 TabVault 默认本地优先。",
@@ -562,6 +577,7 @@ const zh: Messages = {
   "popup.unsynced.badge": "未保存",
   "popup.unsynced.helperTitle": "把这个页面保存到你的 AI 书签库",
   "popup.unsynced.helperBody": "TabVault 会将当前页面保存在本地，方便你稍后分析、在侧边栏搜索，并构建私有知识库。",
+  "popup.helper.aiOptional": "AI 配置可以稍后完成 — 先保存页面，随时配置 AI",
   "sidepanel.header.tagline": "围绕当前页面和已保存知识提问。",
   "sidepanel.search.label": "搜索书签",
   "sidepanel.search.placeholder": "搜索书签...",
@@ -571,7 +587,7 @@ const zh: Messages = {
   "sidepanel.import.button": "同步书签",
   "sidepanel.import.syncing": "同步中...",
   "sidepanel.import.success": "已导入 {count} 条书签",
-  "sidepanel.welcome.prompt": "我已经读完当前页面{title}。你想了解什么？",
+  "sidepanel.welcome.prompt": "当前页面{title}已读取。提问、搜索你的已保存知识库，或对比已有书签。",
   "sidepanel.welcome.chip.summarize": "总结重点",
   "sidepanel.welcome.chip.codeSnippets": "列出相关代码片段",
   "sidepanel.bookmarks.connectedPrefix": "已连接 {count} 条已保存书签，可直接提问或搜索。",
@@ -632,7 +648,7 @@ const zh: Messages = {
   "dashboard.results.heading": "全部书签",
   "dashboard.results.searchPlaceholder": "搜索标题、全文、标签或你的笔记...",
   "dashboard.results.searchShortcut": "Ctrl+K",
-  "dashboard.results.empty": "没有匹配当前搜索的书签。",
+  "dashboard.results.empty": "使用弹出窗口保存页面，然后返回此处查找。",
   "dashboard.results.noSummary": "暂无摘要。",
   "dashboard.results.filter.all": "全部",
   "dashboard.results.filter.analyzed": "已分析",
@@ -647,7 +663,12 @@ const zh: Messages = {
   "dashboard.results.bulk.running": "分析中 {current}/{total}",
   "dashboard.results.summaryBadge": "笔记",
   "dashboard.results.savedBadge": "已保存",
-  "dashboard.reading.empty": "选择一个书签开始阅读",
+  "dashboard.results.reason.title": "匹配标题",
+  "dashboard.results.reason.summary": "匹配摘要",
+  "dashboard.results.reason.tag": "匹配标签",
+  "dashboard.results.reason.url": "匹配 URL",
+  "dashboard.results.reason.content": "匹配页面内容",
+  "dashboard.reading.empty": "从列表中选择一个页面以查看详情",
   "dashboard.reading.action.open": "在浏览器中打开",
   "dashboard.reading.action.delete": "删除书签",
   "dashboard.reading.tab.details": "详情",

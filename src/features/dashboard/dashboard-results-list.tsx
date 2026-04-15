@@ -267,6 +267,7 @@ export function DashboardResultsList({
               aria-pressed={selected}
               key={bookmark.id}
               data-testid="dashboard-result-button"
+              data-bookmark-card="true"
               onClick={() => onSelectUrl(bookmark.url)}
               style={{
                 width: "100%",
@@ -334,7 +335,9 @@ export function DashboardResultsList({
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", color: theme.textMuted, fontSize: "0.6875rem" }}>
                   <span>{hostname}</span>
                   {combinedTags[0] ? <span style={{ width: "4px", height: "4px", borderRadius: "999px", backgroundColor: theme.border }} /> : null}
-                  {combinedTags[0] ? <span style={{ backgroundColor: theme.accentSoft, color: theme.accent, padding: "2px 6px", borderRadius: "999px", fontWeight: 600 }}>#{combinedTags[0]}</span> : null}
+                  {combinedTags.map(tag => (
+                    <span key={tag} style={{ backgroundColor: theme.accentSoft, color: theme.accent, padding: "2px 6px", borderRadius: "999px", fontWeight: 600 }}>#{tag}</span>
+                  ))}
                 </div>
               </div>
             </button>

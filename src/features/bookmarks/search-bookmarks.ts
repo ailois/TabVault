@@ -1,4 +1,6 @@
+import { getMessage } from "../../lib/i18n/messages"
 import type { BookmarkRecord } from "../../types/bookmark"
+import type { DisplayLanguage } from "../../types/settings"
 
 export type SearchMode = "all" | "title" | "tags" | "url"
 
@@ -40,7 +42,8 @@ export type SearchResultWithReason = {
 
 export function searchBookmarksWithReasons(
   bookmarks: BookmarkRecord[],
-  query: string
+  query: string,
+  language: DisplayLanguage = "en"
 ): SearchResultWithReason[] {
   const q = query.trim().toLowerCase()
 
@@ -52,15 +55,15 @@ export function searchBookmarksWithReasons(
 
   for (const bookmark of bookmarks) {
     if (bookmark.title.toLowerCase().includes(q)) {
-      results.push({ bookmark, matchReason: "title" })
+      results.push({ bookmark, matchReason: getMessage(language, "dashboard.results.reason.title") })
     } else if (bookmark.summary?.toLowerCase().includes(q)) {
-      results.push({ bookmark, matchReason: "AI summary" })
+      results.push({ bookmark, matchReason: getMessage(language, "dashboard.results.reason.summary") })
     } else if ([...bookmark.aiTags, ...bookmark.userTags].some((t) => t.toLowerCase().includes(q))) {
-      results.push({ bookmark, matchReason: "tag" })
+      results.push({ bookmark, matchReason: getMessage(language, "dashboard.results.reason.tag") })
     } else if (bookmark.extractedText?.toLowerCase().includes(q)) {
-      results.push({ bookmark, matchReason: "extracted text" })
+      results.push({ bookmark, matchReason: getMessage(language, "dashboard.results.reason.content") })
     } else if (bookmark.url.toLowerCase().includes(q)) {
-      results.push({ bookmark, matchReason: "URL" })
+      results.push({ bookmark, matchReason: getMessage(language, "dashboard.results.reason.url") })
     }
   }
 

@@ -20,65 +20,81 @@ function makeBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {
 describe("searchBookmarksWithReasons", () => {
   it("matches title and returns reason containing 'title'", () => {
     const bookmark = makeBookmark({ title: "React performance tips" })
-    const results = searchBookmarksWithReasons([bookmark], "react")
+    const results = searchBookmarksWithReasons([bookmark], "react", "en")
 
     expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("title")
+    expect(results[0].matchReason).toContain("Matches in title")
     expect(results[0].bookmark).toBe(bookmark)
   })
 
   it("matches summary and returns reason containing 'AI summary'", () => {
     const bookmark = makeBookmark({ summary: "This article is about caching strategies" })
-    const results = searchBookmarksWithReasons([bookmark], "caching")
+    const results = searchBookmarksWithReasons([bookmark], "caching", "en")
 
     expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("AI summary")
+    expect(results[0].matchReason).toContain("Matches in summary")
   })
 
   it("matches aiTags and returns reason containing 'tag'", () => {
     const bookmark = makeBookmark({ aiTags: ["performance", "react"], title: "Some page" })
-    const results = searchBookmarksWithReasons([bookmark], "performance")
+    const results = searchBookmarksWithReasons([bookmark], "performance", "en")
 
     expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("tag")
+    expect(results[0].matchReason).toContain("Matches in tags")
   })
 
   it("matches userTags and returns reason containing 'tag'", () => {
     const bookmark = makeBookmark({ userTags: ["my-custom-tag"] })
-    const results = searchBookmarksWithReasons([bookmark], "custom")
+    const results = searchBookmarksWithReasons([bookmark], "custom", "en")
 
     expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("tag")
+    expect(results[0].matchReason).toContain("Matches in tags")
   })
 
   it("matches URL and returns reason containing 'URL'", () => {
     const bookmark = makeBookmark({ url: "https://graphql.org/learn" })
-    const results = searchBookmarksWithReasons([bookmark], "graphql")
+    const results = searchBookmarksWithReasons([bookmark], "graphql", "en")
 
     expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("URL")
+    expect(results[0].matchReason).toContain("Matches in URL")
+  })
+
+  it("matches extracted text and returns reason containing 'page content'", () => {
+    const bookmark = makeBookmark({ extractedText: "Rust cancellation explained" })
+    const results = searchBookmarksWithReasons([bookmark], "cancellation", "en")
+
+    expect(results).toHaveLength(1)
+    expect(results[0].matchReason).toContain("Matches in page content")
+  })
+
+  it("returns localized match reasons for Chinese", () => {
+    const bookmark = makeBookmark({ title: "React performance tips" })
+    const results = searchBookmarksWithReasons([bookmark], "react", "zh")
+
+    expect(results).toHaveLength(1)
+    expect(results[0].matchReason).toContain("匹配标题")
   })
 
   it("returns empty array when no match", () => {
     const bookmark = makeBookmark({ title: "Vue.js guide" })
-    const results = searchBookmarksWithReasons([bookmark], "react")
+    const results = searchBookmarksWithReasons([bookmark], "react", "en")
 
     expect(results).toHaveLength(0)
   })
 
   it("returns empty array for empty query", () => {
     const bookmark = makeBookmark({ title: "React docs" })
-    const results = searchBookmarksWithReasons([bookmark], "")
+    const results = searchBookmarksWithReasons([bookmark], "", "en")
 
     expect(results).toHaveLength(0)
   })
 
   it("is case insensitive", () => {
     const bookmark = makeBookmark({ title: "React performance tips" })
-    const results = searchBookmarksWithReasons([bookmark], "REACT")
+    const results = searchBookmarksWithReasons([bookmark], "REACT", "en")
 
     expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("title")
+    expect(results[0].matchReason).toContain("Matches in title")
   })
 
   it("prioritises title over summary when both match", () => {
@@ -86,17 +102,9 @@ describe("searchBookmarksWithReasons", () => {
       title: "Caching React components",
       summary: "Caching in detail"
     })
-    const results = searchBookmarksWithReasons([bookmark], "caching")
+    const results = searchBookmarksWithReasons([bookmark], "caching", "en")
 
     expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("title")
-  })
-
-  it("matches extracted text and returns reason containing 'extracted text'", () => {
-    const bookmark = makeBookmark({ extractedText: "Rust cancellation explained" })
-    const results = searchBookmarksWithReasons([bookmark], "cancellation")
-
-    expect(results).toHaveLength(1)
-    expect(results[0].matchReason).toContain("extracted text")
+    expect(results[0].matchReason).toContain("Matches in title")
   })
 })

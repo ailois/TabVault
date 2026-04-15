@@ -267,18 +267,6 @@ function Popup({ services }: PopupProps) {
     cursor: "pointer"
   }
 
-  const primaryButtonStyle: React.CSSProperties = {
-    width: "100%",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: theme.accent,
-    color: "#ffffff",
-    fontSize: "13px",
-    fontWeight: 500,
-    padding: "10px 16px",
-    cursor: "pointer"
-  }
-
   return (
     <ThemeProvider theme={theme}>
       <main aria-labelledby="popup-title" style={rootStyle}>
@@ -398,8 +386,11 @@ function PopupUnsyncedView({
           <div style={{ border: `1px dashed ${theme.accent}`, borderRadius: "8px", padding: "20px 12px", backgroundColor: theme.surfaceSubtle, textAlign: "center" }}>
             <div aria-hidden="true" style={{ fontSize: "20px", marginBottom: "8px" }}>AI</div>
             <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px" }}>{t("popup.unsynced.helperTitle")}</div>
-            <div style={{ fontSize: "10px", color: theme.textSecondary, lineHeight: 1.6 }}>
+            <div style={{ fontSize: "10px", color: theme.textSecondary, lineHeight: 1.6, marginBottom: "8px" }}>
               {t("popup.unsynced.helperBody")}
+            </div>
+            <div style={{ fontSize: "10px", fontWeight: 500, color: theme.accent }}>
+              {t("popup.helper.aiOptional")}
             </div>
           </div>
         </section>
@@ -483,8 +474,8 @@ function PopupSyncedView({
 
 function getSaveErrorMessage(language: "en" | "zh", error: unknown): string {
   return getLocalizedErrorMessage(language, error, "popup.error.saveFallback", {
-    "Active tab title is required": "popup.error.saveUnavailableMetadata",
-    "Active tab URL is required": "popup.error.saveUnavailableMetadata"
+    "Cannot save this page: missing title.": "popup.error.saveUnavailableMetadata",
+    "Cannot save this page: missing URL.": "popup.error.saveUnavailableMetadata"
   })
 }
 

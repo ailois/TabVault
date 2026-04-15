@@ -78,7 +78,7 @@ describe("Popup quick entry", () => {
     await renderPopup(createServices())
 
     expect(container?.querySelector("[data-testid='popup-open-sidepanel']")?.textContent).toContain("打开侧边栏")
-    expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("控制台")
+    expect(container?.querySelector("[data-testid='popup-open-dashboard']")?.textContent).toContain("打开面板")
   })
 })
 

@@ -33,7 +33,7 @@ globalThis.chrome = {
   runtime: {
     ...((globalThis.chrome as any)?.runtime ?? {}),
     onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
-    sendMessage: vi.fn(),
+    sendMessage: vi.fn(async () => ({ running: false, current: 0, total: 0 })),
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
     openOptionsPage: vi.fn(async () => undefined)
   },

@@ -472,6 +472,9 @@ function Options({ services }: OptionsProps) {
           <div style={{ display: "grid", gap: "24px" }}>
             <section data-testid="settings-section-card" style={cardStyle}>
               <h3 style={{ margin: "0 0 16px", fontWeight: 600, fontSize: "1rem", color: theme.textPrimary }}>{t("settings.provider.heading")}</h3>
+              <p style={{ margin: "0 0 16px", fontSize: "0.875rem", color: theme.textMuted }}>
+                {t("settings.provider.chooseOne")}
+              </p>
               <input id="default-provider" type="hidden" value={appSettings.defaultProvider} readOnly />
 
               <div data-testid="provider-rail" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", marginBottom: "24px" }}>
