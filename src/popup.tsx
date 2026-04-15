@@ -267,18 +267,6 @@ function Popup({ services }: PopupProps) {
     cursor: "pointer"
   }
 
-  const primaryButtonStyle: React.CSSProperties = {
-    width: "100%",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: theme.accent,
-    color: "#ffffff",
-    fontSize: "13px",
-    fontWeight: 500,
-    padding: "10px 16px",
-    cursor: "pointer"
-  }
-
   return (
     <ThemeProvider theme={theme}>
       <main aria-labelledby="popup-title" style={rootStyle}>
