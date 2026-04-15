@@ -11,8 +11,8 @@ export async function saveCurrentPage(input: {
   extractedText?: string | null
   bookmarkRepository: BookmarkRepository
 }): Promise<BookmarkRecord> {
-  const title = normalizeRequiredValue(input.activeTab.title, "Active tab title is required")
-  const url = normalizeRequiredValue(input.activeTab.url, "Active tab URL is required")
+  const title = normalizeRequiredValue(input.activeTab.title, "Cannot save this page: missing title.")
+  const url = normalizeRequiredValue(input.activeTab.url, "Cannot save this page: missing URL.")
   const extractedText = normalizeOptionalValue(input.extractedText)
   const bookmark = createEmptyBookmarkDraft({ title, url })
 

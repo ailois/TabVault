@@ -474,8 +474,8 @@ function PopupSyncedView({
 
 function getSaveErrorMessage(language: "en" | "zh", error: unknown): string {
   return getLocalizedErrorMessage(language, error, "popup.error.saveFallback", {
-    "Active tab title is required": "popup.error.saveUnavailableMetadata",
-    "Active tab URL is required": "popup.error.saveUnavailableMetadata"
+    "Cannot save this page: missing title.": "popup.error.saveUnavailableMetadata",
+    "Cannot save this page: missing URL.": "popup.error.saveUnavailableMetadata"
   })
 }
 

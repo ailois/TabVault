@@ -59,7 +59,24 @@ describe("saveCurrentPage", () => {
         },
         bookmarkRepository
       })
-    ).rejects.toThrow("Active tab URL is required")
+    ).rejects.toThrow("Cannot save this page: missing URL.")
+
+    expect(bookmarkRepository.save).not.toHaveBeenCalled()
+  })
+
+  it("rejects an active tab without a usable title", async () => {
+    const { saveCurrentPage } = await import("../../src/features/bookmarks/save-current-page")
+    const bookmarkRepository = createBookmarkRepository()
+
+    await expect(
+      saveCurrentPage({
+        activeTab: {
+          title: "   ",
+          url: "https://example.com"
+        },
+        bookmarkRepository
+      })
+    ).rejects.toThrow("Cannot save this page: missing title.")
 
     expect(bookmarkRepository.save).not.toHaveBeenCalled()
   })

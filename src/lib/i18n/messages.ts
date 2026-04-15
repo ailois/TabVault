@@ -181,6 +181,11 @@ export type MessageKey =
   | "dashboard.results.bulk.running"
   | "dashboard.results.summaryBadge"
   | "dashboard.results.savedBadge"
+  | "dashboard.results.reason.title"
+  | "dashboard.results.reason.summary"
+  | "dashboard.results.reason.tag"
+  | "dashboard.results.reason.url"
+  | "dashboard.results.reason.content"
   | "dashboard.reading.empty"
   | "dashboard.reading.action.open"
   | "dashboard.reading.action.delete"
@@ -319,11 +324,11 @@ const en: Messages = {
   "popup.primary.analyzing": "Analyzing...",
   "popup.status.ready": "Ready to save the current page.",
   "popup.status.saving": "Saving current page...",
-  "popup.status.savedPrefix": "Saved: ",
+  "popup.status.savedPrefix": "Page saved to your library: ",
   "popup.status.analyzing": "Analyzing saved bookmark...",
-  "popup.error.apiKeyMissing": "Add an API key in Settings to enable automatic analysis.",
+  "popup.error.apiKeyMissing": "Page saved \u2014 configure AI in Settings to analyze it",
   "popup.error.saveFallback": "Failed to save current page",
-  "popup.error.saveUnavailableMetadata": "Current tab can't be saved because its title or URL is unavailable.",
+  "popup.error.saveUnavailableMetadata": "Cannot save this page: missing title or URL.",
   "popup.error.analyzeFallback": "Failed to analyze bookmark",
   "popup.synced.badge": "In library",
   "popup.unsynced.badge": "Not saved",
@@ -419,6 +424,11 @@ const en: Messages = {
   "dashboard.results.bulk.running": "Analyzing {current}/{total}",
   "dashboard.results.summaryBadge": "Notes",
   "dashboard.results.savedBadge": "Saved",
+  "dashboard.results.reason.title": "Matches in title",
+  "dashboard.results.reason.summary": "Matches in summary",
+  "dashboard.results.reason.tag": "Matches in tags",
+  "dashboard.results.reason.url": "Matches in URL",
+  "dashboard.results.reason.content": "Matches in page content",
   "dashboard.reading.empty": "Select a page from the list to view its details",
   "dashboard.reading.action.open": "Open in browser",
   "dashboard.reading.action.delete": "Delete bookmark",
@@ -653,6 +663,11 @@ const zh: Messages = {
   "dashboard.results.bulk.running": "分析中 {current}/{total}",
   "dashboard.results.summaryBadge": "笔记",
   "dashboard.results.savedBadge": "已保存",
+  "dashboard.results.reason.title": "匹配标题",
+  "dashboard.results.reason.summary": "匹配摘要",
+  "dashboard.results.reason.tag": "匹配标签",
+  "dashboard.results.reason.url": "匹配 URL",
+  "dashboard.results.reason.content": "匹配页面内容",
   "dashboard.reading.empty": "从列表中选择一个页面以查看详情",
   "dashboard.reading.action.open": "在浏览器中打开",
   "dashboard.reading.action.delete": "删除书签",

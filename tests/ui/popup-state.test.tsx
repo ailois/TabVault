@@ -125,7 +125,7 @@ describe("Popup state", () => {
     expect(screen().getBookmarkCards()).toHaveLength(0)
   })
 
-  it("shows save success and a missing API key hint when auto-analysis cannot start", async () => {
+  it("shows save success emphasizing value and missing AI config preserves save confidence", async () => {
     const services = createServices({
       settingsRepository: createSettingsRepository({
         getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
@@ -133,7 +133,7 @@ describe("Popup state", () => {
           autoAnalyzeOnSave: true,
           summaryLanguage: "auto",
           autoRetryOnError: false,
-          displayLanguage: "zh",
+          displayLanguage: "en",
           theme: "sage"
         })),
         getProviders: vi.fn(async (): Promise<ProviderConfig[]> => [])
@@ -146,10 +146,10 @@ describe("Popup state", () => {
     const statusRegion = screen().getStatusRegion()
     const errorAlert = screen().getErrorAlert()
 
-    expect(screen().getStatusRegion()?.textContent).toContain("\u5df2\u4fdd\u5b58\uff1aExample page")
+    expect(screen().getStatusRegion()?.textContent).toContain("Page saved to your library: Example page")
     expect(statusRegion?.getAttribute("role")).toBe("status")
     expect(statusRegion?.getAttribute("aria-live")).toBe("polite")
-    expect(errorAlert?.textContent).toContain("\u8bf7\u5148\u5728\u8bbe\u7f6e\u4e2d\u586b\u5199 API Key\uff0c\u624d\u80fd\u542f\u7528\u81ea\u52a8\u5206\u6790\u3002")
+    expect(errorAlert?.textContent).toContain("Page saved \u2014 configure AI in Settings to analyze it")
     expect(errorAlert?.getAttribute("role")).toBe("alert")
   })
 
@@ -184,9 +184,19 @@ describe("Popup state", () => {
     expect(screen().getStatusRegion()).toBeNull()
   })
 
-  it("shows a clearer message when the active tab metadata is unavailable", async () => {
+  it("shows a user-friendly metadata failure message when the active tab metadata is unavailable", async () => {
     const { saveCurrentPage } = await import("../../src/features/bookmarks/save-current-page")
     const services = createServices({
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto",
+          autoRetryOnError: false,
+          displayLanguage: "en",
+          theme: "sage"
+        }))
+      }),
       bookmarkRepository: createBookmarkRepository(),
       queryActiveTab: vi.fn(async () => ({ id: 1, title: null, url: null })),
       saveCurrentPage
@@ -195,7 +205,7 @@ describe("Popup state", () => {
     await renderPopup(services)
     await clickPrimaryActionButton()
 
-    expect(screen().getErrorAlert()?.textContent).toContain("\u5f53\u524d\u6807\u7b7e\u9875\u7f3a\u5c11\u6807\u9898\u6216 URL\uff0c\u65e0\u6cd5\u4fdd\u5b58\u3002")
+    expect(screen().getErrorAlert()?.textContent).toContain("Cannot save this page: missing title or URL.")
     expect(screen().text()).not.toContain("Active tab title is required")
   })
 
