@@ -90,6 +90,7 @@ export type MessageKey =
   | "popup.unsynced.badge"
   | "popup.unsynced.helperTitle"
   | "popup.unsynced.helperBody"
+  | "popup.helper.aiOptional"
   | "sidepanel.header.tagline"
   | "sidepanel.search.label"
   | "sidepanel.search.placeholder"
@@ -326,6 +327,7 @@ const en: Messages = {
   "popup.unsynced.badge": "Not saved",
   "popup.unsynced.helperTitle": "Save this page to your AI bookmark library",
   "popup.unsynced.helperBody": "TabVault stores the current page locally so you can analyze it later, search it from the sidepanel, and build a private knowledge base.",
+  "popup.helper.aiOptional": "AI setup is optional — save pages now and configure AI later",
   "sidepanel.header.tagline": "Ask about the current page and your saved knowledge.",
   "sidepanel.search.label": "Search bookmarks",
   "sidepanel.search.placeholder": "Search bookmarks...",
@@ -562,6 +564,7 @@ const zh: Messages = {
   "popup.unsynced.badge": "未保存",
   "popup.unsynced.helperTitle": "把这个页面保存到你的 AI 书签库",
   "popup.unsynced.helperBody": "TabVault 会将当前页面保存在本地，方便你稍后分析、在侧边栏搜索，并构建私有知识库。",
+  "popup.helper.aiOptional": "AI 配置可以稍后完成 — 先保存页面，随时配置 AI",
   "sidepanel.header.tagline": "围绕当前页面和已保存知识提问。",
   "sidepanel.search.label": "搜索书签",
   "sidepanel.search.placeholder": "搜索书签...",

@@ -153,6 +153,23 @@ describe("Popup state", () => {
     expect(errorAlert?.getAttribute("role")).toBe("alert")
   })
 
+  it("explains that AI setup is optional before the first save", async () => {
+    await renderPopup(createServices({
+      settingsRepository: createSettingsRepository({
+        getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+          defaultProvider: "openai",
+          autoAnalyzeOnSave: false,
+          summaryLanguage: "auto",
+          autoRetryOnError: false,
+          displayLanguage: "en",
+          theme: "sage"
+        }))
+      })
+    }))
+
+    expect(container?.textContent).toContain("AI setup is optional")
+  })
+
   it("shows a save failure banner when saving the current page fails", async () => {
     const services = createServices({
       saveCurrentPage: vi.fn(async () => {

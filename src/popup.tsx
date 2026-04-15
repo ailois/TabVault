@@ -398,8 +398,11 @@ function PopupUnsyncedView({
           <div style={{ border: `1px dashed ${theme.accent}`, borderRadius: "8px", padding: "20px 12px", backgroundColor: theme.surfaceSubtle, textAlign: "center" }}>
             <div aria-hidden="true" style={{ fontSize: "20px", marginBottom: "8px" }}>AI</div>
             <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px" }}>{t("popup.unsynced.helperTitle")}</div>
-            <div style={{ fontSize: "10px", color: theme.textSecondary, lineHeight: 1.6 }}>
+            <div style={{ fontSize: "10px", color: theme.textSecondary, lineHeight: 1.6, marginBottom: "8px" }}>
               {t("popup.unsynced.helperBody")}
+            </div>
+            <div style={{ fontSize: "10px", fontWeight: 500, color: theme.accent }}>
+              {t("popup.helper.aiOptional")}
             </div>
           </div>
         </section>
