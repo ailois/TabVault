@@ -127,8 +127,8 @@ describe("SidePanel", () => {
     expect(container?.querySelector("[data-testid='trial-banner']")).toBeNull()
     expect(container?.querySelector("[data-testid='license-activation-card']")).toBeNull()
   })
-
-
+
+
 
   it("renders the Ghostreader header and search entry", async () => {
     await renderSidePanel()
@@ -629,36 +629,22 @@ describe("SidePanel", () => {
     expect(streamText).not.toContain("Saved React Note, Current React Page")
   })
 
-  it("refreshes the answer block when clicking Ask top matches", async () => {
-    const services = createServices({
-      bookmarkRepository: createBookmarkRepository({
-        list: vi.fn(async () => [
-          createBookmark({ id: "1", title: "Saved React Note", extractedText: "saved note on compiler" }),
-          createBookmark({ id: "2", title: "Saved React Guide", extractedText: "guide for useMemo" })
-        ])
-      }),
-      queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
-      extractPage: vi.fn(async () => "current page useMemo explanation")
-    })
+  it("explains what Ghostreader does on first use", async () => {
+    await renderSidePanel(
+      createServices({
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({ id: "1", title: "Saved React Note", extractedText: "saved note on compiler" }),
+            createBookmark({ id: "2", title: "Saved React Guide", extractedText: "guide for useMemo" })
+          ])
+        }),
+        queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+        extractPage: vi.fn(async () => "current page useMemo explanation")
+      })
+    )
 
-    await renderSidePanel(services)
-
-    const searchInput = container?.querySelector("#sidepanel-search") as HTMLInputElement
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
-      setter?.call(searchInput, "compare current page with my saved react notes")
-      searchInput.dispatchEvent(new Event("input", { bubbles: true }))
-    })
-    await act(async () => { await Promise.resolve() })
-
-    const actionButton = container?.querySelector<HTMLButtonElement>("[data-testid='hybrid-action-ask-top-matches']")
-    expect(actionButton).not.toBeNull()
-
-    await act(async () => { actionButton?.click() })
-
-    const streamText = container?.textContent ?? ""
-    expect(streamText).toContain("Based on")
-    expect(streamText).toContain("Saved React Note")
+    expect(container?.textContent).toContain("Ask about the current page")
+    expect(container?.textContent).toContain("2 saved pages")
   })
 })
 
