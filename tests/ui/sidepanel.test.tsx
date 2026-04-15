@@ -646,6 +646,53 @@ describe("SidePanel", () => {
     expect(container?.textContent).toContain("Ask about the current page")
     expect(container?.textContent).toContain("2 saved pages")
   })
+
+  it("frames Ghostreader as a way to use saved knowledge, not just chat", async () => {
+    await renderSidePanel(
+      createServices({
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({ id: "1", title: "Saved React Note", extractedText: "saved note on compiler" })
+          ])
+        }),
+        queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+        extractPage: vi.fn(async () => "current page content")
+      })
+    )
+
+    const welcomeCard = container?.querySelector("[data-testid='ghostreader-welcome-card']")
+    expect(welcomeCard).not.toBeNull()
+    // Welcome copy must reference saved knowledge/library, not just the current page
+    expect(welcomeCard?.textContent).toContain("saved")
+  })
+
+  it("frames Ghostreader library connection with saved knowledge framing in zh", async () => {
+    await renderSidePanel(
+      createServices({
+        settingsRepository: createSettingsRepository({
+          getAppSettings: vi.fn(async (): Promise<AppSettings> => ({
+            defaultProvider: "openai",
+            autoAnalyzeOnSave: false,
+            summaryLanguage: "auto",
+            autoRetryOnError: false,
+            displayLanguage: "zh",
+            theme: "sage"
+          }))
+        }),
+        bookmarkRepository: createBookmarkRepository({
+          list: vi.fn(async () => [
+            createBookmark({ id: "1", title: "React 笔记", extractedText: "compiler notes" })
+          ])
+        }),
+        queryActiveTab: vi.fn(async () => ({ id: 1, title: "Current React Page", url: "https://example.com/current" })),
+        extractPage: vi.fn(async () => "current page content")
+      })
+    )
+
+    // zh welcome must reference saved knowledge
+    const welcomeCard = container?.querySelector("[data-testid='ghostreader-welcome-card']")
+    expect(welcomeCard?.textContent).toContain("已保存")
+  })
 })
 
 function createBookmark(overrides: Partial<BookmarkRecord> = {}): BookmarkRecord {
