@@ -1,19 +1,20 @@
-# TabVault QA 回归清单
+# TabVault QA 回归清单 / QA Regression Checklist
 
 适用对象：发布前快速回归、自测收尾、阶段性验收。
+Target audience: Pre-release quick regression, final developer checks, stage acceptance.
 
 目标：用最少时间确认 TabVault 当前 MVP 主链路没有回退。
 
 ---
 
-## 1. 测试前准备
+## 1. 测试前准备 / Preparation
 
-### 环境准备
+### 环境准备 / Environment
 - 已安装依赖
 - 可运行 Chrome / Edge
 - 可加载扩展开发者模式
 
-### 基础命令
+### 基础命令 / Basic Commands
 先确认基础验证正常：
 
 ```bash
@@ -24,7 +25,7 @@ npm run build
 
 预期：全部通过。
 
-### 扩展准备
+### 扩展准备 / Extension
 加载扩展：
 
 1. 打开 `chrome://extensions`
@@ -34,7 +35,31 @@ npm run build
 
 ---
 
-## 2. 轻量回归主清单
+## 2. 轻量回归主清单 / Main Regression Checklist
+
+### 2.0 2-Minute Demo Path (2分钟演示路径)
+
+- [ ] 点击 TabVault 图标保存当前网页。
+- [ ] 观察 AI 分析进度，直到显示摘要和标签。
+- [ ] 关闭 Popup。
+- [ ] 打开 Ghostreader（侧边栏）。
+- [ ] 提问寻找刚才保存的页面。
+- [ ] 确认卡片出现，并能点击进入阅读或打开原始链接。
+
+### 2.1 First-User Experience (首次用户体验)
+
+- [ ] Popup First-run state: 首次打开未收录页面时，文案清晰，主按钮明确。
+- [ ] Options Guidance: 设置页有明确提示去哪里获取 API key。
+- [ ] Sidepanel Welcome: 侧边栏初次打开时，欢迎语清晰解释功能（联系当前页面与历史库）。
+- [ ] Dashboard Empty State: 仪表盘没有数据时，有清晰的空状态引导。
+
+### 2.2 Release Readiness (发布就绪)
+
+- [ ] First-run empty states (Popup, Sidepanel, Dashboard) 显示正常，没有报错或显示 undefined。
+- [ ] Trust language ("Local-First", "Your API Key") 在合适的位置（Options, README）存在。
+- [ ] API Key Guidance 清晰，错误提示有助于用户排查问题。
+
+---
 
 ## A. Options 页面可用性
 
@@ -171,6 +196,8 @@ npm run build
 - [ ] Claude 分析
 - [ ] Gemini 分析
 - [ ] Auto Analyze On Save
+- [ ] 2-Minute Demo Path
+- [ ] First-User Experience
 
 ### 问题记录
 1.
@@ -181,20 +208,3 @@ npm run build
 - [ ] 可发布
 - [ ] 需修复后复测
 ```
-
----
-
-## 5. 当前清单定位
-
-这份文档是：
-
-- **轻量回归清单**
-- 关注核心主链路
-- 适合发布前快速确认没有明显回退
-
-它不是完整测试用例库。
-
-如果后面项目复杂度继续上升，再拆成：
-- provider 回归清单
-- settings 回归清单
-- popup/search 回归清单
