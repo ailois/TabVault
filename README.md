@@ -1,10 +1,16 @@
-# TabVault
+# TabVault: Local-First AI Web Memory
 
-Local-first AI bookmark browser extension built with Plasmo, TypeScript, and React.
+The browser extension that helps you save, understand, and find web pages again—with your own API keys.
 
-TabVault lets you save the current page, keep bookmarks locally, search them in the popup, and optionally run AI summary/tag generation with your own provider key.
+TabVault is designed for developers, researchers, and power users who need to process large amounts of web information locally without trusting another cloud service with their reading history.
 
-## 当前状态 / Current MVP state
+## Why TabVault?
+
+- **Save instantly:** Extract and store the full readable content of any tab locally in IndexedDB.
+- **Understand quickly:** Automatically generate summaries and tags using OpenAI, Anthropic, or Google APIs.
+- **Find again easily:** Search your local, fully-indexed reading history directly from the browser popup.
+
+## Current MVP state
 
 - ✅ Save the current tab from the popup
 - ✅ Extract and store page title, URL, and captured content locally
@@ -27,28 +33,25 @@ TabVault lets you save the current page, keep bookmarks locally, search them in 
 
 This repo is Plasmo-based. The environment used for this project has npm available, so the commands below use npm.
 
-### 1. Install dependencies
+### 1. Install & Build
 
 ```bash
 npm install
-```
-
-### 2. Start extension development mode
-
-```bash
 npm run dev
 ```
 
 Plasmo will build a development extension. After the first successful build, load the generated `build/chrome-mv3-dev` folder as an unpacked extension in Chromium-based browsers.
 
-### 3. Load the dev extension in Chrome / Edge
+### 2. Configure Your Provider
 
-1. Open `chrome://extensions` or `edge://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select `build/chrome-mv3-dev`
+1. Open the extension's **Options** page.
+2. Enter your API key for OpenAI, Claude, or Gemini.
+3. Toggle "Auto-analyze on save" if you want AI summaries.
 
-Open the TabVault popup from the extension toolbar to save and search bookmarks.
+### 3. Save & Find Again
+
+1. Click the TabVault extension icon on any useful page to save it.
+2. Later, click the icon again and use the search bar to instantly find it based on its content or AI-generated tags.
 
 ## Build, test, and typecheck
 
@@ -80,14 +83,14 @@ npx vitest run
 - QA regression checklist: `docs/qa-checklist.md`
 - Design and implementation plans: `docs/plans/`
 
-## Provider keys and settings
+## Trust & Privacy: Local-First with Bring-Your-Own-Key
 
-TabVault stores settings in browser sync storage, not in a remote backend.
+TabVault is designed around a strict local-first architecture to protect your browsing data:
 
-That includes user-managed provider API keys for this MVP. This keeps the product local-first and avoids backend key custody, but it also means TabVault is not acting like a server-side secret vault.
-
-- App settings key: `app-settings`
-- Provider configs key: `provider-configs`
+- **Local Storage Only:** Bookmarks, extracted page content, and AI summaries are stored exclusively on your machine in IndexedDB.
+- **No Backend Accounts:** TabVault doesn't have a backend server for syncing or user accounts. Settings live entirely in browser sync storage.
+- **Your API Keys:** You provide your own API keys for OpenAI, Anthropic, or Google. TabVault connects directly from your browser to these providers.
+- **Transparency:** We do not proxy your requests. We do not store your keys in a central vault. What happens in your browser stays in your browser (and between you and your chosen AI provider).
 
 Open the extension's **Options** page to edit the current MVP settings UI. The checked-in form supports:
 
